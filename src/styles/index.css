@@ -1,0 +1,681 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   CSS Variables - Light Theme (Default)
+   ============================================ */
+:root {
+  --color-primary: #6366f1;
+  --color-primary-light: #818cf8;
+  --color-primary-dark: #4f46e5;
+  --color-secondary: #ec4899;
+  --color-accent: #f59e0b;
+
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-rgb: 255, 255, 255;
+  --color-surface-hover: #f1f5f9;
+  --color-text: #0f172a;
+  --color-text-secondary: #64748b;
+  --color-border: #e2e8f0;
+
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  --radius: 12px;
+
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 22px;
+  --font-size-3xl: 28px;
+
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 72px;
+  --header-height: 64px;
+}
+
+/* ============================================
+   CSS Variables - Dark Theme
+   ============================================ */
+.dark {
+  --color-background: #0a0e1a;
+  --color-surface: #111827;
+  --color-surface-rgb: 17, 24, 39;
+  --color-surface-hover: #1e293b;
+  --color-text: #ffffff;
+  --color-text-secondary: #cbd5e1;
+  --color-border: #1e293b;
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: var(--font-size-base);
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--color-text);
+    background-color: var(--color-background);
+    min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* RTL Support */
+  [dir='rtl'] {
+    text-align: right;
+  }
+
+  /* Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-secondary);
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: #374151;
+  }
+}
+
+/* ============================================
+   Component Utilities
+   ============================================ */
+@layer components {
+
+  /* Glassmorphism Effects */
+  .glass {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .glass-light {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+  }
+
+  .dark .glass-light {
+    background: rgba(17, 24, 39, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.45);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+  }
+
+  .dark .glass-card {
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Background Image Overlay */
+  .bg-image-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+  }
+
+  .bg-image-overlay::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(248, 250, 252, 0.85);
+  }
+
+  .dark .bg-image-overlay::after {
+    background: rgba(10, 14, 26, 0.95);
+  }
+
+  /* Gradient Backgrounds */
+  .gradient-primary {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  }
+
+  .gradient-mesh {
+    background:
+      radial-gradient(at 20% 20%, rgba(99, 102, 241, 0.15) 0, transparent 50%),
+      radial-gradient(at 80% 20%, rgba(236, 72, 153, 0.1) 0, transparent 50%),
+      radial-gradient(at 40% 80%, rgba(16, 185, 129, 0.1) 0, transparent 50%);
+  }
+
+  .dark .gradient-mesh {
+    background:
+      radial-gradient(at 20% 20%, rgba(99, 102, 241, 0.08) 0, transparent 50%),
+      radial-gradient(at 80% 20%, rgba(236, 72, 153, 0.06) 0, transparent 50%),
+      radial-gradient(at 40% 80%, rgba(16, 185, 129, 0.06) 0, transparent 50%);
+  }
+
+  /* Stat Cards */
+  .stat-card {
+    @apply relative overflow-hidden rounded-2xl p-5 transition-all duration-300;
+    @apply hover:shadow-lg hover:-translate-y-0.5;
+  }
+
+  /* Skeleton Loading */
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg;
+    background: var(--color-surface-hover);
+  }
+
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg,
+        transparent,
+        rgba(255, 255, 255, 0.15),
+        transparent);
+    animation: shimmer 2s linear infinite;
+    background-size: 200% 100%;
+  }
+
+  /* Interactive Card */
+  .interactive-card {
+    @apply rounded-2xl transition-all duration-300 cursor-pointer;
+    @apply hover:shadow-glass hover:-translate-y-1;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+  }
+
+  .interactive-card:hover {
+    border-color: var(--color-primary-light);
+  }
+
+  /* Input Styles */
+  .input-base {
+    @apply w-full rounded-lg px-4 py-2.5 text-sm transition-all duration-200 outline-none;
+    background: var(--color-surface);
+    border: 1.5px solid var(--color-border);
+    color: var(--color-text);
+  }
+
+  .input-base:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  }
+
+  .input-base::placeholder {
+    color: var(--color-text-secondary);
+    opacity: 0.7;
+  }
+
+  /* Button Base */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn;
+    background: var(--color-primary);
+    color: white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-primary-dark);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .btn-secondary {
+    @apply btn;
+    background: var(--color-surface);
+    border: 1.5px solid var(--color-border);
+    color: var(--color-text);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--color-surface-hover);
+    border-color: var(--color-primary-light);
+  }
+
+  .btn-ghost {
+    @apply btn;
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+  }
+
+  .btn-danger {
+    @apply btn;
+    background: var(--color-error);
+    color: white;
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    opacity: 0.9;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+  }
+
+  /* Page Container */
+  .page-container {
+    @apply p-6 animate-fade-in;
+    max-width: 1600px;
+  }
+
+  /* Badge Styles */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  /* Table Styles */
+  .table-wrapper {
+    @apply rounded-xl overflow-hidden;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+  }
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  }
+
+  .border-gradient {
+    border-image: linear-gradient(135deg, var(--color-primary), var(--color-secondary)) 1;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .glass-input {
+    background: rgba(255, 255, 255, 0.45) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    color: var(--color-text) !important;
+  }
+
+  .dark .glass-input {
+    background: rgba(0, 0, 0, 0.25) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .glass-input:focus {
+    border-color: var(--color-primary) !important;
+    background: rgba(255, 255, 255, 0.6) !important;
+  }
+
+  .dark .glass-input:focus {
+    background: rgba(0, 0, 0, 0.35) !important;
+  }
+
+  /* ============================================
+     Table Library Overrides (Modern & Simple)
+     ============================================ */
+  /* MUI DataGrid */
+  .MuiDataGrid-root {
+    border: none !important;
+    background: var(--color-surface);
+    color: var(--color-text) !important;
+  }
+
+  .MuiDataGrid-cell,
+  .MuiDataGrid-columnHeader {
+    border-bottom: 1px solid var(--color-border) !important;
+    outline: none !important;
+  }
+
+  .MuiDataGrid-columnHeaders {
+    background: var(--color-surface-hover) !important;
+  }
+
+  /* AG Grid */
+  .ag-theme-quartz {
+    --ag-background-color: var(--color-surface);
+    --ag-foreground-color: var(--color-text);
+    --ag-header-background-color: var(--color-surface-hover);
+    --ag-border-color: var(--color-border);
+    --ag-row-border-color: var(--color-border);
+    --ag-row-hover-color: var(--color-surface-hover);
+    --ag-font-family: inherit;
+    --ag-font-size: var(--font-size-sm);
+  }
+
+  /* PrimeReact */
+  .p-datatable {
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: none !important;
+  }
+
+  .p-datatable .p-datatable-header {
+    background: transparent;
+    border: none;
+    padding: 1rem 1.5rem;
+  }
+
+  .p-datatable .p-datatable-thead>tr>th {
+    background: var(--color-surface-hover) !important;
+    color: var(--color-text-secondary) !important;
+    border-color: var(--color-border) !important;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    padding: 1rem 1.5rem;
+    border-width: 0 0 1px 0 !important;
+  }
+
+  .p-datatable .p-datatable-tbody>tr {
+    background: var(--color-surface) !important;
+    color: var(--color-text) !important;
+    transition: all 0.2s ease;
+  }
+
+  .p-datatable .p-datatable-tbody>tr>td {
+    border-color: var(--color-border) !important;
+    padding: 1rem 1.5rem;
+    border-width: 0 0 1px 0 !important;
+  }
+
+  .p-datatable .p-datatable-tbody>tr:hover {
+    background: var(--color-surface-hover) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .p-datatable .p-datatable-tbody>tr.bg-primary\/10 {
+    background: rgba(99, 102, 241, 0.1) !important;
+  }
+
+  .p-datatable .p-datatable-tbody>tr.bg-primary\/10:hover {
+    background: rgba(99, 102, 241, 0.15) !important;
+  }
+
+  .p-datatable .p-datatable-tbody>tr:last-child>td {
+    border-bottom: none !important;
+  }
+
+  /* Table Checkboxes - Ultra Modern */
+  .table-wrapper input[type="checkbox"],
+  .p-datatable input[type="checkbox"],
+  .ant-table input[type="checkbox"],
+  .table input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    cursor: pointer;
+    border-radius: 6px;
+    background-color: var(--color-surface);
+    border: 1.5px solid var(--color-text-secondary);
+    opacity: 0.7;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .table-wrapper input[type="checkbox"]:hover,
+  .p-datatable input[type="checkbox"]:hover,
+  .ant-table input[type="checkbox"]:hover,
+  .table input[type="checkbox"]:hover {
+    border-color: var(--color-primary);
+    opacity: 1;
+    transform: scale(1.05);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  }
+
+  .table-wrapper input[type="checkbox"]:checked,
+  .p-datatable input[type="checkbox"]:checked,
+  .ant-table input[type="checkbox"]:checked,
+  .table input[type="checkbox"]:checked {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    opacity: 1;
+  }
+
+  .table-wrapper input[type="checkbox"]:checked::after,
+  .p-datatable input[type="checkbox"]:checked::after,
+  .ant-table input[type="checkbox"]:checked::after,
+  .table input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    width: 0.35rem;
+    height: 0.65rem;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    margin-top: -0.1rem;
+    animation: checkmarkIn 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @keyframes checkmarkIn {
+    0% {
+      transform: rotate(45deg) scale(0);
+      opacity: 0;
+    }
+
+    100% {
+      transform: rotate(45deg) scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* Antd */
+  .ant-table-wrapper .ant-table {
+    background: var(--color-surface) !important;
+    color: var(--color-text) !important;
+  }
+
+  .ant-table-wrapper .ant-table-thead>tr>th {
+    background: var(--color-surface-hover) !important;
+    color: var(--color-text-secondary) !important;
+    border-bottom: 1px solid var(--color-border) !important;
+  }
+
+  .ant-table-wrapper .ant-table-tbody>tr>td {
+    border-bottom: 1px solid var(--color-border) !important;
+  }
+
+  .ant-table-wrapper .ant-table-tbody>tr:hover>td {
+    background: var(--color-surface-hover) !important;
+  }
+
+  /* Bootstrap */
+  .table {
+    color: var(--color-text) !important;
+    border-color: var(--color-border) !important;
+  }
+
+  .table> :not(caption)>*>* {
+    background-color: var(--color-surface) !important;
+    color: var(--color-text) !important;
+    border-bottom-color: var(--color-border) !important;
+  }
+
+  .table>thead {
+    background-color: var(--color-surface-hover) !important;
+  }
+
+  .table-striped>tbody>tr:nth-of-type(odd)>* {
+    background-color: rgba(0, 0, 0, 0.02) !important;
+  }
+
+  .dark .table-striped>tbody>tr:nth-of-type(odd)>* {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+  }
+
+  /* Glassify all table libraries inside glass-card */
+  .glass-card .table,
+  .glass-card .table> :not(caption)>*>*,
+  .glass-card tr,
+  .glass-card td,
+  .glass-card th,
+  .glass-card .ant-table,
+  .glass-card .ant-table-container,
+  .glass-card .ant-table-thead>tr>th,
+  .glass-card .ant-table-tbody>tr>td,
+  .glass-card .ant-table-cell,
+  .glass-card .p-datatable,
+  .glass-card .p-datatable-thead>tr>th,
+  .glass-card .p-datatable-tbody>tr>td,
+  .glass-card .MuiDataGrid-root,
+  .glass-card .MuiDataGrid-cell,
+  .glass-card .MuiDataGrid-columnHeaders,
+  .glass-card .MuiDataGrid-footerContainer {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: var(--color-text) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .glass-card .table-striped>tbody>tr:nth-of-type(odd)>* {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+  }
+
+  /* Glass card styling when custom background is active */
+  .has-custom-bg .glass-card {
+    background: rgba(15, 23, 42, 0.45) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: #f8fafc !important;
+    --color-surface: rgba(15, 23, 42, 0.45);
+    --color-surface-hover: rgba(255, 255, 255, 0.08);
+    --color-text: #f8fafc;
+    --color-text-secondary: #94a3b8;
+    --color-border: rgba(255, 255, 255, 0.1);
+  }
+
+  .dark.has-custom-bg .glass-card,
+  .has-custom-bg .dark .glass-card {
+    background: rgba(15, 23, 42, 0.65) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: #f8fafc !important;
+    --color-surface: rgba(15, 23, 42, 0.45);
+    --color-surface-hover: rgba(255, 255, 255, 0.08);
+    --color-text: #f8fafc;
+    --color-text-secondary: #94a3b8;
+    --color-border: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Target main page headers directly on the dark custom backgrounds to always be white */
+  .has-custom-bg h1,
+  .has-custom-bg .page-container > h1,
+  .has-custom-bg .page-container > div h1 {
+    color: #f8fafc !important;
+  }
+
+  /* Glass dropdown item hover styles */
+  .glass-card button {
+    color: var(--color-text) !important;
+  }
+  .glass-card button:hover {
+    background-color: var(--color-surface-hover) !important;
+  }
+
+  /* Override Ant Design color variables inside glass cards */
+  .glass-card {
+    --ant-color-text: var(--color-text) !important;
+    --ant-color-text-description: var(--color-text-secondary) !important;
+    --ant-color-text-heading: var(--color-text) !important;
+    --ant-color-bg-container: transparent !important;
+  }
+
+  /* Target table cell anchors/links in glass cards to look bright */
+  .glass-card td a,
+  .glass-card .ant-table-cell a {
+    color: var(--color-primary) !important;
+  }
+
+  /* High contrast badge and stats text colors for dark glass backing */
+  .glass-card .text-success,
+  .has-custom-bg .text-success {
+    color: #4ade80 !important;
+  }
+  .glass-card .text-warning,
+  .has-custom-bg .text-warning {
+    color: #fbbf24 !important;
+  }
+  .glass-card .text-danger,
+  .glass-card .text-error,
+  .has-custom-bg .text-danger,
+  .has-custom-bg .text-error {
+    color: #f87171 !important;
+  }
+
+  /* Glassify pagination elements inside glass cards */
+  .glass-card .ant-pagination,
+  .glass-card .ant-pagination-item,
+  .glass-card .ant-pagination-prev,
+  .glass-card .ant-pagination-next,
+  .glass-card .ant-pagination-jump-prev,
+  .glass-card .ant-pagination-jump-next {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: var(--color-text) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .glass-card .ant-pagination-item a,
+  .glass-card .ant-pagination-prev button,
+  .glass-card .ant-pagination-next button {
+    color: var(--color-text) !important;
+  }
+
+  .glass-card .ant-pagination-item-active {
+    background: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+  }
+  .glass-card .ant-pagination-item-active a {
+    color: #ffffff !important;
+  }
+}
