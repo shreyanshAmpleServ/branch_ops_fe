@@ -27,6 +27,16 @@ export interface PurchaseRequestItem {
   Remarks?: string | null;
   CGuid?: string;
   UoM?: string | null;
+  vendor?: string | null;
+  DIM1?: string | null;
+  DIM2?: string | null;
+  DIM3?: string | null;
+  DIM4?: string | null;
+  DIM5?: string | null;
+  ferightType?: string | null;
+  vendorRef?: string | null;
+  po_id?: string | null;
+  Location?: string | null;
 }
 
 export interface PurchaseRequestAttachment {
@@ -102,6 +112,7 @@ export interface PurchaseRequest {
   Ufs: string | null;
   Department: string | null;
   SapStatus: string;
+  CreatedByName?: string | null;
   items?: PurchaseRequestItem[];
   attachments?: PurchaseRequestAttachment[];
 }

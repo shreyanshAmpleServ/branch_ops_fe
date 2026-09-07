@@ -327,11 +327,12 @@ export function DataTable<TData>({
       style={!resolvedGlass ? { background: 'var(--color-surface)', border: '1px solid var(--color-border)' } : undefined}
     >
       {/* Toolbar */}
+      {(enableSearch || (enableBulkActions && selectedCount > 0) || extraFilters || enableViewToggle || enableColumnVisibility || enableExport) && (
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 flex-1 w-full sm:w-auto pb-2 sm:pb-0">
           {/* Search */}
           {enableSearch && (
-            <div className="relative flex-1 sm:max-w-xs">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'var(--color-text-secondary)' }} />
               <input
                 value={searchValue !== undefined ? searchValue : globalFilter}
@@ -343,7 +344,7 @@ export function DataTable<TData>({
                   }
                 }}
                 placeholder={searchPlaceholder || t('table.search')}
-                className="input-base pl-9 py-2 text-sm"
+                className="input-base pl-9 py-2 text-sm rounded-full"
               />
               {(searchValue !== undefined ? searchValue : globalFilter) && (
                 <button onClick={() => {
@@ -382,7 +383,7 @@ export function DataTable<TData>({
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 pb-2 sm:pb-0 z-50">
           {extraFilters}
           {/* View Toggle */}
           {enableViewToggle && (
@@ -469,6 +470,7 @@ export function DataTable<TData>({
           )}
         </div>
       </div>
+      )}
 
       {/* Table */}
       <div className="overflow-x-auto">

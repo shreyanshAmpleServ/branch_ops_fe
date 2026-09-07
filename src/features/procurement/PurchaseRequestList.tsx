@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Eye, Edit3, Trash2, Search, SlidersHorizontal, FileText } from 'lucide-react';
+import { Plus, Eye, Edit3, Trash2, Search, SlidersHorizontal, FileText, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { type ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '../../components/table';
 import { Button, Badge, DateRangePicker, type DateRange } from '../../components/ui';
@@ -9,33 +9,31 @@ import {
   type PurchaseRequest 
 } from './api/usePurchaseRequests';
 import { useNavigate } from 'react-router-dom';
+import { useDebounce } from '../../hooks/useDebounce';
+import { MemoModal } from './components/MemoModal';
 
 export const PurchaseRequestList: React.FC = () => {
   const navigate = useNavigate();
 
-  // Local filter states for input controls (applied on Search Records click)
-  const today = new Date().toISOString().split('T')[0];
-  const [dateRange, setDateRange] = useState<DateRange>({ startDate: today, endDate: today });
-  const [status, setStatus] = useState<string>('Pending');
+  // Local filter states for input controls (applied immediately)
+  const [dateRange, setDateRange] = useState<DateRange>({ startDate: '', endDate: '' });
+  const [status, setStatus] = useState<string>('all');
   const [docType, setDocType] = useState<string>('all');
-
-  // Active query parameters applied to backend API call
-  const [appliedFilters, setAppliedFilters] = useState({
-    startDate: today,
-    endDate: today,
-    status: 'Pending',
-    typeRequest: 'all',
-  });
 
   // Client-side quick filter query
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 500);
+
+  // Memo Modal State
+  const [selectedMemoRequest, setSelectedMemoRequest] = useState<PurchaseRequest | null>(null);
 
   // Fetch data with applied filters
   const { data: requests = [], isLoading } = usePurchaseRequests({
-    status: appliedFilters.status !== 'all' ? appliedFilters.status : undefined,
-    typeRequest: appliedFilters.typeRequest !== 'all' ? appliedFilters.typeRequest : undefined,
-    startDate: appliedFilters.startDate || undefined,
-    endDate: appliedFilters.endDate || undefined,
+    search: debouncedSearch || undefined,
+    status: status !== 'all' ? status : undefined,
+    typeRequest: docType !== 'all' ? docType : undefined,
+    startDate: dateRange.startDate || undefined,
+    endDate: dateRange.endDate || undefined,
   });
 
   const deleteMutation = useDeletePurchaseRequest();
@@ -51,19 +49,11 @@ export const PurchaseRequestList: React.FC = () => {
     }
   };
 
-  const handleSearchRecords = () => {
-    setAppliedFilters({
-      startDate: dateRange.startDate,
-      endDate: dateRange.endDate,
-      status: status,
-      typeRequest: docType,
-    });
-  };
-
   const handleExportExcel = () => {
     const headers = [
       'ID', 
       'DOCNUM', 
+      'DOC STATUS',
       'REF NO.', 
       'USERS', 
       'CREATED BY', 
@@ -81,7 +71,8 @@ export const PurchaseRequestList: React.FC = () => {
       headers.join(','),
       ...requests.map(r => [
         r.ID,
-        `"${r.RequestedNo || `PR-${r.ID}`}"`,
+        `"${r.RequestedNo || ''}"`,
+        `"${r.Status || 'Pending'}"`,
         `"${r.CustRefNo || ''}"`,
         `"${r.CustName || ''}"`,
         `"${r.CreatedBy || 'Admin'}"`,
@@ -91,7 +82,7 @@ export const PurchaseRequestList: React.FC = () => {
         `"${r.TypeRequest || 'Item'}"`,
         `"${r.AprDate ? new Date(r.AprDate).toISOString().split('T')[0] : ''}"`,
         `"${r.AprStatus || 'P'}"`,
-        `"${r.Status || 'Pending'}"`,
+        '"View"',
         `"${r.Remarks || ''}"`
       ].join(','))
     ].join('\n');
@@ -112,51 +103,66 @@ export const PurchaseRequestList: React.FC = () => {
     {
       accessorKey: 'ID',
       header: 'ID',
-      cell: ({ row }) => <span className="font-semibold text-xs" style={{ color: 'var(--color-text)' }}>{row.original.ID}</span>,
+      cell: ({ row }) => <span className="font-semibold text-xs text-gray-600 dark:text-gray-300">{row.original.ID}</span>,
     },
     {
       accessorKey: 'RequestedNo',
       header: 'DOCNUM',
       cell: ({ row }) => (
-        <span className="font-mono text-xs font-bold text-primary cursor-pointer hover:underline animate-pulse-soft" onClick={() => navigate(`/procurement/request/view/${row.original.ID}`)}>
-          {row.original.RequestedNo || `PR-${row.original.ID}`}
+        <span className="font-mono text-xs font-bold text-gray-700 dark:text-gray-300">
+          {row.original.RequestedNo || ''}
         </span>
       ),
     },
     {
+      accessorKey: 'Status',
+      header: 'DOC STATUS',
+      cell: ({ row }) => {
+        const val = row.original.Status;
+        const displayVal = val === 'O' ? 'Open' : val === 'C' ? 'Closed' : val;
+        
+        let variant: 'success' | 'warning' | 'error' | 'info' | 'default' = 'default';
+        if (displayVal === 'Closed') variant = 'info';
+        else if (displayVal === 'Approved') variant = 'success';
+        else if (displayVal === 'Rejected') variant = 'error';
+        else if (displayVal === 'Pending' || displayVal === 'Open') variant = 'warning';
+
+        return (
+          <Badge variant={variant} className={displayVal === 'Closed' ? 'bg-blue-600 text-white border-blue-600' : ''}>
+            {displayVal || 'Pending'}
+          </Badge>
+        );
+      },
+    },
+    {
       accessorKey: 'CustRefNo',
       header: 'REF NO.',
-      cell: ({ row }) => <span className="text-xs" style={{ color: 'var(--color-text)' }}>{row.original.CustRefNo || '—'}</span>,
+      cell: ({ row }) => <span className="text-xs text-gray-600 dark:text-gray-300">{row.original.CustRefNo || '—'}</span>,
     },
     {
       accessorKey: 'CustName',
       header: 'USERS',
       cell: ({ row }) => (
-        <div>
-          <p className="text-xs font-semibold mb-0" style={{ color: 'var(--color-text)' }}>
-            {row.original.CustName || '—'}
-          </p>
-          <p className="text-[10px] font-mono mb-0" style={{ color: 'var(--color-text-secondary)' }}>
-            {row.original.CustCode}
-          </p>
-        </div>
+        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+          {row.original.CustName || '—'}
+        </span>
       ),
     },
     {
       accessorKey: 'CreatedBy',
       header: 'CREATED BY',
-      cell: ({ row }) => <span className="text-xs font-semibold" style={{ color: 'var(--color-text)' }}>{row.original.CreatedBy ? `User ${row.original.CreatedBy}` : 'Admin'}</span>,
+      cell: ({ row }) => <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{row.original.CreatedByName || row.original.CreatedBy || '—'}</span>,
     },
     {
       accessorKey: 'Department',
       header: 'DEPARTMENT',
-      cell: ({ row }) => <span className="text-xs" style={{ color: 'var(--color-text)' }}>{row.original.Department || '—'}</span>,
+      cell: ({ row }) => <span className="text-xs text-gray-600 dark:text-gray-300">{row.original.Department || '—'}</span>,
     },
     {
       accessorKey: 'PostDate',
       header: 'POSTING DATE',
       cell: ({ row }) => (
-        <span className="text-xs font-medium font-mono" style={{ color: 'var(--color-text)' }}>
+        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
           {row.original.PostDate ? new Date(row.original.PostDate).toISOString().split('T')[0] : '—'}
         </span>
       ),
@@ -165,11 +171,10 @@ export const PurchaseRequestList: React.FC = () => {
       accessorKey: 'DocTotal',
       header: 'DOC TOTAL',
       cell: ({ row }) => (
-        <span className="text-xs font-mono font-bold text-primary">
+        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
           {row.original.DocTotal !== null && row.original.DocTotal !== undefined
             ? Number(row.original.DocTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-            : '0.00'}{' '}
-          {row.original.Currency || 'TZS'}
+            : '0.00'}
         </span>
       ),
     },
@@ -177,16 +182,16 @@ export const PurchaseRequestList: React.FC = () => {
       accessorKey: 'TypeRequest',
       header: 'REQUEST TYPE',
       cell: ({ row }) => (
-        <Badge variant={row.original.TypeRequest === 'Item' ? 'primary' : 'info'}>
-          {row.original.TypeRequest}
-        </Badge>
+        <span className="text-xs text-gray-600 dark:text-gray-300">
+          {row.original.TypeRequest || 'Item'}
+        </span>
       ),
     },
     {
       accessorKey: 'AprDate',
       header: 'APRDATE',
       cell: ({ row }) => (
-        <span className="text-xs font-mono" style={{ color: 'var(--color-text-secondary)' }}>
+        <span className="text-xs text-gray-600 dark:text-gray-300">
           {row.original.AprDate ? new Date(row.original.AprDate).toISOString().split('T')[0] : '—'}
         </span>
       ),
@@ -196,75 +201,64 @@ export const PurchaseRequestList: React.FC = () => {
       header: 'APR STATUS',
       cell: ({ row }) => {
         const val = row.original.AprStatus;
-        let label = 'Awaiting';
-        let variant: 'success' | 'warning' | 'error' | 'info' = 'warning';
-
-        if (val === 'Y') {
-          label = 'Approved';
-          variant = 'success';
-        } else if (val === 'N') {
-          label = 'Rejected';
-          variant = 'error';
-        }
-
-        return (
-          <Badge variant={variant} dot>
-            {label}
-          </Badge>
-        );
-      },
-    },
-    {
-      accessorKey: 'Status',
-      header: 'PURCHASE REQUEST',
-      cell: ({ row }) => {
-        const val = row.original.Status;
-        let variant: 'success' | 'warning' | 'error' | 'info' = 'warning';
-        if (val === 'Approved') variant = 'success';
-        if (val === 'Closed') variant = 'info';
-        if (val === 'Rejected') variant = 'error';
+        const displayVal = val === 'Y' ? 'Approved' : val === 'N' ? 'Rejected' : 'Pending';
+        
+        let variant: 'success' | 'warning' | 'error' | 'info' | 'default' = 'default';
+        if (displayVal === 'Approved') variant = 'success';
+        else if (displayVal === 'Rejected') variant = 'error';
+        else if (displayVal === 'Pending') variant = 'warning';
 
         return (
           <Badge variant={variant}>
-            {val}
+            {displayVal}
           </Badge>
         );
       },
     },
     {
-      accessorKey: 'Remarks',
+      id: 'purchase_request',
+      header: 'PURCHASE REQUEST',
+      cell: ({ row }) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/procurement/request/view/${row.original.ID}`);
+          }}
+          className="px-3 py-1 text-white text-xs font-medium rounded transition-all shadow-glass-sm hover:brightness-110 hover:-translate-y-0.5"
+          style={{ background: 'var(--color-primary)' }}
+        >
+          View
+        </button>
+      ),
+    },
+    {
+      id: 'memo',
       header: 'MEMO',
       cell: ({ row }) => (
-        <span className="text-xs truncate max-w-[150px] block" title={row.original.Remarks || ''} style={{ color: 'var(--color-text-secondary)' }}>
-          {row.original.Remarks || '—'}
-        </span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedMemoRequest(row.original);
+          }}
+          className="px-3 py-1 text-white text-xs font-medium rounded transition-all shadow-glass-sm hover:brightness-110 hover:-translate-y-0.5"
+          style={{ background: 'var(--color-primary)' }}
+        >
+          Memo
+        </button>
       ),
     },
     {
       id: 'actions',
       header: 'ACTION',
       cell: ({ row }) => (
-        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
-            title="View Details"
-            className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-primary transition-colors"
-            onClick={() => navigate(`/procurement/request/view/${row.original.ID}`)}
-          >
-            <Eye className="h-3.5 w-3.5" />
-          </button>
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <button
             title="Edit Request"
-            className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-amber-500 transition-colors"
+            className="p-1.5 text-white rounded transition-all shadow-glass-sm hover:brightness-110 hover:-translate-y-0.5"
+            style={{ background: 'var(--color-primary)' }}
             onClick={() => navigate(`/procurement/request/edit/${row.original.ID}`)}
           >
             <Edit3 className="h-3.5 w-3.5" />
-          </button>
-          <button
-            title="Delete Request"
-            className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-rose-600 transition-colors"
-            onClick={() => handleDelete(row.original.ID, row.original.RequestedNo)}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
       ),
@@ -275,127 +269,96 @@ export const PurchaseRequestList: React.FC = () => {
     <div className="page-container animate-slide-up space-y-6">
       
       {/* Top Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold font-display" style={{ color: 'var(--color-text)' }}>
-            Purchase Requests Log
+          <h1 className="text-2xl font-bold font-display text-gray-900 dark:text-white">
+            Purchase Requests
           </h1>
-          <p className="text-xs animate-pulse-soft" style={{ color: 'var(--color-text-secondary)' }}>
-            {requests.length} purchase requests loaded from database
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Manage and track all purchase requests
           </p>
         </div>
         <Button 
-          icon={<Plus className="h-4 w-4" />} 
+          className="text-white shadow-glass-sm rounded-lg px-4 py-2 flex items-center gap-2 transition-all hover:brightness-110 hover:-translate-y-0.5"
+          style={{ background: 'var(--color-primary)' }}
           onClick={() => navigate('/procurement/request/new')}
         >
-          Add Purchase Request
+          <Plus className="h-4 w-4" />
+          <span className="font-semibold text-sm">Create Request</span>
         </Button>
       </div>
 
-      {/* Modern Search Filters Card */}
-      <div className="rounded-2xl border p-4 shadow-sm" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
-        <div className="flex items-center gap-2 border-b pb-2 mb-4" style={{ borderColor: 'var(--color-border)' }}>
-          <SlidersHorizontal className="h-4 w-4 text-primary" />
-          <h2 className="text-xs font-bold uppercase tracking-wider m-0" style={{ color: 'var(--color-text)' }}>
-            Search Filters
-          </h2>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div>
-            <label className="block text-[10px] font-bold uppercase mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-              Purchased Date Created
-            </label>
-            <DateRangePicker
-              value={dateRange}
-              onChange={setDateRange}
-              placeholder="Select Date Range"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold uppercase mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-              Status
-            </label>
-            <select
-              className="input-base w-full text-xs font-semibold outline-none border transition-all py-2 px-3 rounded-xl"
-              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-              value={status}
-              onChange={e => setStatus(e.target.value)}
-            >
-              <option value="all">All</option>
-              <option value="Draft">Draft</option>
-              <option value="Pending">Pending</option>
-              <option value="Approved">Approved</option>
-              <option value="Rejected">Rejected</option>
-              <option value="Closed">Closed</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold uppercase mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-              Doc Type
-            </label>
-            <select
-              className="input-base w-full text-xs font-semibold outline-none border transition-all py-2 px-3 rounded-xl"
-              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-              value={docType}
-              onChange={e => setDocType(e.target.value)}
-            >
-              <option value="all">All</option>
-              <option value="Item">Item</option>
-              <option value="Service">Service</option>
-            </select>
-          </div>
-          <div>
-            <Button
-              className="w-full flex items-center justify-center gap-2 bg-[#10b981] hover:bg-[#059669] text-white border-0 py-2.5 rounded-xl font-bold text-xs"
-              onClick={handleSearchRecords}
-              icon={<Search className="h-4 w-4" />}
-            >
-              Search Records
-            </Button>
-          </div>
-        </div>
+      {/* Table Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden flex flex-col">
+        <DataTable
+          data={requests}
+          columns={columns}
+          isLoading={isLoading}
+          enableRowSelection={false}
+          enableSearch={true}
+          enableExport={true}
+          enableViewToggle={true}
+          enableColumnVisibility={true}
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          onRowClick={(row) => navigate(`/procurement/request/view/${row.ID}`)}
+          className="border-0 shadow-none rounded-none"
+          extraFilters={
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-full whitespace-nowrap shadow-sm">
+                <Clock className="w-4 h-4 text-gray-400" />
+                <DateRangePicker
+                  value={dateRange}
+                  onChange={setDateRange}
+                />
+              </div>
+              
+              <div className="relative min-w-[140px]">
+                <select
+                  className="w-full appearance-none bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-sm rounded-full px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm font-medium"
+                  value={status}
+                  onChange={e => setStatus(e.target.value)}
+                >
+                  <option value="all">All Status</option>
+                  <option value="Draft">Draft</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                  <option value="Closed">Closed</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+              </div>
+
+              <div className="relative min-w-[140px]">
+                <select
+                  className="w-full appearance-none bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-sm rounded-full px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm font-medium"
+                  value={docType}
+                  onChange={e => setDocType(e.target.value)}
+                >
+                  <option value="all">All Types</option>
+                  <option value="Item">Item</option>
+                  <option value="Service">Service</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+              </div>
+            </div>
+          }
+        />
       </div>
 
-      {/* Export to Excel & Floating Quick Search Row */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <Button
-          variant="secondary"
-          className="flex items-center gap-2 text-xs font-bold border rounded-xl"
-          icon={<FileText className="h-4.5 w-4.5 text-emerald-600" />}
-          onClick={handleExportExcel}
-        >
-          Export Table to Excel
-        </Button>
-        
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <span className="text-[10px] font-bold uppercase" style={{ color: 'var(--color-text-secondary)' }}>
-            Search:
-          </span>
-          <input
-            type="text"
-            className="input-base text-xs font-semibold py-2 px-3.5 w-full sm:w-[220px]"
-            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Filter records..."
-          />
-        </div>
-      </div>
-
-      {/* Main Grid Table (Search and Export toolbar disabled to use custom layout) */}
-      <DataTable
-        data={requests}
-        columns={columns}
-        isLoading={isLoading}
-        enableRowSelection
-        enableSearch={false}
-        enableExport={false}
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
-        onRowClick={(row) => navigate(`/procurement/request/view/${row.ID}`)}
-      />
+      {/* Render the Memo Modal if selected */}
+      {selectedMemoRequest && (
+        <MemoModal
+          request={selectedMemoRequest}
+          onClose={() => setSelectedMemoRequest(null)}
+        />
+      )}
     </div>
   );
 };
 export default PurchaseRequestList;
+
