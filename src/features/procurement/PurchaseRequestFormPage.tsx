@@ -474,12 +474,14 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                 <div>
                   <FieldLabel>Post Date</FieldLabel>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                    <Calendar className="absolute left-1 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
                     <input
                       type="date"
                       className={inputCls + ' pl-8'}
-                      style={inputStyle}
-                      value={postDate}
+ style={{
+    ...inputStyle,
+    textIndent: '5px'
+  }}                      value={postDate}
                       onChange={e => setPostDate(e.target.value)}
                       disabled={isView}
                     />
@@ -488,12 +490,14 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                 <div>
                   <FieldLabel>Validity Date</FieldLabel>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                    <Calendar className="absolute left-1 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
                     <input
                       type="date"
-                      className={inputCls + ' pl-8'}
-                      style={inputStyle}
-                      value={dueDate}
+                      className={inputCls + ' pl-8'}     
+ style={{
+    ...inputStyle,
+    textIndent: '5px'
+  }}                      value={dueDate}
                       onChange={e => setDueDate(e.target.value)}
                       disabled={isView}
                     />
@@ -502,12 +506,16 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                 <div>
                   <FieldLabel>Required By</FieldLabel>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                    <Calendar className="absolute left-1 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
                     <input
                       type="date"
-                      className={inputCls + ' pl-8'}
-                      style={inputStyle}
-                      value={requestedByDate}
+                      className={inputCls + ' pl-8 mr-1'}
+ style={{
+    ...inputStyle,
+    textIndent: '5px'
+  }}                      value={requestedByDate 
+                        
+                      }
                       onChange={e => setRequestedByDate(e.target.value)}
                       disabled={isView}
                     />
@@ -663,14 +671,46 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                   <p className="text-[9px] uppercase tracking-wider font-bold mb-1" style={{ color: 'var(--color-text-secondary)' }}>Lines</p>
                   <p className="text-xl font-extrabold text-primary">{items.length}</p>
                 </div>
-                <div className="rounded-xl p-3 text-center" style={{ background: 'var(--color-surface-hover)' }}>
-                  <p className="text-[9px] uppercase tracking-wider font-bold mb-1" style={{ color: 'var(--color-text-secondary)' }}>Total</p>
-                  <p className="text-sm font-extrabold text-emerald-500 font-mono">
-                    {finalDocTotal.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                <div
+  className="rounded-xl p-3 text-center min-w-0 overflow-hidden"
+  style={{ background: 'var(--color-surface-hover)' }}
+>
+  <p
+    className="text-[9px] uppercase tracking-wider font-bold mb-1"
+    style={{ color: 'var(--color-text-secondary)' }}
+  >
+    Total
+  </p>
+
+  <p className="text-sm font-extrabold text-emerald-500 font-mono truncate">
+    {finalDocTotal.toLocaleString(undefined, {
+      minimumFractionDigits: 0
+    })}
+  </p>
+</div>
+              </div>
+            
+            </div>
+               {/* Attachments */}
+            <SectionCard>
+              <SectionHeader icon={<UploadCloud className="h-3.5 w-3.5" />} title="Attachments" />
+              <div className="p-5">
+                <div
+                  className="border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer group transition-all hover:border-primary hover:bg-primary/[0.02]"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
+                  <div className="w-12 h-12 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors flex items-center justify-center mx-auto mb-3">
+                    <UploadCloud className="h-6 w-6 text-primary" />
+                  </div>
+                  <p className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>
+                    Drop files here or click to browse
+                  </p>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    PDF · JPG · PNG · Max 10 MB
                   </p>
                 </div>
               </div>
-            </div>
+            </SectionCard>
           </div>
         </div>
 
@@ -1043,26 +1083,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
               </div>
             </SectionCard>
 
-            {/* Attachments */}
-            <SectionCard>
-              <SectionHeader icon={<UploadCloud className="h-3.5 w-3.5" />} title="Attachments" />
-              <div className="p-5">
-                <div
-                  className="border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer group transition-all hover:border-primary hover:bg-primary/[0.02]"
-                  style={{ borderColor: 'var(--color-border)' }}
-                >
-                  <div className="w-12 h-12 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors flex items-center justify-center mx-auto mb-3">
-                    <UploadCloud className="h-6 w-6 text-primary" />
-                  </div>
-                  <p className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>
-                    Drop files here or click to browse
-                  </p>
-                  <p className="text-[10px] uppercase tracking-wider font-semibold mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                    PDF · JPG · PNG · Max 10 MB
-                  </p>
-                </div>
-              </div>
-            </SectionCard>
+           
 
             {/* SAP Advanced */}
             <SectionCard>

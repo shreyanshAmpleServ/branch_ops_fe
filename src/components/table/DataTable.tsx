@@ -165,8 +165,9 @@ export function DataTable<TData>({
         id: 'actions',
         header: () => 'ACTIONS',
         cell: ({ row }) => (
-          <div onClick={(e) => e.stopPropagation()} className="flex justify-end">
-            <Dropdown
+          <div onClick={(e) => e.stopPropagation()} className="flex items-center justify-center -ml-8"
+>
+      <Dropdown
               trigger={
                 <button className="p-1.5 rounded-lg hover:bg-surface-hover transition-colors">
                   <MoreVertical className="h-4 w-4 text-text-secondary" />
