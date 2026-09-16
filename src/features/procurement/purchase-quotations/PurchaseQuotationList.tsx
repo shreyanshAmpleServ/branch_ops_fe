@@ -7,7 +7,7 @@ import {
   type PurchaseQuotation
 } from './api/usePurchaseQuotations';
 import { DataTable, type ColumnDef } from '../../../components/table/DataTable';
-import { Button, Spinner, DateRangePicker } from '../../../components/ui';
+import { Button, Spinner, DateRangePicker, Tooltip } from '../../../components/ui';
 
 export const PurchaseQuotationList: React.FC = () => {
   const navigate = useNavigate();
@@ -196,7 +196,7 @@ export const PurchaseQuotationList: React.FC = () => {
       cell: ({ row }) => {
         const val = row.original.CreatedDate || row.original.PostDate;
         return (
-          <span className="text-xs text-slate-600 dark:text-slate-400 font-mono">
+          <span className="text-xs text-slate-600 dark:text-slate-400 font-mono whitespace-nowrap">
             {val ? new Date(val).toISOString().split('T')[0] : '2026-00-00'}
           </span>
         );
@@ -208,7 +208,7 @@ export const PurchaseQuotationList: React.FC = () => {
       cell: ({ row }) => {
         const amt = Number(row.original.DocTotal || 0);
         return (
-          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 font-mono">
+          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 font-mono whitespace-nowrap">
             {amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         );
@@ -220,7 +220,7 @@ export const PurchaseQuotationList: React.FC = () => {
       cell: ({ row }) => {
         const val = row.original.AprDate;
         return (
-          <span className="text-xs text-slate-600 dark:text-slate-400 font-mono">
+          <span className="text-xs text-slate-600 dark:text-slate-400 font-mono whitespace-nowrap">
             {val ? new Date(val).toISOString().split('T')[0] : ''}
           </span>
         );
@@ -337,14 +337,15 @@ export const PurchaseQuotationList: React.FC = () => {
                     setEndDate(range.endDate);
                   }}
                 />
-                <button
-                  onClick={() => refetch()}
-                  disabled={isRefetching}
-                  className="p-2 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors flex items-center justify-center cursor-pointer"
-                  title="Refresh"
-                >
-                  <RefreshCw className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`} />
-                </button>
+                <Tooltip content="Refresh" position="top">
+                  <button
+                    onClick={() => refetch()}
+                    disabled={isRefetching}
+                    className="p-2 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors flex items-center justify-center cursor-pointer"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`} />
+                  </button>
+                </Tooltip>
               </div>
             }
             onRowClick={(row) => navigate(`/procurement/quotation/view/${row.ID}`)}

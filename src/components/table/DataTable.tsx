@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUpDown, ArrowUp, ArrowDown, Search, Columns3, Download, ChevronDown, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, X, FileText, FileJson, Trash2, CheckSquare, LayoutGrid, List, MoreVertical, Check } from 'lucide-react';
 import { Dropdown } from '../ui/Dropdown';
+import { Tooltip } from '../ui/Tooltip';
 import { Table as AntTable } from 'antd';
 import { DataTable as PrimeDataTable } from 'primereact/datatable';
 import { Column as PrimeColumn } from 'primereact/column';
@@ -256,25 +257,25 @@ export function DataTable<TData>({
     modern: {
       wrapper: 'rounded-2xl relative',
       header: resolvedGlass ? 'bg-white/10 dark:bg-black/20' : 'bg-surface',
-      headerCell: 'font-semibold text-[10px] uppercase tracking-wider',
+      headerCell: 'font-bold text-[11px] uppercase tracking-wider whitespace-nowrap text-slate-600 dark:text-slate-400',
       row: resolvedGlass
         ? 'border-b border-border/30 hover:bg-white/5 dark:hover:bg-white/5 transition-colors'
         : 'border-b border-border/50 hover:bg-surface-hover/50 transition-colors',
-      cell: 'py-3.5 px-4',
+      cell: 'py-2.5 px-3',
     },
     striped: {
       wrapper: 'rounded-xl relative',
       header: 'bg-primary/5',
-      headerCell: 'font-semibold text-[10px] uppercase tracking-wider text-primary',
+      headerCell: 'font-bold text-[11px] uppercase tracking-wider text-primary whitespace-nowrap',
       row: 'border-b border-border/30 even:bg-surface-hover/30 hover:bg-primary/5 transition-colors',
-      cell: 'py-3 px-4',
+      cell: 'py-2 px-2.5',
     },
     card: {
       wrapper: 'rounded-2xl relative',
       header: '',
-      headerCell: 'font-semibold text-[10px] uppercase tracking-wider',
+      headerCell: 'font-bold text-[11px] uppercase tracking-wider whitespace-nowrap',
       row: 'mb-2 rounded-xl border border-border/60 hover:border-primary/30 hover:shadow-md transition-all',
-      cell: 'py-4 px-4',
+      cell: 'py-3 px-3',
     },
   };
 
@@ -409,13 +410,14 @@ export function DataTable<TData>({
           {/* Column Visibility */}
           {enableColumnVisibility && (
             <div className="relative">
-              <button
-                onClick={() => setShowColumnToggle(!showColumnToggle)}
-                className="btn-ghost p-2 rounded-lg text-xs"
-                title={t('table.columns') || 'Columns'}
-              >
-                <Columns3 className="h-4 w-4" />
-              </button>
+              <Tooltip content={t('table.columns') || 'Columns'} position="top">
+                <button
+                  onClick={() => setShowColumnToggle(!showColumnToggle)}
+                  className="p-2 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors flex items-center justify-center cursor-pointer"
+                >
+                  <Columns3 className="h-4 w-4" />
+                </button>
+              </Tooltip>
               <AnimatePresence>
                 {showColumnToggle && (
                   <motion.div
@@ -445,13 +447,14 @@ export function DataTable<TData>({
           {/* Export */}
           {enableExport && (
             <div className="relative">
-              <button
-                onClick={() => setShowExportMenu(!showExportMenu)}
-                className="btn-ghost p-2 rounded-lg text-xs"
-                title={t('table.export') || 'Export'}
-              >
-                <Download className="h-4 w-4" />
-              </button>
+              <Tooltip content={t('table.export') || 'Export'} position="top">
+                <button
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  className="p-2 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors flex items-center justify-center cursor-pointer"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+              </Tooltip>
               <AnimatePresence>
                 {showExportMenu && (
                   <motion.div
@@ -692,19 +695,19 @@ export function DataTable<TData>({
                       {headerGroup.headers.map((header) => (
                         <th
                           key={header.id}
-                          className={`${dc.headerCell} ${dc.cell} text-left`}
+                          className={`${dc.headerCell} ${dc.cell} text-left whitespace-nowrap`}
                           style={{
                             color: 'var(--color-text-secondary)',
                             width: header.getSize(),
                             cursor: header.column.getCanSort() ? 'pointer' : 'default',
-                            fontSize: '10px',
+                            fontSize: '11px',
                           }}
                           onClick={header.column.getToggleSortingHandler()}
                         >
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
                             {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                             {header.column.getCanSort() && (
-                              <span className="opacity-50">
+                              <span className="opacity-50 shrink-0">
                                 {header.column.getIsSorted() === 'asc' ? (
                                   <ArrowUp className="h-3.5 w-3.5" />
                                 ) : header.column.getIsSorted() === 'desc' ? (
@@ -730,7 +733,7 @@ export function DataTable<TData>({
                         onClick={() => onRowClick?.(row.original)}
                       >
                         {row.getVisibleCells().map((cell) => (
-                          <td key={cell.id} className={`${dc.cell} text-sm`} style={{ color: 'var(--color-text)' }}>
+                          <td key={cell.id} className={`${dc.cell} text-xs whitespace-nowrap`} style={{ color: 'var(--color-text)' }}>
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         ))}
