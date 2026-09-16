@@ -33,8 +33,16 @@ import { CompanyDetails } from '../features/settings/CompanyDetails';
 import { ExpenseEntryPage } from '../features/settings/ExpenseEntry';
 import { WarehouseManagement } from '../features/warehouse/WarehouseManagement';
 import { ItemManagement } from '../features/items/ItemManagement';
-import { PurchaseRequestList } from '../features/procurement/PurchaseRequestList';
-import { PurchaseRequestFormPage } from '../features/procurement/PurchaseRequestFormPage';
+import {
+  PurchaseRequestList,
+  PurchaseRequestFormPage,
+  PurchaseQuotationList,
+  PurchaseQuotationFormPage,
+  PurchaseQuotationViewPage,
+  PurchaseOrderList,
+  PurchaseOrderFormPage,
+  PurchaseOrderViewPage
+} from '../features/procurement';
 
 export const DashboardHome: React.FC = () => {
   const { activeDesign } = useDesignStore();
@@ -80,8 +88,14 @@ export const routes: AppRoute[] = [
   { path: "/procurement/request/edit/:id", element: <PurchaseRequestFormPage mode="edit" />, isProtected: true },
   { path: "/procurement/request/view/:id", element: <PurchaseRequestFormPage mode="view" />, isProtected: true },
   { path: "/procurement/wizard", element: <DummyModulePage title="Purchase Wizard" />, isProtected: true },
-  { path: "/procurement/quotation", element: <DummyModulePage title="Purchase Quotation" />, isProtected: true },
-  { path: "/procurement/order", element: <DummyModulePage title="Purchase Order" />, isProtected: true },
+  { path: "/procurement/quotation", element: <PurchaseQuotationList />, isProtected: true },
+  { path: "/procurement/quotation/new", element: <PurchaseQuotationFormPage mode="add" />, isProtected: true },
+  { path: "/procurement/quotation/edit/:id", element: <PurchaseQuotationFormPage mode="edit" />, isProtected: true },
+  { path: "/procurement/quotation/view/:id", element: <PurchaseQuotationViewPage />, isProtected: true },
+  { path: "/procurement/order", element: <PurchaseOrderList />, isProtected: true },
+  { path: "/procurement/order/new", element: <PurchaseOrderFormPage mode="add" />, isProtected: true },
+  { path: "/procurement/order/edit/:id", element: <PurchaseOrderFormPage mode="edit" />, isProtected: true },
+  { path: "/procurement/order/view/:id", element: <PurchaseOrderViewPage />, isProtected: true },
   { path: "/procurement/notice", element: <DummyModulePage title="Notice Arrival" />, isProtected: true },
   { path: "/procurement/advance", element: <DummyModulePage title="Advance Request" />, isProtected: true },
   { path: "/procurement/grpo", element: <DummyModulePage title="GRPO" />, isProtected: true },

@@ -75,3 +75,5 @@ export function useDeleteBranch() {
     },
   });
 }
+
+export { useBranchesList as useBranches };

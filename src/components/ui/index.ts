@@ -14,4 +14,5 @@ export { GlobalSearch } from './GlobalSearch';
 export { ThemeSettingsDropdown } from './ThemeSettingsDropdown';
 export { LocationMapPicker } from './LocationMapPicker';
 export { DateRangePicker, type DateRange } from './DateRangePicker';
+export { SearchableSelect, type SearchableSelectOption } from './SearchableSelect';
 export * from './Switch';

@@ -329,8 +329,8 @@ export function DataTable<TData>({
     >
       {/* Toolbar */}
       {(enableSearch || (enableBulkActions && selectedCount > 0) || extraFilters || enableViewToggle || enableColumnVisibility || enableExport) && (
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        <div className="flex flex-wrap items-center gap-2 flex-1 w-full sm:w-auto pb-2 sm:pb-0">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 p-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto pb-2 lg:pb-0">
           {/* Search */}
           {enableSearch && (
             <div className="relative w-full sm:w-64">
@@ -384,7 +384,7 @@ export function DataTable<TData>({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 pb-2 sm:pb-0 z-50">
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-start lg:justify-end pb-2 lg:pb-0 z-50">
           {extraFilters}
           {/* View Toggle */}
           {enableViewToggle && (
@@ -411,10 +411,10 @@ export function DataTable<TData>({
             <div className="relative">
               <button
                 onClick={() => setShowColumnToggle(!showColumnToggle)}
-                className="btn-ghost py-2 px-3 text-xs"
+                className="btn-ghost p-2 rounded-lg text-xs"
+                title={t('table.columns') || 'Columns'}
               >
                 <Columns3 className="h-4 w-4" />
-                <span className="hidden sm:inline">{t('table.columns')}</span>
               </button>
               <AnimatePresence>
                 {showColumnToggle && (
@@ -445,9 +445,12 @@ export function DataTable<TData>({
           {/* Export */}
           {enableExport && (
             <div className="relative">
-              <button onClick={() => setShowExportMenu(!showExportMenu)} className="btn-ghost py-2 px-3 text-xs">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="btn-ghost p-2 rounded-lg text-xs"
+                title={t('table.export') || 'Export'}
+              >
                 <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">{t('table.export')}</span>
               </button>
               <AnimatePresence>
                 {showExportMenu && (

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '../../../lib/api';
+import api, { SERVER_BASE_URL } from '../../../lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -100,7 +100,7 @@ export interface UpdateUserPayload {
 }
 
 // ─── API base URL helper ──────────────────────────────────────────────────────
-const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
+const API_BASE = SERVER_BASE_URL;
 
 export function getUserAvatarUrl(profileImg: string | null | undefined): string {
   if (!profileImg) return '';

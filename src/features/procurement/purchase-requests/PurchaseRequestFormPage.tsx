@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ChevronDown,
@@ -18,19 +18,26 @@ import {
   AlertCircle,
   Calendar,
   DollarSign,
-  Package
+  Package,
+  FileText,
+  Image as ImageIcon,
+  Paperclip,
+  ExternalLink,
+  Search
 } from 'lucide-react';
 import {
   useCreatePurchaseRequest,
   useUpdatePurchaseRequest,
   usePurchaseRequest,
   type PurchaseRequestItem,
+  type PurchaseRequestAttachment,
   type PurchaseRequestInput
 } from './api/usePurchaseRequests';
-import { useRetailers } from '../customers/api/useRetailers';
-import { useItems } from '../items/api/useItems';
-import { useExpenses, useProjects, useWarehouses, useCostCentersMain } from '../users/api/useMasterData';
-import { Button, Spinner, Badge } from '../../components/ui';
+import api, { getAttachmentUrl, getFileName } from '../../../lib/api';
+import { useRetailers } from '../../customers/api/useRetailers';
+import { useItems } from '../../items/api/useItems';
+import { useExpenses, useProjects, useWarehouses, useCostCentersMain } from '../../users/api/useMasterData';
+import { Button, Spinner, Badge, SearchableSelect, type SearchableSelectOption } from '../../../components/ui';
 import { PurchaseRequestReceiptView } from './components/PurchaseRequestReceiptView';
 
 interface PurchaseRequestFormPageProps {
@@ -78,15 +85,73 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
   const navigate = useNavigate();
   const numericId = id ? parseInt(id) : null;
 
+  // Item Selection Modal State
+  const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+  const [activeRowIndexForModal, setActiveRowIndexForModal] = useState<number | null>(null);
+  const [itemSearch, setItemSearch] = useState('');
+
+  // Vendor Selection Modal State
+  const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
+  const [activeRowVendorIndexForModal, setActiveRowVendorIndexForModal] = useState<number | null>(null);
+  const [vendorSearch, setVendorSearch] = useState('');
+
+  const handleSelectVendorFromModal = (supp: any) => {
+    const code = supp.Code || supp.code || supp.cardCode || supp.CardCode;
+    const name = supp.Name || supp.name || supp.cardName || supp.CardName || '';
+    const addr = supp.Address || supp.address || '';
+
+    if (activeRowVendorIndexForModal !== null && activeRowVendorIndexForModal >= 0 && activeRowVendorIndexForModal < items.length) {
+      handleItemLineChange(activeRowVendorIndexForModal, 'vendor', code);
+    } else {
+      setCustCode(code);
+      setCustName(name);
+      setAddress(addr);
+    }
+
+    setIsVendorModalOpen(false);
+    setActiveRowVendorIndexForModal(null);
+  };
+
   const { data: suppliersResponse = [] } = useRetailers({ cardType: 'S', aprStatus: 'Y' });
-  const { data: itemsResponse } = useItems({ limit: 100 });
+  const { data: itemsResponse } = useItems({ limit: 500, search: itemSearch || undefined });
   const { data: expensesResponse } = useExpenses();
   const { data: projectsResponse } = useProjects();
   const { data: warehousesResponse } = useWarehouses();
   const { data: costCentersMainResponse } = useCostCentersMain();
 
+  const suppliersList = (Array.isArray(suppliersResponse) ? suppliersResponse : (suppliersResponse as any)?.data) || [];
+  const supplierOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return suppliersList.map((supp: any) => {
+      const code = supp.Code || supp.code || supp.cardCode || supp.CardCode;
+      const name = supp.Name || supp.name || supp.cardName || supp.CardName || 'Unnamed Vendor';
+      const tin = supp.TIN || supp.tin;
+      const address = supp.Address || supp.address;
+      return {
+        value: code,
+        label: `${name} (${code})`,
+        subtext: [tin ? `TIN: ${tin}` : '', address].filter(Boolean).join(' • '),
+        raw: supp,
+      };
+    });
+  }, [suppliersList]);
+
+  const itemsList = itemsResponse?.items || (Array.isArray(itemsResponse) ? itemsResponse : (itemsResponse as any)?.data) || [];
+  const itemCatalogOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return itemsList.map((itm: any) => {
+      const code = itm.itemCode || itm.ItemCode || itm.code || `ITM-${itm.id || itm.ID}`;
+      const name = itm.itemName || itm.ItemName || itm.name || 'Unnamed Item';
+      const price = Number(itm.lastPurPrc || itm.price || itm.UnitPrice || 0);
+      return {
+        value: code,
+        label: `${code} — ${name}`,
+        subtext: `Price: ${price.toLocaleString(undefined, { minimumFractionDigits: 2 })} TZS`,
+        extra: `${price.toLocaleString(undefined, { minimumFractionDigits: 2 })} TZS`,
+        raw: itm,
+      };
+    });
+  }, [itemsList]);
+
   const expenses = expensesResponse?.data || [];
-  const itemsList = itemsResponse?.items || [];
   const projectsList = projectsResponse?.data || [];
   const warehousesList = warehousesResponse?.data || [];
   const costCentersList = costCentersMainResponse?.data || [];
@@ -134,6 +199,9 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
   const [hasFreight, setHasFreight] = useState(false);
   const [freightAmount, setFreightAmount] = useState(0);
   const [items, setItems] = useState<PurchaseRequestItem[]>([]);
+  const [attachments, setAttachments] = useState<PurchaseRequestAttachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (existingRequest && (mode === 'edit' || mode === 'view')) {
@@ -168,6 +236,9 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
           VATPer: Number(item.VATPer || 0),
         })));
       }
+      if (existingRequest.attachments) {
+        setAttachments(existingRequest.attachments);
+      }
     } else {
       setCustCode(''); setCustName(''); setAddress(''); setCustRefNo('');
       setCurrency('TZS'); setCurRate(1.0);
@@ -180,8 +251,50 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
       setRequestTerms(''); setPaymentMethod('');
       setDiscountPercent(0); setHasRounding(false); setRoundingAmount(0);
       setHasFreight(false); setFreightAmount(0); setItems([]);
+      setAttachments([]);
     }
   }, [existingRequest, mode]);
+
+
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const newAttachments: PurchaseRequestAttachment[] = [...attachments];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await api.post<{ status: string; data: { path: string } }>(
+          '/upload/file',
+          formData,
+          { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
+
+        if (response.data?.data?.path) {
+          newAttachments.push({
+            LineNum: newAttachments.length + 1,
+            Attachment: response.data.data.path,
+          });
+        }
+      }
+      setAttachments(newAttachments);
+    } catch (err) {
+      console.error('File upload failed:', err);
+      alert('Failed to upload file. Please try again.');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, idx) => idx !== index).map((att, idx) => ({ ...att, LineNum: idx + 1 })));
+  };
 
   const handleSupplierChange = (code: string) => {
     const supplier = suppliersResponse.find(s => s.Code === code);
@@ -190,6 +303,60 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
       setCustName(supplier.Name);
       setAddress(supplier.Address || '');
     }
+  };
+
+  const handleAddItem = (selectedItem: any) => {
+    const itemCode = selectedItem.itemCode || selectedItem.ItemCode || selectedItem.code || `ITM-${selectedItem.id || selectedItem.ID}`;
+    const itemName = selectedItem.itemName || selectedItem.ItemName || selectedItem.name || 'Unnamed Item';
+    const unitPrice = Number(selectedItem.lastPurPrc || selectedItem.price || selectedItem.UnitPrice || 0);
+    const itemId = Number(selectedItem.id || selectedItem.ID || 0);
+    const uom = selectedItem.uom || selectedItem.UoM || 'pcs';
+
+    if (activeRowIndexForModal !== null && activeRowIndexForModal >= 0 && activeRowIndexForModal < items.length) {
+      setItems(prev => {
+        const copy = [...prev];
+        const line = { ...copy[activeRowIndexForModal] };
+        line.ItemID = itemId;
+        line.ItemCode = itemCode;
+        line.ItemName = itemName;
+        line.UnitPrice = unitPrice;
+        line.UoM = uom;
+
+        const qty = line.Quantity || 1;
+        const disc = line.DiscPrcnt || 0;
+        const vat = line.VATPer !== undefined ? line.VATPer : 18;
+        const baseAmount = qty * unitPrice;
+        const afterDisc = baseAmount * (1 - disc / 100);
+        const tax = afterDisc * (vat / 100);
+        line.LineTax = tax;
+        line.LineTotalLC = afterDisc + tax;
+
+        copy[activeRowIndexForModal] = line;
+        return copy;
+      });
+    } else {
+      const newItem: PurchaseRequestItem = {
+        LineNum: items.length + 1,
+        ItemID: itemId,
+        ItemCode: itemCode,
+        ItemName: itemName,
+        LineStatus: 'O',
+        Quantity: 1,
+        UnitPrice: unitPrice,
+        DiscPrcnt: 0,
+        VATCode: 'VAT_18',
+        VATPer: 18,
+        LineTax: unitPrice * 0.18,
+        LineTotalLC: unitPrice * 1.18,
+        UoM: uom,
+        vendor: custCode || '',
+        DIM1: '', DIM2: '', DIM3: '', DIM4: '', DIM5: '',
+      };
+      setItems(prev => [...prev, newItem]);
+    }
+
+    setIsItemModalOpen(false);
+    setActiveRowIndexForModal(null);
   };
 
   const handleAddItemLine = () => {
@@ -223,11 +390,13 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
       const copy = [...prev];
       const line = { ...copy[index] };
       if (field === 'ItemID') {
-        const itemObj = itemsList.find(item => item.id === Number(value));
+        const itemObj = itemsList.find(item => Number(item.id || item.ID) === Number(value));
         if (itemObj) {
-          line.ItemID = itemObj.id; line.ItemCode = itemObj.code;
-          line.ItemName = itemObj.name; line.UoM = itemObj.uom;
-          line.UnitPrice = itemObj.lastPurPrc || 0;
+          line.ItemID = Number(itemObj.id || itemObj.ID);
+          line.ItemCode = itemObj.code || itemObj.itemCode || itemObj.ItemCode || `ITM-${itemObj.id || itemObj.ID}`;
+          line.ItemName = itemObj.name || itemObj.itemName || itemObj.ItemName || '';
+          line.UoM = itemObj.uom || itemObj.UoM || line.UoM || 'pcs';
+          line.UnitPrice = Number(itemObj.lastPurPrc || itemObj.price || itemObj.UnitPrice || line.UnitPrice || 0);
         }
       } else if (field === 'VATCode') {
         line.VATCode = value;
@@ -304,6 +473,10 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
         vendorRef: item.vendorRef || undefined,
         po_id: item.po_id || undefined,
         Location: item.Location || undefined,
+      })),
+      attachments: attachments.map((att, idx) => ({
+        LineNum: idx + 1,
+        Attachment: att.Attachment,
       })),
     };
     try {
@@ -426,21 +599,25 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
 
               {basicDetailsOpen && (
                 <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <FieldLabel>Vendor / Supplier</FieldLabel>
-                    <select
-                      className={inputCls}
-                      style={inputStyle}
-                      value={custCode}
-                      onChange={e => handleSupplierChange(e.target.value)}
-                      disabled={isView}
-                    >
-                      <option value="">Select Vendor/Supplier…</option>
-                      {suppliersResponse.map(s => (
-                        <option key={s.Code} value={s.Code}>{s.Code} — {s.Name}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <SearchableSelect
+                    label="Vendor / Supplier"
+                    value={custCode}
+                    onChange={(val, opt) => {
+                      const code = String(val || '');
+                      const supp = opt?.raw || suppliersList.find((s: any) => (s.Code || s.code || s.cardCode || s.CardCode) === code);
+                      if (supp) {
+                        setCustCode(code);
+                        setCustName(supp.Name || supp.name || supp.cardName || supp.CardName || '');
+                        setAddress(supp.Address || supp.address || '');
+                      } else {
+                        setCustCode(code);
+                        setCustName('');
+                      }
+                    }}
+                    options={supplierOptions}
+                    placeholder="Search & select vendor..."
+                    disabled={isView}
+                  />
                   <div>
                     <FieldLabel>Vendor Name</FieldLabel>
                     <input
@@ -693,22 +870,120 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
             </div>
                {/* Attachments */}
             <SectionCard>
-              <SectionHeader icon={<UploadCloud className="h-3.5 w-3.5" />} title="Attachments" />
-              <div className="p-5">
-                <div
-                  className="border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer group transition-all hover:border-primary hover:bg-primary/[0.02]"
-                  style={{ borderColor: 'var(--color-border)' }}
-                >
-                  <div className="w-12 h-12 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors flex items-center justify-center mx-auto mb-3">
-                    <UploadCloud className="h-6 w-6 text-primary" />
+              <SectionHeader 
+                icon={<Paperclip className="h-3.5 w-3.5" />} 
+                title={`Attachments (${attachments.length})`}
+                right={
+                  !isView && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      {isUploading ? <Spinner size="sm" /> : <UploadCloud className="h-3.5 w-3.5" />}
+                      <span>Upload File</span>
+                    </button>
+                  )
+                }
+              />
+              <div className="p-5 space-y-4">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  multiple
+                  className="hidden"
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                />
+
+                {!isView && (
+                  <div
+                    onClick={() => !isUploading && fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                      isUploading
+                        ? 'opacity-60 cursor-not-allowed border-gray-300'
+                        : 'cursor-pointer hover:border-primary hover:bg-primary/[0.02]'
+                    }`}
+                    style={{ borderColor: 'var(--color-border)' }}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-primary/10 transition-colors flex items-center justify-center mx-auto mb-2">
+                      {isUploading ? (
+                        <Spinner size="sm" />
+                      ) : (
+                        <UploadCloud className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+                    <p className="text-xs font-bold" style={{ color: 'var(--color-text)' }}>
+                      {isUploading ? 'Uploading files...' : 'Click or drop files here to upload'}
+                    </p>
+                    <p className="text-[10px] uppercase tracking-wider font-semibold mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                      PDF · JPG · PNG · DOC · XLSX · Max 10 MB
+                    </p>
                   </div>
-                  <p className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>
-                    Drop files here or click to browse
-                  </p>
-                  <p className="text-[10px] uppercase tracking-wider font-semibold mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                    PDF · JPG · PNG · Max 10 MB
-                  </p>
-                </div>
+                )}
+
+                {/* Attachments List */}
+                {attachments.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {attachments.map((att, idx) => {
+                      const fileUrl = getAttachmentUrl(att.Attachment);
+                      const fileName = getFileName(att.Attachment);
+                      const isImg = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(att.Attachment);
+                      const isPdf = /\.pdf$/i.test(att.Attachment);
+
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-3 rounded-xl border transition-all hover:shadow-sm"
+                          style={{ background: 'var(--color-surface-hover)', borderColor: 'var(--color-border)' }}
+                        >
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                              {isImg ? (
+                                <ImageIcon className="h-4 w-4 text-emerald-500" />
+                              ) : isPdf ? (
+                                <FileText className="h-4 w-4 text-rose-500" />
+                              ) : (
+                                <Paperclip className="h-4 w-4 text-indigo-500" />
+                              )}
+                            </div>
+                            <div className="truncate min-w-0">
+                              <p className="text-xs font-bold truncate" style={{ color: 'var(--color-text)' }} title={fileName}>
+                                {fileName}
+                              </p>
+                              <a
+                                href={fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] font-semibold text-primary hover:underline flex items-center gap-1 mt-0.5"
+                              >
+                                View File <ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            </div>
+                          </div>
+
+                          {!isView && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAttachment(idx)}
+                              className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all shrink-0 ml-2"
+                              title="Delete attachment"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  isView && (
+                    <p className="text-xs italic text-center py-2" style={{ color: 'var(--color-text-secondary)' }}>
+                      No attachments attached to this purchase request.
+                    </p>
+                  )
+                )}
               </div>
             </SectionCard>
           </div>
@@ -721,14 +996,26 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
             title="Material Procurement Items"
             right={
               !isView && (
-                <button
-                  type="button"
-                  onClick={handleAddItemLine}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[11px] font-bold text-white transition-all hover:scale-95 active:scale-90 shadow-sm"
-                  style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}
-                >
-                  <Plus className="h-3.5 w-3.5" /> Add Item
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAddItemLine}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white transition-all hover:scale-95 active:scale-90 shadow-sm"
+                    style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Item Line
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveRowIndexForModal(null);
+                      setIsItemModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 transition-all"
+                  >
+                    <Search className="h-3.5 w-3.5" /> Catalog Search
+                  </button>
+                </div>
               )
             }
           />
@@ -742,7 +1029,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                 <div className="text-center">
                   <p className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>No items added</p>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    Click <strong>Add Item</strong> to start adding procurement lines
+                    Click <strong>Add Item Line</strong> or <strong>Catalog Search</strong> to start adding procurement lines
                   </p>
                 </div>
               </div>
@@ -784,19 +1071,15 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                           </td>
                           
                           {/* VENDOR */}
-                          <td className="py-2.5 px-2 min-w-[180px]">
-                            <select
-                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
+                          <td className="py-2.5 px-2 min-w-[210px]">
+                            <SearchableSelect
                               value={line.vendor || ''}
-                              onChange={e => handleItemLineChange(idx, 'vendor', e.target.value)}
+                              onChange={(val) => handleItemLineChange(idx, 'vendor', String(val || ''))}
+                              options={supplierOptions}
+                              placeholder="Search & select vendor..."
                               disabled={isView}
-                            >
-                              <option value="">Select Vendor…</option>
-                              {suppliersResponse.map(s => (
-                                <option key={s.Code} value={s.Code}>{s.Code} — {s.Name}</option>
-                              ))}
-                            </select>
+                              size="sm"
+                            />
                           </td>
 
                           {/* RECEIPT QTY */}
@@ -819,19 +1102,51 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                           </td>
 
                           {/* ITEM */}
-                          <td className="py-2.5 px-2 min-w-[200px]">
-                            <select
-                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
-                              value={line.ItemID}
-                              onChange={e => handleItemLineChange(idx, 'ItemID', e.target.value)}
+                          <td className="py-2.5 px-2 min-w-[300px]">
+                            <SearchableSelect
+                              value={line.ItemCode || (line.ItemID ? String(line.ItemID) : '')}
+                              onChange={(val, opt) => {
+                                if (!val) {
+                                  handleItemLineChange(idx, 'ItemID', 0);
+                                  return;
+                                }
+                                const rawItem = opt?.raw;
+                                if (rawItem) {
+                                  const itemCode = rawItem.itemCode || rawItem.ItemCode || rawItem.code || `ITM-${rawItem.id || rawItem.ID}`;
+                                  const itemName = rawItem.itemName || rawItem.ItemName || rawItem.name || 'Unnamed Item';
+                                  const unitPrice = Number(rawItem.lastPurPrc || rawItem.price || rawItem.UnitPrice || 0);
+
+                                  const updated = [...items];
+                                  const lineItem = { ...updated[idx] };
+                                  lineItem.ItemID = Number(rawItem.id || rawItem.ID || 0);
+                                  lineItem.ItemCode = itemCode;
+                                  lineItem.ItemName = itemName;
+                                  lineItem.UnitPrice = unitPrice;
+                                  lineItem.UoM = rawItem.uom || rawItem.UoM || 'pcs';
+
+                                  const qty = Number(lineItem.Quantity || 1);
+                                  const disc = Number(lineItem.DiscPrcnt || 0);
+                                  const vatPer = 18;
+
+                                  const lineTotalBefDisc = qty * unitPrice;
+                                  const lineTotalAfterDisc = lineTotalBefDisc * (1 - disc / 100);
+                                  const lineTax = lineTotalAfterDisc * (vatPer / 100);
+                                  const lineTotalLC = lineTotalAfterDisc + lineTax;
+
+                                  lineItem.LineTax = lineTax;
+                                  lineItem.LineTotalLC = lineTotalLC;
+
+                                  updated[idx] = lineItem;
+                                  setItems(updated);
+                                } else {
+                                  handleItemLineChange(idx, 'ItemID', Number(val) || 0);
+                                }
+                              }}
+                              options={itemCatalogOptions}
+                              placeholder="Search item code or name..."
                               disabled={isView}
-                            >
-                              <option value="0" disabled>Select Item…</option>
-                              {itemsList.map(item => (
-                                <option key={item.id} value={item.id}>{item.name}</option>
-                              ))}
-                            </select>
+                              size="sm"
+                            />
                           </td>
 
                           {/* UOM */}
@@ -1251,6 +1566,155 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
         {/* END Row 3 */}
 
       </div>
+
+      {/* Select Item Modal */}
+      {isItemModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[80vh] flex flex-col border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Select Item from Catalog</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsItemModalOpen(false);
+                  setActiveRowIndexForModal(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search item code or name..."
+                  value={itemSearch}
+                  onChange={(e) => setItemSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 divide-y divide-slate-100 dark:divide-slate-700">
+              {itemsList.filter((itm: any) => {
+                const code = (itm.itemCode || itm.ItemCode || itm.code || '').toLowerCase();
+                const name = (itm.itemName || itm.ItemName || itm.name || '').toLowerCase();
+                const q = itemSearch.toLowerCase();
+                return code.includes(q) || name.includes(q);
+              }).length > 0 ? (
+                itemsList.filter((itm: any) => {
+                  const code = (itm.itemCode || itm.ItemCode || itm.code || '').toLowerCase();
+                  const name = (itm.itemName || itm.ItemName || itm.name || '').toLowerCase();
+                  const q = itemSearch.toLowerCase();
+                  return code.includes(q) || name.includes(q);
+                }).map((itm: any) => {
+                  const code = itm.itemCode || itm.ItemCode || itm.code || `ITM-${itm.id || itm.ID}`;
+                  const name = itm.itemName || itm.ItemName || itm.name || 'Unnamed Item';
+                  const price = Number(itm.lastPurPrc || itm.price || itm.UnitPrice || 0);
+
+                  return (
+                    <div
+                      key={itm.id || itm.ID}
+                      onClick={() => handleAddItem(itm)}
+                      className="py-3 px-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl cursor-pointer transition-colors"
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">{name}</div>
+                        <div className="text-[10px] text-slate-400">{code}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">{price.toLocaleString(undefined, { minimumFractionDigits: 2 })} TZS</div>
+                        <span className="text-[10px] text-slate-400 uppercase">Click to select</span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-8 text-center text-xs text-slate-400">No matching items found</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Select Vendor / Supplier Modal */}
+      {isVendorModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[80vh] flex flex-col border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Select Supplier / Vendor</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsVendorModalOpen(false);
+                  setActiveRowVendorIndexForModal(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search supplier code, name, TIN, address..."
+                  value={vendorSearch}
+                  onChange={(e) => setVendorSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 divide-y divide-slate-100 dark:divide-slate-700">
+              {suppliersResponse.filter((supp: any) => {
+                const code = (supp.Code || supp.code || supp.cardCode || supp.CardCode || '').toLowerCase();
+                const name = (supp.Name || supp.name || supp.cardName || supp.CardName || '').toLowerCase();
+                const address = (supp.Address || supp.address || '').toLowerCase();
+                const tin = (supp.TIN || supp.tin || '').toLowerCase();
+                const q = vendorSearch.toLowerCase();
+                return code.includes(q) || name.includes(q) || address.includes(q) || tin.includes(q);
+              }).length > 0 ? (
+                suppliersResponse.filter((supp: any) => {
+                  const code = (supp.Code || supp.code || supp.cardCode || supp.CardCode || '').toLowerCase();
+                  const name = (supp.Name || supp.name || supp.cardName || supp.CardName || '').toLowerCase();
+                  const address = (supp.Address || supp.address || '').toLowerCase();
+                  const tin = (supp.TIN || supp.tin || '').toLowerCase();
+                  const q = vendorSearch.toLowerCase();
+                  return code.includes(q) || name.includes(q) || address.includes(q) || tin.includes(q);
+                }).map((supp: any) => {
+                  const code = supp.Code || supp.code || supp.cardCode || supp.CardCode;
+                  const name = supp.Name || supp.name || supp.cardName || supp.CardName || 'Unnamed Vendor';
+                  const address = supp.Address || supp.address || '';
+                  const tin = supp.TIN || supp.tin || '';
+
+                  return (
+                    <div
+                      key={supp.id || supp.ID || code}
+                      onClick={() => handleSelectVendorFromModal(supp)}
+                      className="py-3 px-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl cursor-pointer transition-colors"
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">{name}</div>
+                        <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                          <span>Code: {code}</span>
+                          {tin && <span>• TIN: {tin}</span>}
+                          {address && <span>• {address}</span>}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 rounded-lg uppercase">Select</span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-8 text-center text-xs text-slate-400">No matching suppliers found</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

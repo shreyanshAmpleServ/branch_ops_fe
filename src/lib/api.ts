@@ -1,6 +1,23 @@
 import axios, { type AxiosResponse } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+export const SERVER_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
+
+export const getAttachmentUrl = (path: string): string => {
+  if (!path) return '#';
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('blob:') || path.startsWith('data:')) {
+    return path;
+  }
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${SERVER_BASE_URL}${cleanPath}`;
+};
+
+export const getFileName = (path: string): string => {
+  if (!path) return 'Attachment';
+  const parts = path.split('/');
+  const fullName = parts[parts.length - 1] || 'Attachment';
+  return fullName.replace(/^\d+[-_]/, '');
+};
 
 /** Shared axios instance — all requests go through here */
 const api = axios.create({

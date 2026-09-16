@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '../../../lib/api';
+import api from '../../../../lib/api';
 
 export interface PurchaseRequestItem {
   ID?: number;
@@ -135,6 +135,7 @@ export interface PurchaseRequestInput {
   memo_text?: string | null;
   Department?: string | null;
   items: PurchaseRequestItem[];
+  attachments?: { LineNum?: number; Attachment: string }[];
 }
 
 export const purchaseRequestKeys = {
