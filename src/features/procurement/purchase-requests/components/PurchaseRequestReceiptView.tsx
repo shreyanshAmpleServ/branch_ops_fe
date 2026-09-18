@@ -6,7 +6,7 @@ import { Button } from '../../../../components/ui';
 import * as XLSX from 'xlsx';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
-
+import "../../purchase-quotations/components/view.css";
 import { getAttachmentUrl, getFileName } from '../../../../lib/api';
 
 interface PurchaseRequestReceiptViewProps {
@@ -126,7 +126,9 @@ export const PurchaseRequestReceiptView: React.FC<PurchaseRequestReceiptViewProp
       <div className="flex justify-center overflow-x-auto pb-8 w-full">
         <div 
           ref={printRef}
-          className="bg-white text-slate-800 print:shadow-none shadow-2xl rounded-2xl border border-slate-200 min-w-[920px] w-full max-w-[1140px] mx-auto shrink-0 overflow-hidden"
+          className="purchase-quotation-print bg-white text-slate-800 shadow-2xl rounded-2xl border border-slate-200 min-w-[920px] w-full max-w-[1140px] mx-auto shrink-0 overflow-hidden"
+
+          // className="bg-white text-slate-800 print:shadow-none shadow-2xl rounded-2xl border border-slate-200 min-w-[920px] w-full max-w-[1140px] mx-auto shrink-0 overflow-hidden"
           style={{ minHeight: '800px', position: 'relative' }}
         >
           {/* Header Banner */}

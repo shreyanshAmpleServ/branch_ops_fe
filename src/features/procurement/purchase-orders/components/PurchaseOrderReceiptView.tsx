@@ -6,6 +6,7 @@ import { Button } from '../../../../components/ui';
 import * as XLSX from 'xlsx';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
+import "../../purchase-quotations/components/view.css";
 
 import { getAttachmentUrl, getFileName } from '../../../../lib/api';
 
@@ -132,24 +133,27 @@ export const PurchaseOrderReceiptView: React.FC<PurchaseOrderReceiptViewProps> =
       <div className="flex justify-center">
         <div 
           ref={printRef}
-          className="w-full max-w-[1100px] bg-white text-gray-900 p-8 sm:p-12 rounded-2xl shadow-xl border border-gray-100 space-y-8 text-sm leading-relaxed"
-          style={{ fontFamily: "'Inter', sans-serif" }}
+            className="purchase-quotation-print bg-white text-slate-800 shadow-2xl rounded-2xl border border-slate-200 min-w-[920px] w-full max-w-[1140px] mx-auto shrink-0 overflow-hidden"
+
+          // className="w-full max-w-[1100px] bg-white text-gray-900 p-8 sm:p-12 rounded-2xl shadow-xl border border-gray-100 space-y-8 text-sm leading-relaxed"
+          // style={{ fontFamily: "'Inter', sans-serif" }}
         >
           {/* Header Branding */}
-          <div className="flex flex-col sm:flex-row justify-between items-start border-b border-gray-200 pb-6 gap-6">
-            <div>
-              <div className="flex items-center gap-2">
+          <div className="w-full bg-gradient-to-r from-[#005f73] via-[#0A9396] to-[#94D2BD] text-white px-10 py-6 flex items-center justify-between">
+            <div>            
+
+              <div className="space-y-1">
                 <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-teal-600 to-cyan-700 flex items-center justify-center text-white font-bold text-xl shadow-md">
                   PO
                 </div>
                 <div>
-                  <h1 className="text-2xl font-black tracking-tight text-gray-900 uppercase">PURCHASE ORDER</h1>
-                  <p className="text-xs text-teal-600 font-semibold uppercase tracking-wider">PROCUREMENT DEPARTMENT</p>
+                  <h1 className="text-[10px] font-bold uppercase tracking-widest text-teal-200">PURCHASE ORDER</h1>
+                  <p className="text-2xl font-extrabold tracking-tight uppercase text-white">PROCUREMENT DEPARTMENT</p>
                 </div>
               </div>
             </div>
-            <div className="text-right sm:text-right w-full sm:w-auto">
-              <div className="inline-block bg-teal-50 border border-teal-200 rounded-xl p-3 text-right">
+            <div className="text-right ">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/20 backdrop-blur-md text-white border border-white/30 uppercase tracking-wider">
                 <div className="text-xs text-teal-700 font-bold uppercase tracking-wider">Order No</div>
                 <div className="text-lg font-black text-teal-900">{order.OrderCode || `PO-${order.ID}`}</div>
                 {order.RequestedNo && (
