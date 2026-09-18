@@ -123,14 +123,9 @@ export const PurchaseRequestList: React.FC = () => {
       accessorKey: 'CustName',
       header: 'VENDOR',
       cell: ({ row }) => (
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">
-            {row.original.CustName || 'Tunduma Cash Supplier'}
-          </span>
-          <span className="px-1.5 py-0.5 text-[10px] bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 rounded border border-slate-200 dark:border-slate-700">
-            {row.original.CustCode && row.original.CustCode !== 'C_000001' ? row.original.CustCode : 'N/A'}
-          </span>
-        </div>
+        <span className="text-xs font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">
+          {row.original.CustName || 'N/A'}
+        </span>
       ),
     },
     {
@@ -289,7 +284,7 @@ export const PurchaseRequestList: React.FC = () => {
       </div>
 
       {/* Main Table Container */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center p-12 space-y-3">
             <Spinner className="w-8 h-8 text-teal-600" />
@@ -321,7 +316,7 @@ export const PurchaseRequestList: React.FC = () => {
                     setEndDate(range.endDate);
                   }}
                 />
-                <Tooltip content="Refresh" position="top">
+                <Tooltip content="Refresh" position="bottom">
                   <button
                     onClick={() => refetch()}
                     disabled={isRefetching}

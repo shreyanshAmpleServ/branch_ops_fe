@@ -82,6 +82,7 @@ export interface PurchaseQuotation {
   SAPDocNum: string | number | null;
   Department?: string | null;
   RequestType?: string | null;
+  TypeRequest?: string | null;
   PurchaseRequestId?: number | null;
   Pr_ID?: string | null;
   CreatedByName?: string | null;
@@ -108,6 +109,7 @@ export interface PurchaseQuotationInput {
   Freight?: number | null;
   Department?: string | null;
   RequestType?: string | null;
+  TypeRequest?: string | null;
   PurchaseRequestId?: number | null;
   Pr_ID?: string | null;
   items: PurchaseQuotationItem[];

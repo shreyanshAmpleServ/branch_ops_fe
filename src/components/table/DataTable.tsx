@@ -16,7 +16,7 @@ import {
 } from '@tanstack/react-table';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUpDown, ArrowUp, ArrowDown, Search, Columns3, Download, ChevronDown, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, X, FileText, FileJson, Trash2, CheckSquare, LayoutGrid, List, MoreVertical, Check } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, Columns3, Download, ChevronDown, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, X, FileText, FileJson, Trash2, CheckSquare, LayoutGrid, List, MoreVertical, Check, Filter } from 'lucide-react';
 import { Dropdown } from '../ui/Dropdown';
 import { Tooltip } from '../ui/Tooltip';
 import { Table as AntTable } from 'antd';
@@ -63,6 +63,7 @@ interface DataTableProps<TData> {
   extraFilters?: React.ReactNode;
   searchValue?: string;
   onSearchChange?: (val: string) => void;
+  renderCard?: (item: TData) => React.ReactNode;
   serverPagination?: {
     total: number;
     page: number;
@@ -100,6 +101,7 @@ export function DataTable<TData>({
   extraFilters,
   searchValue,
   onSearchChange,
+  renderCard,
   serverPagination,
 }: DataTableProps<TData>) {
   const { t } = useTranslation();
@@ -115,6 +117,7 @@ export function DataTable<TData>({
   const [globalFilter, setGlobalFilter] = useState('');
   const [showColumnToggle, setShowColumnToggle] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showColumnFilters, setShowColumnFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'grid'>(defaultViewMode);
 
   const enhancedColumns = useMemo(() => {
@@ -330,11 +333,11 @@ export function DataTable<TData>({
     >
       {/* Toolbar */}
       {(enableSearch || (enableBulkActions && selectedCount > 0) || extraFilters || enableViewToggle || enableColumnVisibility || enableExport) && (
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 p-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto pb-2 lg:pb-0">
+      <div className="flex items-center justify-between gap-3 p-4 overflow-visible relative z-30" style={{ borderBottom: '1px solid var(--color-border)' }}>
+        <div className="flex items-center gap-2 shrink-0">
           {/* Search */}
           {enableSearch && (
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-64 sm:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'var(--color-text-secondary)' }} />
               <input
                 value={searchValue !== undefined ? searchValue : globalFilter}
@@ -346,7 +349,7 @@ export function DataTable<TData>({
                   }
                 }}
                 placeholder={searchPlaceholder || t('table.search')}
-                className="input-base pl-9 py-2 text-sm rounded-full"
+                className="input-base pl-9 pr-8 h-9 py-1.5 text-xs rounded-xl w-full"
               />
               {(searchValue !== undefined ? searchValue : globalFilter) && (
                 <button onClick={() => {
@@ -385,94 +388,115 @@ export function DataTable<TData>({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-start lg:justify-end pb-2 lg:pb-0 z-50">
-          {extraFilters}
-          {/* View Toggle */}
-          {enableViewToggle && (
-            <div className="flex items-center bg-surface-hover rounded-lg p-1 mr-2 border border-border">
-              <button
-                onClick={() => setViewMode('table')}
-                className={`p-1.5 rounded-md transition-all ${viewMode === 'table' ? 'bg-surface shadow-sm text-primary' : 'text-text-secondary hover:text-text'}`}
-                title="Table View"
-              >
-                <List className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-surface shadow-sm text-primary' : 'text-text-secondary hover:text-text'}`}
-                title="Grid View"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </button>
+        <div className="flex items-center gap-2 shrink-0 z-30">
+          {extraFilters && (
+            <div className="flex items-center gap-2">
+              {extraFilters}
             </div>
           )}
 
-          {/* Column Visibility */}
-          {enableColumnVisibility && (
-            <div className="relative">
-              <Tooltip content={t('table.columns') || 'Columns'} position="top">
-                <button
-                  onClick={() => setShowColumnToggle(!showColumnToggle)}
-                  className="p-2 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors flex items-center justify-center cursor-pointer"
-                >
-                  <Columns3 className="h-4 w-4" />
-                </button>
-              </Tooltip>
-              <AnimatePresence>
-                {showColumnToggle && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="absolute right-0 top-full mt-2 z-50 min-w-[200px] rounded-xl p-3 shadow-xl"
-                    style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+          {(enableViewToggle || enableColumnVisibility || enableFiltering || enableExport) && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* View Toggle */}
+              {enableViewToggle && (
+                <div className="flex items-center bg-slate-100 dark:bg-slate-900/60 rounded-xl p-0.5 border border-slate-200 dark:border-slate-700 h-9">
+                  <button
+                    onClick={() => setViewMode('table')}
+                    className={`p-1.5 rounded-lg transition-all ${viewMode === 'table' ? 'bg-white dark:bg-slate-800 shadow-sm text-teal-600 dark:text-teal-400' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                    title="Table View"
                   >
-                    {table.getAllLeafColumns().filter((c) => c.id !== 'select' && c.id !== 'expand').map((column) => (
-                      <label key={column.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-surface-hover cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={column.getIsVisible()}
-                          onChange={column.getToggleVisibilityHandler()}
-                          className="rounded accent-primary"
-                        />
-                        <span className="text-sm capitalize">{column.id.replace(/([A-Z])/g, ' $1')}</span>
-                      </label>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
+                    <List className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-800 shadow-sm text-teal-600 dark:text-teal-400' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                    title="Grid View"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
 
-          {/* Export */}
-          {enableExport && (
-            <div className="relative">
-              <Tooltip content={t('table.export') || 'Export'} position="top">
-                <button
-                  onClick={() => setShowExportMenu(!showExportMenu)}
-                  className="p-2 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors flex items-center justify-center cursor-pointer"
-                >
-                  <Download className="h-4 w-4" />
-                </button>
-              </Tooltip>
-              <AnimatePresence>
-                {showExportMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="absolute right-0 top-full mt-2 z-50 min-w-[160px] rounded-xl py-1.5 shadow-xl"
-                    style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+              {/* Column Visibility */}
+              {enableColumnVisibility && (
+                <div className="relative">
+                  <Tooltip content={t('table.columns') || 'Columns'} position="bottom" align="center">
+                    <button
+                      onClick={() => setShowColumnToggle(!showColumnToggle)}
+                      className="h-9 w-9 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors flex items-center justify-center cursor-pointer"
+                    >
+                      <Columns3 className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <AnimatePresence>
+                    {showColumnToggle && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        className="absolute right-0 top-full mt-2 z-50 min-w-[200px] rounded-xl p-3 shadow-xl"
+                        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                      >
+                        {table.getAllLeafColumns().filter((c) => c.id !== 'select' && c.id !== 'expand').map((column) => (
+                          <label key={column.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-surface-hover cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={column.getIsVisible()}
+                              onChange={column.getToggleVisibilityHandler()}
+                              className="rounded accent-primary"
+                            />
+                            <span className="text-sm capitalize">{column.id.replace(/([A-Z])/g, ' $1')}</span>
+                          </label>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
+              {/* Column Filters Toggle */}
+              {enableFiltering && (
+                <Tooltip content={showColumnFilters ? "Hide Column Filters" : "Column Filters"} position="bottom" align="center">
+                  <button
+                    onClick={() => setShowColumnFilters(!showColumnFilters)}
+                    className={`h-9 w-9 text-xs rounded-xl border transition-colors flex items-center justify-center cursor-pointer ${showColumnFilters ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-600 border-teal-300 dark:border-teal-700' : 'text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 hover:text-teal-600'}`}
                   >
-                    <button onClick={() => exportData('csv')} className="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-surface-hover">
-                      <FileText className="h-4 w-4" /> {t('table.csv')}
+                    <Filter className="h-4 w-4" />
+                  </button>
+                </Tooltip>
+              )}
+
+              {/* Export */}
+              {enableExport && (
+                <div className="relative">
+                  <Tooltip content={t('table.export') || 'Export'} position="bottom" align="right">
+                    <button
+                      onClick={() => setShowExportMenu(!showExportMenu)}
+                      className="h-9 w-9 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors flex items-center justify-center cursor-pointer"
+                    >
+                      <Download className="h-4 w-4" />
                     </button>
-                    <button onClick={() => exportData('json')} className="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-surface-hover">
-                      <FileJson className="h-4 w-4" /> {t('table.json')}
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </Tooltip>
+                  <AnimatePresence>
+                    {showExportMenu && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        className="absolute right-0 top-full mt-2 z-50 min-w-[160px] rounded-xl py-1.5 shadow-xl"
+                        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                      >
+                        <button onClick={() => exportData('csv')} className="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-surface-hover">
+                          <FileText className="h-4 w-4" /> {t('table.csv')}
+                        </button>
+                        <button onClick={() => exportData('json')} className="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-surface-hover">
+                          <FileJson className="h-4 w-4" /> {t('table.json')}
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -537,21 +561,25 @@ export function DataTable<TData>({
                   )}
                 </div>
 
-                <div className="space-y-3 mt-1">
-                  {row.getVisibleCells().filter(c => c.column.id !== 'actions' && c.column.id !== 'select' && c.column.id !== 'expand').map((cell, i) => {
-                    const isFirst = i === 0;
-                    return (
-                      <div key={cell.id} className={isFirst ? "mb-2 border-b border-border pb-3" : "flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1"}>
-                        <span className="text-xs font-medium uppercase tracking-wider text-text-secondary">
-                          {typeof cell.column.columnDef.header === 'string' ? cell.column.columnDef.header : cell.column.id}
-                        </span>
-                        <div className={`text-sm ${isFirst ? 'font-bold text-lg text-primary truncate mt-1' : 'text-text truncate text-right'}`}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                {renderCard ? (
+                  renderCard(row.original)
+                ) : (
+                  <div className="space-y-3 mt-1">
+                    {row.getVisibleCells().filter(c => c.column.id !== 'actions' && c.column.id !== 'select' && c.column.id !== 'expand').map((cell, i) => {
+                      const isFirst = i === 0;
+                      return (
+                        <div key={cell.id} className={isFirst ? "mb-2 border-b border-border pb-3" : "flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1"}>
+                          <span className="text-xs font-medium uppercase tracking-wider text-text-secondary">
+                            {typeof cell.column.columnDef.header === 'string' ? cell.column.columnDef.header : cell.column.id}
+                          </span>
+                          <div className={`text-sm ${isFirst ? 'font-bold text-lg text-primary truncate mt-1' : 'text-text truncate text-right'}`}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </motion.div>
             ))}
           </div>
@@ -687,40 +715,60 @@ export function DataTable<TData>({
                 striped={tableDesign === 'striped'}
                 bordered={tableDesign === 'card'}
                 hover
-                className="mb-0 w-full"
+                className="mb-0 w-full min-w-[1250px] align-middle"
               >
                 <thead className={dc.header}>
                   {table.getHeaderGroups().map((headerGroup) => (
-                    <tr key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <th
-                          key={header.id}
-                          className={`${dc.headerCell} ${dc.cell} text-left whitespace-nowrap`}
-                          style={{
-                            color: 'var(--color-text-secondary)',
-                            width: header.getSize(),
-                            cursor: header.column.getCanSort() ? 'pointer' : 'default',
-                            fontSize: '11px',
-                          }}
-                          onClick={header.column.getToggleSortingHandler()}
-                        >
-                          <div className="flex items-center gap-1.5 whitespace-nowrap">
-                            {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                            {header.column.getCanSort() && (
-                              <span className="opacity-50 shrink-0">
-                                {header.column.getIsSorted() === 'asc' ? (
-                                  <ArrowUp className="h-3.5 w-3.5" />
-                                ) : header.column.getIsSorted() === 'desc' ? (
-                                  <ArrowDown className="h-3.5 w-3.5" />
-                                ) : (
-                                  <ArrowUpDown className="h-3.5 w-3.5" />
-                                )}
-                              </span>
-                            )}
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
+                    <React.Fragment key={headerGroup.id}>
+                      <tr>
+                        {headerGroup.headers.map((header) => (
+                          <th
+                            key={header.id}
+                            className={`${dc.headerCell} ${dc.cell} text-left whitespace-nowrap`}
+                            style={{
+                              color: 'var(--color-text-secondary)',
+                              width: header.getSize(),
+                              cursor: header.column.getCanSort() ? 'pointer' : 'default',
+                              fontSize: '11px',
+                            }}
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            <div className="flex items-center gap-1.5 whitespace-nowrap">
+                              {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                              {header.column.getCanSort() && (
+                                <span className="opacity-50 shrink-0">
+                                  {header.column.getIsSorted() === 'asc' ? (
+                                    <ArrowUp className="h-3.5 w-3.5" />
+                                  ) : header.column.getIsSorted() === 'desc' ? (
+                                    <ArrowDown className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <ArrowUpDown className="h-3.5 w-3.5" />
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                      {showColumnFilters && (
+                        <tr className="bg-slate-50/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-700">
+                          {headerGroup.headers.map((header) => (
+                            <th key={`filter-${header.id}`} className="px-2 py-1.5 text-left font-normal">
+                              {header.column.id !== 'select' && header.column.id !== 'expand' && header.column.id !== 'actions' ? (
+                                <input
+                                  type="text"
+                                  value={(header.column.getFilterValue() as string) ?? ''}
+                                  onChange={(e) => header.column.setFilterValue(e.target.value)}
+                                  placeholder={`Filter ${typeof header.column.columnDef.header === 'string' ? header.column.columnDef.header : ''}...`}
+                                  className="w-full px-2 py-1 text-[11px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-normal text-slate-700 dark:text-slate-200 placeholder:text-slate-400 shadow-xs"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              ) : null}
+                            </th>
+                          ))}
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))}
                 </thead>
                 <tbody>

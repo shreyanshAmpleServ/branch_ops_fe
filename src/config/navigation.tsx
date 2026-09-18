@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Target, Handshake, CheckSquare, BarChart3, Settings, UserCog, Shield, Truck, Warehouse, Network, Boxes, ClipboardCheck, FileText, AlertCircle, Sliders, Activity, ArrowDownCircle, ArrowUpCircle, Wallet, FileClock, Fuel, UserCheck, Calculator, Scale, History, Store } from 'lucide-react';
+import { LayoutDashboard, Users, Target, Handshake, CheckSquare, BarChart3, Settings, UserCog, Shield, Truck, Warehouse, Network, Boxes, ClipboardCheck, FileText, AlertCircle, Sliders, Activity, ArrowDownCircle, ArrowUpCircle, Wallet, FileClock, Fuel, UserCheck, Calculator, Scale, History, Store, ShoppingBag } from 'lucide-react';
 import type { Permission } from '../types/auth.types';
 
 export interface NavItem {
@@ -31,9 +31,18 @@ export const NAVIGATION: NavItem[] = [
       { id: 'approve-supplier', label: 'Approve Supplier', translationKey: 'nav.approveSupplier', path: '/suppliers/approve' },
     ]
   },
-  { id: 'quotations', label: 'Quotations', translationKey: 'nav.quotations', icon: CheckSquare, path: '/quotations' },
-  { id: 'orders', label: 'Orders', translationKey: 'nav.orders', icon: Handshake, path: '/deals' },
-  { id: 'ar-invoice', label: 'AR Invoice', translationKey: 'nav.arInvoice', icon: BarChart3, path: '/invoice' },
+  {
+    id: 'sales-module',
+    label: 'Sales Module',
+    translationKey: 'nav.salesModule',
+    icon: ShoppingBag,
+    path: '/sales',
+    children: [
+      { id: 'quotations', label: 'Quotations', translationKey: 'nav.quotations', icon: CheckSquare, path: '/quotations' },
+      { id: 'orders', label: 'Orders', translationKey: 'nav.orders', icon: Handshake, path: '/deals' },
+      { id: 'ar-invoice', label: 'AR Invoice', translationKey: 'nav.arInvoice', icon: BarChart3, path: '/invoice' },
+    ]
+  },
   { 
     id: 'banking', 
     label: 'Banking', 
@@ -76,6 +85,7 @@ export const NAVIGATION: NavItem[] = [
     children: [
       { id: 'wh-manage', label: 'Manage Warehouse', translationKey: 'nav.manageWarehouse', path: '/warehouse/manage' },
       { id: 'wh-items', label: 'Manage Items', translationKey: 'nav.manageItems', path: '/warehouse/items' },
+      { id: 'wh-item-prices', label: 'Item Prices', translationKey: 'nav.itemPrices', path: '/warehouse/item-prices' },
     ]
   },
   {

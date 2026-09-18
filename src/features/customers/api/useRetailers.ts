@@ -67,29 +67,35 @@ interface RetailerResponse {
   data: Retailer;
 }
 
-export const useRetailers = (filters: { 
-  cardType: 'C' | 'S'; 
+export const useRetailers = (filters?: { 
+  cardType?: 'C' | 'S'; 
   search?: string; 
   aprStatus?: string;
   startDate?: string;
   endDate?: string;
 }) => {
+  const cardType = filters?.cardType || 'C';
+  const search = filters?.search || '';
+  const aprStatus = filters?.aprStatus || 'all';
+  const startDate = filters?.startDate;
+  const endDate = filters?.endDate;
+
   return useQuery({
     queryKey: retailersKeys.list(
-      filters.cardType, 
-      filters.search || '', 
-      filters.aprStatus || 'all',
-      filters.startDate,
-      filters.endDate
+      cardType, 
+      search, 
+      aprStatus,
+      startDate,
+      endDate
     ),
     queryFn: async () => {
       const { data } = await api.get<GetRetailersResponse>('/retailers', {
         params: {
-          cardType: filters.cardType,
-          search: filters.search || undefined,
-          aprStatus: filters.aprStatus || 'all',
-          startDate: filters.startDate || undefined,
-          endDate: filters.endDate || undefined,
+          cardType,
+          search: search || undefined,
+          aprStatus: aprStatus || 'all',
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
           limit: 100, // Fetch up to 100 at a time for search/filter simplicity
         },
       });

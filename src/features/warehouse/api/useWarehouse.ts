@@ -36,6 +36,35 @@ export interface WarehouseResponse {
   };
 }
 
+export interface WarehouseStockItem {
+  id: number;
+  code: string;
+  name: string;
+  categoryName?: string | null;
+  uom?: string | null;
+  onHand: number;
+  isCommited: number;
+  onOrder: number;
+  minQtyLevel: number;
+  maxQtyLevel: number;
+  lastPurPrc: number;
+  totalValuation: number;
+  warehouseId: number;
+  warehouseName: string;
+  warehouseCode: string;
+}
+
+export interface WarehouseItemsResponse {
+  status: string;
+  warehouse: ApiWarehouse;
+  items: WarehouseStockItem[];
+  stats: {
+    totalItems: number;
+    inStockCount: number;
+    totalValuation: number;
+  };
+}
+
 export function useWarehouses(params: WarehouseParams = {}) {
   return useQuery<WarehouseResponse>({
     queryKey: ['warehouses', params],
@@ -48,6 +77,18 @@ export function useWarehouses(params: WarehouseParams = {}) {
       const { data } = await api.get<WarehouseResponse>(`/warehouse?${queryParams}`);
       return data;
     },
+    staleTime: 30_000,
+  });
+}
+
+export function useWarehouseItems(whsId: number | null | undefined) {
+  return useQuery<WarehouseItemsResponse>({
+    queryKey: ['warehouse-items', whsId],
+    queryFn: async () => {
+      const { data } = await api.get<WarehouseItemsResponse>(`/warehouse/${whsId}/items`);
+      return data;
+    },
+    enabled: !!whsId,
     staleTime: 30_000,
   });
 }

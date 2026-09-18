@@ -22,8 +22,18 @@ import { ProfilePage } from '../features/profile/ProfilePage';
 import { SupplierList } from '../features/suppliers/SupplierList';
 import { ApproveSupplier } from '../features/suppliers/ApproveSupplier';
 import { Quotations } from '../features/quotations/Quotations';
+import { QuotationFormPage } from '../features/quotations/QuotationFormPage';
+import { QuotationViewPage } from '../features/quotations/QuotationViewPage';
+import { SalesOrderFormPage } from '../features/deals/SalesOrderFormPage';
+import { SalesOrderViewPage } from '../features/deals/SalesOrderViewPage';
 import { ARInvoice } from '../features/invoice/ARInvoice';
+import { ARInvoiceFormPage } from '../features/invoice/ARInvoiceFormPage';
+import { ARInvoiceViewPage } from '../features/invoice/ARInvoiceViewPage';
 import { Banking } from '../features/banking/Banking';
+import { IncomingPaymentsPage } from '../features/banking/IncomingPaymentsPage';
+import { OutgoingPaymentsPage } from '../features/banking/OutgoingPaymentsPage';
+import { PettyCashPage } from '../features/banking/PettyCashPage';
+import { PendingPoPaymentsPage } from '../features/banking/PendingPoPaymentsPage';
 import { AskAssistant } from '../features/assistant/AskAssistant';
 import { UserManagement } from '../features/users/UserManagement';
 import { RolePermissions } from '../features/users/RolePermissions';
@@ -33,6 +43,7 @@ import { CompanyDetails } from '../features/settings/CompanyDetails';
 import { ExpenseEntryPage } from '../features/settings/ExpenseEntry';
 import { WarehouseManagement } from '../features/warehouse/WarehouseManagement';
 import { ItemManagement } from '../features/items/ItemManagement';
+import { ItemPricesPage } from '../features/item-prices';
 import {
   PurchaseRequestList,
   PurchaseRequestFormPage,
@@ -41,8 +52,19 @@ import {
   PurchaseQuotationViewPage,
   PurchaseOrderList,
   PurchaseOrderFormPage,
-  PurchaseOrderViewPage
+  PurchaseOrderViewPage,
+  GoodsReceiptList,
+  GoodsReceiptFormPage,
+  GoodsReceiptViewPage,
+  APInvoiceList,
+  APInvoiceFormPage,
+  APInvoiceViewPage
 } from '../features/procurement';
+import {
+  ProjectManagement,
+  ProjectAnalytics,
+  ProjectFinance
+} from '../features/projects';
 
 export const DashboardHome: React.FC = () => {
   const { activeDesign } = useDesignStore();
@@ -71,17 +93,33 @@ export const routes: AppRoute[] = [
   { path: "/customers", element: <CustomerList />, isProtected: true },
   { path: "/leads", element: <LeadList />, isProtected: true },
   { path: "/deals", element: <DealList />, isProtected: true },
+  { path: "/deals/new", element: <SalesOrderFormPage mode="add" />, isProtected: true },
+  { path: "/deals/edit/:id", element: <SalesOrderFormPage mode="edit" />, isProtected: true },
+  { path: "/deals/view/:id", element: <SalesOrderViewPage />, isProtected: true },
+  { path: "/orders", element: <DealList />, isProtected: true },
+  { path: "/orders/new", element: <SalesOrderFormPage mode="add" />, isProtected: true },
+  { path: "/orders/edit/:id", element: <SalesOrderFormPage mode="edit" />, isProtected: true },
+  { path: "/orders/view/:id", element: <SalesOrderViewPage />, isProtected: true },
+
   { path: "/tasks", element: <TaskList />, isProtected: true },
   { path: "/analytics", element: <AnalyticsDashboard />, isProtected: true },
   { path: "/suppliers/list", element: <SupplierList />, isProtected: true },
   { path: "/suppliers/approve", element: <ApproveSupplier />, isProtected: true },
+
   { path: "/quotations", element: <Quotations />, isProtected: true },
+  { path: "/quotations/new", element: <QuotationFormPage mode="add" />, isProtected: true },
+  { path: "/quotations/edit/:id", element: <QuotationFormPage mode="edit" />, isProtected: true },
+  { path: "/quotations/view/:id", element: <QuotationViewPage />, isProtected: true },
+
   { path: "/invoice", element: <ARInvoice />, isProtected: true },
+  { path: "/invoice/new", element: <ARInvoiceFormPage mode="add" />, isProtected: true },
+  { path: "/invoice/edit/:id", element: <ARInvoiceFormPage mode="edit" />, isProtected: true },
+  { path: "/invoice/view/:id", element: <ARInvoiceViewPage />, isProtected: true },
   { path: "/banking", element: <Banking />, isProtected: true },
-  { path: "/banking/incoming", element: <DummyModulePage title="Incoming Payments" />, isProtected: true },
-  { path: "/banking/outgoing", element: <DummyModulePage title="Outgoing Payments" />, isProtected: true },
-  { path: "/banking/petty-cash", element: <DummyModulePage title="Petty Cash" />, isProtected: true },
-  { path: "/banking/pending-po", element: <DummyModulePage title="Pending Po Payments" />, isProtected: true },
+  { path: "/banking/incoming", element: <IncomingPaymentsPage />, isProtected: true },
+  { path: "/banking/outgoing", element: <OutgoingPaymentsPage />, isProtected: true },
+  { path: "/banking/petty-cash", element: <PettyCashPage />, isProtected: true },
+  { path: "/banking/pending-po", element: <PendingPoPaymentsPage />, isProtected: true },
   
   { path: "/procurement/request", element: <PurchaseRequestList />, isProtected: true },
   { path: "/procurement/request/new", element: <PurchaseRequestFormPage mode="add" />, isProtected: true },
@@ -98,11 +136,18 @@ export const routes: AppRoute[] = [
   { path: "/procurement/order/view/:id", element: <PurchaseOrderViewPage />, isProtected: true },
   { path: "/procurement/notice", element: <DummyModulePage title="Notice Arrival" />, isProtected: true },
   { path: "/procurement/advance", element: <DummyModulePage title="Advance Request" />, isProtected: true },
-  { path: "/procurement/grpo", element: <DummyModulePage title="GRPO" />, isProtected: true },
-  { path: "/procurement/ap-invoice", element: <DummyModulePage title="AP Invoice" />, isProtected: true },
+  { path: "/procurement/grpo", element: <GoodsReceiptList />, isProtected: true },
+  { path: "/procurement/grpo/new", element: <GoodsReceiptFormPage mode="add" />, isProtected: true },
+  { path: "/procurement/grpo/edit/:id", element: <GoodsReceiptFormPage mode="edit" />, isProtected: true },
+  { path: "/procurement/grpo/view/:id", element: <GoodsReceiptViewPage />, isProtected: true },
+  { path: "/procurement/ap-invoice", element: <APInvoiceList />, isProtected: true },
+  { path: "/procurement/ap-invoice/new", element: <APInvoiceFormPage mode="add" />, isProtected: true },
+  { path: "/procurement/ap-invoice/edit/:id", element: <APInvoiceFormPage mode="edit" />, isProtected: true },
+  { path: "/procurement/ap-invoice/view/:id", element: <APInvoiceViewPage />, isProtected: true },
   
   { path: "/warehouse/manage", element: <WarehouseManagement />, isProtected: true },
   { path: "/warehouse/items", element: <ItemManagement />, isProtected: true },
+  { path: "/warehouse/item-prices", element: <ItemPricesPage />, isProtected: true },
   
   { path: "/fuel/station-master", element: <DummyModulePage title="Fuel Station Master" />, isProtected: true },
   { path: "/fuel/shift-master", element: <DummyModulePage title="Fuel Shift Master" />, isProtected: true },
@@ -121,9 +166,9 @@ export const routes: AppRoute[] = [
   { path: "/stock/receipt", element: <DummyModulePage title="Goods Receipt" />, isProtected: true },
   { path: "/stock/issue", element: <DummyModulePage title="Goods Issue" />, isProtected: true },
 
-  { path: "/projects/manage", element: <DummyModulePage title="Project Management" />, isProtected: true },
-  { path: "/projects/analytics", element: <DummyModulePage title="Executive Analytics" />, isProtected: true },
-  { path: "/projects/finance", element: <DummyModulePage title="Stage Financial Progress" />, isProtected: true },
+  { path: "/projects/manage", element: <ProjectManagement />, isProtected: true },
+  { path: "/projects/analytics", element: <ProjectAnalytics />, isProtected: true },
+  { path: "/projects/finance", element: <ProjectFinance />, isProtected: true },
 
   { path: "/system/approvals", element: <DummyModulePage title="Approver Management" />, isProtected: true },
   { path: "/system/notes", element: <DummyModulePage title="Notes" />, isProtected: true },

@@ -329,11 +329,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 z-[9999] w-[290px] sm:w-[480px] max-w-[calc(100vw-2rem)] rounded-2xl border shadow-2xl p-3.5 flex flex-col gap-2.5"
-            style={{
-              background: 'var(--color-surface)',
-              borderColor: 'var(--color-border)',
-            }}
+            className="absolute right-0 top-full mt-2 z-[9999] w-[290px] sm:w-[480px] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xl p-3.5 flex flex-col gap-2.5"
           >
             <div className="flex items-center justify-between pb-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
               <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">

@@ -628,7 +628,20 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                       disabled
                     />
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
+                    <FieldLabel>Request Type *</FieldLabel>
+                    <select
+                      className={inputCls}
+                      style={inputStyle}
+                      value={typeRequest}
+                      onChange={e => setTypeRequest(e.target.value)}
+                      disabled={isView}
+                    >
+                      <option value="Item">Item (Material / Physical Goods)</option>
+                      <option value="Service">Service (Non-Inventory / Services / Contracts)</option>
+                    </select>
+                  </div>
+                  <div>
                     <FieldLabel>Address</FieldLabel>
                     <input
                       type="text"
@@ -989,11 +1002,11 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
           </div>
         </div>
 
-        {/* ══════════════════════ ROW 2: Full-width Items Table ══════════════════════ */}
+        {/* ══════════════════════ ROW 2: Full-width Items/Service Table ══════════════════════ */}
         <SectionCard>
           <SectionHeader
             icon={<Package className="h-3.5 w-3.5" />}
-            title="Material Procurement Items"
+            title={typeRequest === 'Service' ? 'Service Procurement Lines' : 'Material Procurement Items'}
             right={
               !isView && (
                 <div className="flex items-center gap-2">
@@ -1003,18 +1016,20 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                     className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white transition-all hover:scale-95 active:scale-90 shadow-sm"
                     style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}
                   >
-                    <Plus className="h-3.5 w-3.5" /> Add Item Line
+                    <Plus className="h-3.5 w-3.5" /> {typeRequest === 'Service' ? 'Add Service Line' : 'Add Item Line'}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveRowIndexForModal(null);
-                      setIsItemModalOpen(true);
-                    }}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 transition-all"
-                  >
-                    <Search className="h-3.5 w-3.5" /> Catalog Search
-                  </button>
+                  {typeRequest !== 'Service' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveRowIndexForModal(null);
+                        setIsItemModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 transition-all"
+                    >
+                      <Search className="h-3.5 w-3.5" /> Catalog Search
+                    </button>
+                  )}
                 </div>
               )
             }
@@ -1027,13 +1042,226 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                   <Package className="h-6 w-6 text-primary" />
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>No items added</p>
+                  <p className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>
+                    {typeRequest === 'Service' ? 'No service lines added' : 'No items added'}
+                  </p>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    Click <strong>Add Item Line</strong> or <strong>Catalog Search</strong> to start adding procurement lines
+                    {typeRequest === 'Service'
+                      ? 'Click Add Service Line to describe services, professional fees, or contracts'
+                      : 'Click Add Item Line or Catalog Search to start adding procurement lines'}
                   </p>
                 </div>
               </div>
+            ) : typeRequest === 'Service' ? (
+              /* ─── SERVICE TABLE ─── */
+              <div className="overflow-x-auto rounded-xl border animate-fade-in" style={{ borderColor: 'var(--color-border)' }}>
+                <table className="w-full text-left border-collapse min-w-[1600px]">
+                  <thead>
+                    <tr style={{ background: 'var(--color-surface-hover)', borderBottom: '1px solid var(--color-border)' }}>
+                      {[
+                        '#', 'SERVICE DESCRIPTION *', 'AMOUNT / FEE (TZS)', 'TAX CODE', 'DISC %',
+                        'TAX AMOUNT', 'TOTAL WITH TAX', 'PROJECT', 'PRODUCT / DIM1',
+                        'LOCATION', 'ASSET', 'REMARKS', 'ACTION'
+                      ].map((h, i) => (
+                        <th
+                          key={i}
+                          className="py-3 px-3 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((line, idx) => {
+                      const amountBeforeTax = Number(line.UnitPrice || 0) * (1 - Number(line.DiscPrcnt || 0) / 100);
+                      return (
+                        <tr
+                          key={idx}
+                          className="border-b transition-colors hover:bg-primary/[0.03]"
+                          style={{ borderColor: 'var(--color-border)' }}
+                        >
+                          {/* Line number */}
+                          <td className="py-2.5 px-3 w-[50px]">
+                            <span className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold" style={{ background: 'var(--color-surface-hover)', color: 'var(--color-text-secondary)' }}>
+                              {idx + 1}
+                            </span>
+                          </td>
+
+                          {/* SERVICE DESCRIPTION */}
+                          <td className="py-2.5 px-2 min-w-[320px]">
+                            <input
+                              type="text"
+                              placeholder="Describe service / fee / contract details..."
+                              className="w-full text-xs font-medium py-1.5 px-3 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                              style={inputStyle}
+                              value={line.ItemName || line.Remarks || ''}
+                              onChange={e => {
+                                handleItemLineChange(idx, 'ItemName', e.target.value);
+                              }}
+                              disabled={isView}
+                            />
+                          </td>
+
+                          {/* AMOUNT / FEE */}
+                          <td className="py-2.5 px-2 w-[160px]">
+                            <input
+                              type="number" step="any" min="0"
+                              placeholder="0.00"
+                              className="w-full text-xs font-bold font-mono py-1.5 px-2 rounded-lg text-right border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                              style={inputStyle}
+                              value={line.UnitPrice || ''}
+                              onChange={e => {
+                                const price = Number(e.target.value) || 0;
+                                handleItemLineChange(idx, 'UnitPrice', price);
+                                handleItemLineChange(idx, 'Quantity', 1);
+                              }}
+                              disabled={isView}
+                            />
+                          </td>
+
+                          {/* TAX CODE */}
+                          <td className="py-2.5 px-2 min-w-[150px]">
+                            <select
+                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                              style={inputStyle}
+                              value={line.VATCode || 'VAT_18'}
+                              onChange={e => handleItemLineChange(idx, 'VATCode', e.target.value)}
+                              disabled={isView}
+                            >
+                              <option value="VAT_18">Input VAT 18%</option>
+                              <option value="VAT_10">Input VAT 10%</option>
+                              <option value="VAT_0">Zero Rated 0%</option>
+                              <option value="VAT_EXEMPT">Exempt 0%</option>
+                            </select>
+                          </td>
+
+                          {/* DISCOUNT % */}
+                          <td className="py-2.5 px-2 w-[90px]">
+                            <input
+                              type="number" min="0" max="100" step="any"
+                              className="w-full text-xs font-bold font-mono py-1.5 px-2 rounded-lg text-center border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                              style={inputStyle}
+                              value={line.DiscPrcnt || 0}
+                              onChange={e => handleItemLineChange(idx, 'DiscPrcnt', Number(e.target.value))}
+                              disabled={isView}
+                            />
+                          </td>
+
+                          {/* TAX AMOUNT */}
+                          <td className="py-2.5 px-2 w-[130px]">
+                            <input
+                              type="text"
+                              className="w-full text-xs font-bold font-mono py-1.5 px-2 rounded-lg text-right border outline-none bg-slate-50 dark:bg-slate-800 opacity-80 cursor-not-allowed"
+                              style={inputStyle}
+                              value={Number(line.LineTax || 0).toFixed(2)}
+                              disabled
+                            />
+                          </td>
+
+                          {/* TOTAL WITH TAX */}
+                          <td className="py-2.5 px-3 w-[140px] text-right font-extrabold font-mono text-xs text-primary">
+                            {Number(line.LineTotalLC || amountBeforeTax).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </td>
+
+                          {/* PROJECT */}
+                          <td className="py-2.5 px-2 min-w-[160px]">
+                            <select
+                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                              style={inputStyle}
+                              value={line.project || ''}
+                              onChange={e => handleItemLineChange(idx, 'project', e.target.value)}
+                              disabled={isView}
+                            >
+                              <option value="">Select Project…</option>
+                              {projectsList.map(p => (
+                                <option key={p.code} value={p.code}>{p.code} — {p.name}</option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* PRODUCT / DIM1 */}
+                          <td className="py-2.5 px-2 min-w-[160px]">
+                            <select
+                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                              style={inputStyle}
+                              value={line.DIM1 || ''}
+                              onChange={e => handleItemLineChange(idx, 'DIM1', e.target.value)}
+                              disabled={isView}
+                            >
+                              <option value="">Select Product / CC…</option>
+                              {productsList.map(p => (
+                                <option key={p.code} value={p.code}>{p.code} — {p.name}</option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* LOCATION */}
+                          <td className="py-2.5 px-2 min-w-[150px]">
+                            <select
+                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                              style={inputStyle}
+                              value={line.DIM3 || ''}
+                              onChange={e => handleItemLineChange(idx, 'DIM3', e.target.value)}
+                              disabled={isView}
+                            >
+                              <option value="">Select Location…</option>
+                              {locationsList.map(l => (
+                                <option key={l.code} value={l.code}>{l.code} — {l.name}</option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* ASSET */}
+                          <td className="py-2.5 px-2 min-w-[150px]">
+                            <select
+                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                              style={inputStyle}
+                              value={line.DIM4 || ''}
+                              onChange={e => handleItemLineChange(idx, 'DIM4', e.target.value)}
+                              disabled={isView}
+                            >
+                              <option value="">Select Asset…</option>
+                              {assetsList.map(a => (
+                                <option key={a.code} value={a.code}>{a.code} — {a.name}</option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* REMARKS */}
+                          <td className="py-2.5 px-2 min-w-[180px]">
+                            <input
+                              type="text"
+                              placeholder="Notes…"
+                              className="w-full text-xs py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                              style={inputStyle}
+                              value={line.Remarks || ''}
+                              onChange={e => handleItemLineChange(idx, 'Remarks', e.target.value)}
+                              disabled={isView}
+                            />
+                          </td>
+
+                          {/* ACTION */}
+                          <td className="py-2.5 px-2 text-center w-[50px]">
+                            {!isView && (
+                              <button
+                                type="button"
+                                className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110 text-rose-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                                onClick={() => handleRemoveItemLine(idx)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             ) : (
+              /* ─── MATERIAL ITEMS TABLE ─── */
               <div className="overflow-x-auto rounded-xl border animate-fade-in" style={{ borderColor: 'var(--color-border)' }}>
                 <table className="w-full text-left border-collapse" style={{ minWidth: 2600 }}>
                   <thead>
@@ -1569,7 +1797,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
 
       {/* Select Item Modal */}
       {isItemModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[80vh] flex flex-col border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
             <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">Select Item from Catalog</h3>
@@ -1639,7 +1867,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
       )}
       {/* Select Vendor / Supplier Modal */}
       {isVendorModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[80vh] flex flex-col border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
             <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">Select Supplier / Vendor</h3>

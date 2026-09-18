@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ChevronDown,
@@ -17,7 +17,11 @@ import {
   ExternalLink,
   Building2,
   Layers,
-  Search
+  Search,
+  Copy,
+  CheckSquare,
+  Square,
+  AlertCircle
 } from 'lucide-react';
 import {
   useCreatePurchaseQuotation,
@@ -161,9 +165,112 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
   const [quotCode, setQuotCode] = useState('');
   const [department, setDepartment] = useState('');
   const [requestType, setRequestType] = useState('Item');
+  const [typeRequest, setTypeRequest] = useState('Item');
   const [purchaseRequestId, setPurchaseRequestId] = useState<number | ''>('');
   const [prId, setPrId] = useState<string>('');
   const { data: rawRequests } = usePurchaseRequests({});
+
+  // Copy From Request Modal State
+  const [isCopyPrModalOpen, setIsCopyPrModalOpen] = useState(false);
+  const [prSearch, setPrSearch] = useState('');
+  const [selectedPrForCopy, setSelectedPrForCopy] = useState<any | null>(null);
+  const [selectedPrItemIds, setSelectedPrItemIds] = useState<number[]>([]);
+
+  const requestsList = React.useMemo(() => {
+    return Array.isArray(rawRequests) ? rawRequests : (rawRequests as any)?.data || [];
+  }, [rawRequests]);
+
+  const handleOpenCopyPrModal = () => {
+    setSelectedPrForCopy(null);
+    setSelectedPrItemIds([]);
+    setIsCopyPrModalOpen(true);
+  };
+
+  const handleSelectPr = async (pr: any) => {
+    let fullPr = pr;
+    if (!pr.items || pr.items.length === 0) {
+      try {
+        const res = await api.get(`/purchase-request/${pr.ID || pr.id}`);
+        if (res.data?.data) {
+          fullPr = res.data.data;
+        }
+      } catch (e) {
+        console.error('Failed to fetch full PR details:', e);
+      }
+    }
+    setSelectedPrForCopy(fullPr);
+    const itemIds = (fullPr.items || []).map((_: any, idx: number) => idx);
+    setSelectedPrItemIds(itemIds);
+  };
+
+  const handleTogglePrItem = (idx: number) => {
+    setSelectedPrItemIds(prev =>
+      prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
+    );
+  };
+
+  const handleApplyPrCopy = (replaceExisting: boolean = true) => {
+    if (!selectedPrForCopy) return;
+
+    if (selectedPrForCopy.CustCode && !custCode) {
+      setCustCode(selectedPrForCopy.CustCode);
+      setCustName(selectedPrForCopy.CustName || '');
+      setAddress(selectedPrForCopy.Address || '');
+    }
+    setPurchaseRequestId(Number(selectedPrForCopy.ID));
+    setPrId(selectedPrForCopy.RequestedNo || selectedPrForCopy.OrderCode || String(selectedPrForCopy.ID));
+    if (selectedPrForCopy.Currency) setCurrency(selectedPrForCopy.Currency);
+    if (selectedPrForCopy.Branch_id) setBranchId(Number(selectedPrForCopy.Branch_id));
+    if (selectedPrForCopy.Department) setDepartment(selectedPrForCopy.Department);
+    if (selectedPrForCopy.RequestType) setRequestType(selectedPrForCopy.RequestType);
+
+    const sourceItems = (selectedPrForCopy.items || []).filter((_: any, idx: number) =>
+      selectedPrItemIds.includes(idx)
+    );
+
+    const convertedItems: PurchaseQuotationItem[] = sourceItems.map((it: any, idx: number) => {
+      const qty = Number(it.Quantity || 1);
+      const price = Number(it.UnitPrice || 0);
+      const disc = Number(it.DiscPrcnt || 0);
+      const vatPer = Number(it.VATPer !== undefined ? it.VATPer : 18);
+      const lineTotalBefDisc = qty * price;
+      const lineTotalAfterDisc = lineTotalBefDisc * (1 - disc / 100);
+      const lineTax = it.LineTax !== undefined ? Number(it.LineTax) : lineTotalAfterDisc * (vatPer / 100);
+      const lineTotalLC = it.LineTotalLC !== undefined ? Number(it.LineTotalLC) : lineTotalAfterDisc + lineTax;
+
+      return {
+        LineNum: idx + 1,
+        ItemID: Number(it.ItemID || 0),
+        ItemCode: it.ItemCode || '',
+        ItemName: it.ItemName || '',
+        Quantity: qty,
+        UnitPrice: price,
+        DiscPrcnt: disc,
+        VATCode: it.VATCode || 'VAT_18',
+        VATPer: vatPer,
+        LineTax: lineTax,
+        LineTotalLC: lineTotalLC,
+        WhsCode: it.WhsCode ? Number(it.WhsCode) : undefined,
+        cost_center: it.cost_center ? Number(it.cost_center) : undefined,
+        project: it.project || '',
+        Remarks: it.Remarks || '',
+        UoM: it.UoM || 'pcs',
+        vendor: it.vendor || selectedPrForCopy.CustCode || '',
+      };
+    });
+
+    if (replaceExisting) {
+      setItems(convertedItems);
+    } else {
+      setItems(prev => [
+        ...prev,
+        ...convertedItems.map((it, idx) => ({ ...it, LineNum: prev.length + idx + 1 }))
+      ]);
+    }
+
+    setIsCopyPrModalOpen(false);
+  };
+
   const [discountPercent, setDiscountPercent] = useState(0);
   const [hasRounding, setHasRounding] = useState(false);
   const [roundingAmount, setRoundingAmount] = useState(0);
@@ -189,7 +296,8 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
       setBranchId(existingQuotation.Branch_id || '');
       setQuotCode(existingQuotation.QuotCode || '');
       setDepartment(existingQuotation.Department || '');
-      setRequestType(existingQuotation.RequestType || 'Item');
+      setRequestType(existingQuotation.TypeRequest || existingQuotation.RequestType || 'Item');
+      setTypeRequest(existingQuotation.TypeRequest || existingQuotation.RequestType || 'Item');
       setPurchaseRequestId(existingQuotation.PurchaseRequestId || '');
       setPrId(existingQuotation.Pr_ID || '');
       setDiscountPercent(Number(existingQuotation.DiscPrcnt || 0));
@@ -227,7 +335,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
       setDueDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
       setTaxDate(new Date().toISOString().split('T')[0]);
       setRemarks(''); setBranchId(''); setQuotCode('');
-      setDepartment(''); setRequestType('Item'); setPurchaseRequestId(''); setPrId('');
+      setDepartment(''); setRequestType('Item'); setTypeRequest('Item'); setPurchaseRequestId(''); setPrId('');
       setDiscountPercent(0); setHasRounding(false); setRoundingAmount(0);
       setHasFreight(false); setFreightAmount(0); setItems([]); setAttachments([]);
     }
@@ -350,6 +458,27 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
     }]);
   };
 
+  const handleAddServiceLine = () => {
+    setItems(prev => [...prev, {
+      LineNum: prev.length + 1,
+      ItemID: 0,
+      ItemCode: 'SERVICE',
+      ItemName: '',
+      LineStatus: 'O',
+      Quantity: 1,
+      UnitPrice: 0,
+      DiscPrcnt: 0,
+      VATCode: 'VAT_18',
+      VATPer: 18,
+      LineTax: 0,
+      LineTotalLC: 0,
+      Remarks: '',
+      UoM: 'svc',
+      vendor: custCode || '',
+      DIM1: '', DIM2: '', DIM3: '', DIM4: '', DIM5: '',
+    }]);
+  };
+
   const handleRemoveItemLine = (index: number) => {
     setItems(prev => prev.filter((_, idx) => idx !== index).map((item, idx) => ({ ...item, LineNum: idx + 1 })));
   };
@@ -414,8 +543,21 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!custCode) { alert('Please select a supplier'); return; }
-    if (items.length === 0) { alert('Please add at least one item line'); return; }
-    if (items.some(item => !item.ItemID)) { alert('Please select a valid item for all lines'); return; }
+    if (items.length === 0) {
+      alert(typeRequest === 'Service' ? 'Please add at least one service line' : 'Please add at least one item line');
+      return;
+    }
+    if (typeRequest === 'Service') {
+      if (items.some(item => !item.ItemName && !item.Remarks)) {
+        alert('Please enter a service description for all service lines');
+        return;
+      }
+    } else {
+      if (items.some(item => !item.ItemID)) {
+        alert('Please select a valid item for all lines');
+        return;
+      }
+    }
     const payload: PurchaseQuotationInput = {
       CustCode: custCode, CustName: custName, Address: address, CustRefNo: custRefNo,
       Currency: currency, CurRate: curRate, PostDate: postDate, DueDate: dueDate || null,
@@ -423,22 +565,23 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
       Branch_id: branchId ? Number(branchId) : undefined,
       QuotCode: quotCode || undefined,
       Department: department || undefined,
-      RequestType: requestType,
+      RequestType: typeRequest,
+      TypeRequest: typeRequest,
       PurchaseRequestId: purchaseRequestId ? Number(purchaseRequestId) : undefined,
       Pr_ID: prId || undefined,
       DiscPrcnt: discountPercent, Rounding: hasRounding ? 'Y' : 'N', RoundingAmnt: roundingAmount,
-      Freight: hasFreight ? freightAmount : 0, Department: department || undefined,
-      RequestType: requestType,
+      Freight: hasFreight ? freightAmount : 0,
       items: items.map((item, idx) => ({
-        LineNum: idx + 1, LineStatus: item.LineStatus || 'O', ItemID: item.ItemID,
-        ItemCode: item.ItemCode || undefined, ItemName: item.ItemName || undefined,
-        Quantity: Number(item.Quantity), UnitPrice: Number(item.UnitPrice),
+        LineNum: idx + 1, LineStatus: item.LineStatus || 'O', ItemID: Number(item.ItemID || 0),
+        ItemCode: item.ItemCode || (typeRequest === 'Service' ? 'SERVICE' : undefined),
+        ItemName: item.ItemName || item.Remarks || undefined,
+        Quantity: Number(item.Quantity || 1), UnitPrice: Number(item.UnitPrice || 0),
         DiscPrcnt: Number(item.DiscPrcnt || 0), VATCode: item.VATCode || undefined,
         VATPer: Number(item.VATPer || 0),
         WhsCode: item.WhsCode ? Number(item.WhsCode) : undefined,
         cost_center: item.cost_center ? Number(item.cost_center) : undefined,
         project: item.project || undefined, Remarks: item.Remarks || undefined,
-        UoM: item.UoM || undefined,
+        UoM: item.UoM || (typeRequest === 'Service' ? 'svc' : undefined),
         DIM1: item.DIM1 || undefined, DIM2: item.DIM2 || undefined,
         DIM3: item.DIM3 || undefined, DIM4: item.DIM4 || undefined, DIM5: item.DIM5 || undefined,
         Location: item.Location || undefined,
@@ -513,16 +656,25 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
               <ArrowLeft className="h-3.5 w-3.5" /> Back
             </button>
             {!isView && (
-              <button
-                onClick={handleSubmit}
-                disabled={createMutation.isPending || updateMutation.isPending}
-                className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:scale-95 active:scale-90 disabled:opacity-60 shadow-md shadow-emerald-500/20"
-                style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
-              >
-                {createMutation.isPending || updateMutation.isPending
-                  ? <Spinner size="sm" />
-                  : <><Check className="h-3.5 w-3.5" /> Save Quotation</>}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleOpenCopyPrModal}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-all shadow-xs"
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copy From Request
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:scale-95 active:scale-90 disabled:opacity-60 shadow-md shadow-emerald-500/20"
+                  style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
+                >
+                  {createMutation.isPending || updateMutation.isPending
+                    ? <Spinner size="sm" />
+                    : <><Check className="h-3.5 w-3.5" /> Save Quotation</>}
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -679,6 +831,22 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                 </div>
               </div>
               <div>
+                <FieldLabel>Request Type *</FieldLabel>
+                <select
+                  className={inputCls}
+                  value={typeRequest}
+                  onChange={e => {
+                    const newType = e.target.value;
+                    setTypeRequest(newType);
+                    setRequestType(newType);
+                  }}
+                  disabled={isView}
+                >
+                  <option value="Item">Item (Material Inventory)</option>
+                  <option value="Service">Service (Contract / Fees)</option>
+                </select>
+              </div>
+              <div>
                 <FieldLabel>Full Supplier Address</FieldLabel>
                 <input
                   type="text"
@@ -693,32 +861,52 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
           </div>
         </SectionCard>
 
-        {/* ITEMS TABLE */}
+        {/* ITEMS / SERVICE TABLE */}
         <SectionCard>
           <SectionHeader
             icon={<Package className="h-3.5 w-3.5" />}
-            title="Quotation Material Lines & Details"
+            title={typeRequest === 'Service' ? 'Quotation Service Procurement Lines' : 'Quotation Material Lines & Details'}
             right={
               !isView && (
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={handleAddItemLine}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white transition-all hover:scale-95 active:scale-90 shadow-sm"
-                    style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}
+                    onClick={handleOpenCopyPrModal}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-50 hover:bg-teal-100 dark:bg-teal-900/30 dark:hover:bg-teal-900/50 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 transition-all shadow-xs"
                   >
-                    <Plus className="h-3.5 w-3.5" /> Add Item Line
+                    <Copy className="h-3.5 w-3.5" /> Copy From Request
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveRowIndexForModal(null);
-                      setIsItemModalOpen(true);
-                    }}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 transition-all"
-                  >
-                    <Search className="h-3.5 w-3.5" /> Catalog Search
-                  </button>
+                  {typeRequest === 'Service' ? (
+                    <button
+                      type="button"
+                      onClick={handleAddServiceLine}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white transition-all hover:scale-95 active:scale-90 shadow-sm"
+                      style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add Service Line
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleAddItemLine}
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white transition-all hover:scale-95 active:scale-90 shadow-sm"
+                        style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add Item Line
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveRowIndexForModal(null);
+                          setIsItemModalOpen(true);
+                        }}
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 transition-all"
+                      >
+                        <Search className="h-3.5 w-3.5" /> Catalog Search
+                      </button>
+                    </>
+                  )}
                 </div>
               )
             }
@@ -731,13 +919,216 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                   <Package className="h-6 w-6 text-primary" />
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>No item lines added</p>
+                  <p className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>
+                    {typeRequest === 'Service' ? 'No service lines added' : 'No item lines added'}
+                  </p>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    Click <strong>Add Item Line</strong> or <strong>Catalog Search</strong> to start adding lines to this quotation
+                    {typeRequest === 'Service'
+                      ? 'Click Add Service Line to describe services, fees, or contractual quotation lines'
+                      : 'Click Add Item Line or Catalog Search to start adding lines to this quotation'}
                   </p>
                 </div>
               </div>
+            ) : typeRequest === 'Service' ? (
+              /* ─── SERVICE TABLE ─── */
+              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm animate-fade-in">
+                <table className="w-full text-left border-collapse min-w-[1500px]">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700">
+                      {[
+                        '#', 'SERVICE DESCRIPTION *', 'AMOUNT / FEE (TZS)', 'TAX CODE', 'DISC %',
+                        'TAX AMOUNT', 'TOTAL WITH TAX', 'PROJECT', 'PRODUCT / DIM1',
+                        'LOCATION', 'ASSET', 'REMARKS', 'ACTION'
+                      ].map((h, i) => (
+                        <th
+                          key={i}
+                          className="py-3 px-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap text-slate-600 dark:text-slate-300"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-800/40">
+                    {items.map((line, idx) => {
+                      const amountBeforeTax = Number(line.UnitPrice || 0) * (1 - Number(line.DiscPrcnt || 0) / 100);
+                      return (
+                        <tr
+                          key={idx}
+                          className="border-b transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-700/30"
+                        >
+                          {/* Line number */}
+                          <td className="py-2.5 px-3 w-[50px] text-center font-bold text-slate-500">
+                            {idx + 1}
+                          </td>
+
+                          {/* SERVICE DESCRIPTION */}
+                          <td className="py-2.5 px-2 min-w-[320px]">
+                            <input
+                              type="text"
+                              placeholder="Describe service / fee / contract details..."
+                              className="w-full text-xs font-semibold py-2 px-3 rounded-lg border outline-none bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-600 shadow-sm focus:ring-2 focus:ring-indigo-500"
+                              value={line.ItemName || line.Remarks || ''}
+                              onChange={e => handleItemLineChange(idx, 'ItemName', e.target.value)}
+                              disabled={isView}
+                            />
+                          </td>
+
+                          {/* AMOUNT / FEE */}
+                          <td className="py-2.5 px-2 w-[160px]">
+                            <input
+                              type="number" step="any" min="0"
+                              placeholder="0.00"
+                              className={tableInputCls + ' text-right font-bold'}
+                              value={line.UnitPrice || ''}
+                              onChange={e => {
+                                const price = Number(e.target.value) || 0;
+                                handleItemLineChange(idx, 'UnitPrice', price);
+                                handleItemLineChange(idx, 'Quantity', 1);
+                              }}
+                              disabled={isView}
+                            />
+                          </td>
+
+                          {/* TAX CODE */}
+                          <td className="py-2.5 px-2 min-w-[150px]">
+                            <select
+                              className={tableInputCls}
+                              value={line.VATCode || 'VAT_18'}
+                              onChange={e => {
+                                const code = e.target.value;
+                                const rate = code === 'VAT_18' ? 18 : code === 'VAT_10' ? 10 : 0;
+                                handleItemLineChange(idx, 'VATCode', code);
+                                handleItemLineChange(idx, 'VATPer', rate);
+                              }}
+                              disabled={isView}
+                            >
+                              <option value="VAT_18" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Input VAT 18%</option>
+                              <option value="VAT_10" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Input VAT 10%</option>
+                              <option value="VAT_0" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Zero Rated 0%</option>
+                              <option value="VAT_EXEMPT" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Exempt 0%</option>
+                            </select>
+                          </td>
+
+                          {/* DISCOUNT % */}
+                          <td className="py-2.5 px-2 w-[90px]">
+                            <input
+                              type="number" min="0" max="100" step="any"
+                              className={tableInputCls + ' text-center font-bold'}
+                              value={line.DiscPrcnt || 0}
+                              onChange={e => handleItemLineChange(idx, 'DiscPrcnt', Math.min(100, Math.max(0, Number(e.target.value))))}
+                              disabled={isView}
+                            />
+                          </td>
+
+                          {/* TAX AMOUNT */}
+                          <td className="py-2.5 px-2 w-[130px]">
+                            <input
+                              type="text"
+                              className={tableInputCls + ' text-right font-mono bg-slate-50 dark:bg-slate-800/60 opacity-80 cursor-not-allowed'}
+                              value={Number(line.LineTax || 0).toFixed(2)}
+                              disabled
+                            />
+                          </td>
+
+                          {/* TOTAL WITH TAX */}
+                          <td className="py-2.5 px-3 w-[140px] text-right font-extrabold font-mono text-xs text-indigo-600 dark:text-indigo-400">
+                            {Number(line.LineTotalLC || amountBeforeTax).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </td>
+
+                          {/* PROJECT */}
+                          <td className="py-2.5 px-2 min-w-[160px]">
+                            <select
+                              className={tableInputCls}
+                              value={line.project || ''}
+                              onChange={e => handleItemLineChange(idx, 'project', e.target.value)}
+                              disabled={isView}
+                            >
+                              <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Project…</option>
+                              {projectsList.map((p: any) => (
+                                <option key={p.code || p.PrjCode || p.id} value={p.code || p.PrjCode} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{p.code || p.PrjCode} — {p.name || p.PrjName}</option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* PRODUCT / DIM1 */}
+                          <td className="py-2.5 px-2 min-w-[160px]">
+                            <select
+                              className={tableInputCls}
+                              value={line.DIM1 || ''}
+                              onChange={e => handleItemLineChange(idx, 'DIM1', e.target.value)}
+                              disabled={isView}
+                            >
+                              <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Product / CC…</option>
+                              {productsList.map((p: any) => (
+                                <option key={p.code} value={p.code} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{p.code} — {p.name}</option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* LOCATION */}
+                          <td className="py-2.5 px-2 min-w-[150px]">
+                            <select
+                              className={tableInputCls}
+                              value={line.DIM3 || ''}
+                              onChange={e => handleItemLineChange(idx, 'DIM3', e.target.value)}
+                              disabled={isView}
+                            >
+                              <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Location…</option>
+                              {locationsList.map((l: any) => (
+                                <option key={l.code} value={l.code} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{l.code} — {l.name}</option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* ASSET */}
+                          <td className="py-2.5 px-2 min-w-[150px]">
+                            <select
+                              className={tableInputCls}
+                              value={line.DIM4 || ''}
+                              onChange={e => handleItemLineChange(idx, 'DIM4', e.target.value)}
+                              disabled={isView}
+                            >
+                              <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Asset…</option>
+                              {assetsList.map((a: any) => (
+                                <option key={a.code} value={a.code} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{a.code} — {a.name}</option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* REMARKS */}
+                          <td className="py-2.5 px-2 min-w-[180px]">
+                            <input
+                              type="text"
+                              placeholder="Notes…"
+                              className={tableInputCls}
+                              value={line.Remarks || ''}
+                              onChange={e => handleItemLineChange(idx, 'Remarks', e.target.value)}
+                              disabled={isView}
+                            />
+                          </td>
+
+                          {/* ACTION */}
+                          <td className="py-2.5 px-2 text-center w-[50px]">
+                            {!isView && (
+                              <button
+                                type="button"
+                                className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                onClick={() => handleRemoveItemLine(idx)}
+                                title="Delete service line"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             ) : (
+              /* ─── MATERIAL ITEMS TABLE ─── */
               <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm animate-fade-in">
                 <table className="w-full text-left text-xs border-collapse min-w-[1400px]">
                   <thead>
@@ -890,12 +1281,9 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                             disabled={isView}
                           >
                             <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Cost Center…</option>
-                            {line.cost_center && !costCentersList.some((c: any) => (c.code || c.PrcCode || c.id) === line.cost_center) && (
-                              <option value={line.cost_center} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Cost Center #{line.cost_center}</option>
-                            )}
                             {costCentersList.map((c: any) => (
-                              <option key={c.code || c.PrcCode || c.id} value={c.code || c.PrcCode || c.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
-                                {c.name || c.PrcName || c.code}
+                              <option key={c.id || c.OcrCode || c.code} value={c.id || c.OcrCode || c.code} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
+                                {c.name || c.OcrName || c.OcrCode}
                               </option>
                             ))}
                           </select>
@@ -910,13 +1298,8 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                             disabled={isView}
                           >
                             <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Project…</option>
-                            {line.project && !projectsList.some((p: any) => (p.code || p.PrjCode) === line.project) && (
-                              <option value={line.project} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{line.project}</option>
-                            )}
                             {projectsList.map((p: any) => (
-                              <option key={p.code || p.PrjCode || p.id} value={p.code || p.PrjCode} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
-                                {p.name || p.PrjName || p.code}
-                              </option>
+                              <option key={p.code} value={p.code} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{p.code} — {p.name}</option>
                             ))}
                           </select>
                         </td>
@@ -1238,7 +1621,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
 
       {/* Select Item Modal */}
       {isItemModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[80vh] flex flex-col border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
             <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">Select Item from Catalog</h3>
@@ -1308,7 +1691,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
       )}
       {/* Select Vendor / Supplier Modal */}
       {isVendorModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[80vh] flex flex-col border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
             <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">Select Supplier / Vendor</h3>
@@ -1377,6 +1760,215 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
               ) : (
                 <div className="p-8 text-center text-xs text-slate-400">No matching suppliers found</div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: COPY FROM PURCHASE REQUEST */}
+      {isCopyPrModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-4xl w-full max-h-[85vh] shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-teal-100 dark:bg-teal-900/40 rounded-lg text-teal-600 dark:text-teal-400">
+                  <Copy className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Copy From Purchase Request
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Select an approved purchase request and choose specific items to import into this Purchase Quotation
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCopyPrModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by Request #, Department, or User..."
+                  value={prSearch}
+                  onChange={e => setPrSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
+                />
+              </div>
+
+              {/* Split View: List on left, preview on right */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                {/* Requests List */}
+                <div className="md:col-span-5 max-h-96 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl divide-y divide-slate-100 dark:divide-slate-700/60">
+                  {requestsList
+                    .filter(pr => {
+                      const isService = typeRequest === 'Service';
+                      const prIsService = (pr.TypeRequest || pr.RequestType || '').toLowerCase() === 'service';
+                      if (isService !== prIsService) return false;
+                      const q = prSearch.toLowerCase();
+                      const code = (pr.RequestedNo || pr.OrderCode || `PR #${pr.ID}`).toLowerCase();
+                      const dept = (pr.Department || pr.CustName || '').toLowerCase();
+                      return code.includes(q) || dept.includes(q);
+                    })
+                    .map(pr => {
+                      const isSelected = selectedPrForCopy?.ID === pr.ID;
+                      return (
+                        <div
+                          key={pr.ID}
+                          onClick={() => handleSelectPr(pr)}
+                          className={`p-3 cursor-pointer transition-colors text-xs ${
+                            isSelected
+                              ? 'bg-teal-50 dark:bg-teal-900/30 border-l-4 border-l-teal-600'
+                              : 'hover:bg-slate-50 dark:hover:bg-slate-700/40'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {pr.RequestedNo || pr.OrderCode || `PR #${pr.ID}`}
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold">
+                              {pr.Status || 'Open'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1 truncate">
+                            {pr.Department ? `Dept: ${pr.Department}` : pr.CustName || 'Purchase Request'}
+                          </p>
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1.5">
+                            <span>
+                              {pr.ReqDate || pr.PostDate ? new Date(pr.ReqDate || pr.PostDate).toLocaleDateString() : 'No date'}
+                            </span>
+                            <span className="font-mono font-bold text-teal-600 dark:text-teal-400">
+                              {Number(pr.DocTotal || 0).toLocaleString()} {pr.Currency || 'TZS'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  {requestsList.length === 0 && (
+                    <div className="p-8 text-center text-xs text-slate-400">No purchase requests found</div>
+                  )}
+                </div>
+
+                {/* Request Items Preview */}
+                <div className="md:col-span-7 border border-slate-200 dark:border-slate-700 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col justify-between">
+                  {selectedPrForCopy ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                            {selectedPrForCopy.RequestedNo || `PR #${selectedPrForCopy.ID}`} — Items ({selectedPrForCopy.items?.length || 0})
+                          </h4>
+                          <p className="text-[10px] text-slate-500">
+                            {selectedPrForCopy.Department ? `Department: ${selectedPrForCopy.Department}` : 'Procurement Items'}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            if (selectedPrItemIds.length === (selectedPrForCopy.items?.length || 0)) {
+                              setSelectedPrItemIds([]);
+                            } else {
+                              setSelectedPrItemIds((selectedPrForCopy.items || []).map((_: any, idx: number) => idx));
+                            }
+                          }}
+                          className="text-[10px] h-6 px-2"
+                        >
+                          {selectedPrItemIds.length === (selectedPrForCopy.items?.length || 0)
+                            ? 'Deselect All'
+                            : 'Select All'}
+                        </Button>
+                      </div>
+
+                      <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                        {(selectedPrForCopy.items || []).map((it: any, idx: number) => {
+                          const isChecked = selectedPrItemIds.includes(idx);
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => handleTogglePrItem(idx)}
+                              className={`p-2 rounded-lg border text-xs cursor-pointer flex items-center justify-between transition-colors ${
+                                isChecked
+                                  ? 'bg-white dark:bg-slate-800 border-teal-500 dark:border-teal-500/50 shadow-xs'
+                                  : 'bg-slate-100/50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-500'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate mr-2">
+                                {isChecked ? (
+                                  <CheckSquare className="w-4 h-4 text-teal-600 shrink-0" />
+                                ) : (
+                                  <Square className="w-4 h-4 text-slate-400 shrink-0" />
+                                )}
+                                <div className="truncate">
+                                  <div className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                                    {it.ItemName || it.ItemCode || `Item #${it.ItemID}`}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400">
+                                    {it.ItemCode} • Qty: {it.Quantity} {it.UoM || 'pcs'}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right font-mono font-bold text-slate-800 dark:text-slate-200 shrink-0">
+                                {Number(it.LineTotalLC || 0).toLocaleString()} {selectedPrForCopy.Currency || 'TZS'}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-48 text-center text-slate-400">
+                      <AlertCircle className="w-8 h-8 mb-2 stroke-1" />
+                      <p className="text-xs">Select a Purchase Request from the left list to view items</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
+              <span className="text-xs text-slate-500">
+                {selectedPrItemIds.length} item(s) selected
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsCopyPrModalOpen(false)}
+                  className="text-xs rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!selectedPrForCopy || selectedPrItemIds.length === 0}
+                  onClick={() => handleApplyPrCopy(false)}
+                  className="text-xs rounded-xl"
+                >
+                  Append Items
+                </Button>
+                <Button
+                  type="button"
+                  disabled={!selectedPrForCopy || selectedPrItemIds.length === 0}
+                  onClick={() => handleApplyPrCopy(true)}
+                  className="bg-teal-600 hover:bg-teal-700 text-white text-xs rounded-xl font-bold"
+                >
+                  Replace & Import
+                </Button>
+              </div>
             </div>
           </div>
         </div>
