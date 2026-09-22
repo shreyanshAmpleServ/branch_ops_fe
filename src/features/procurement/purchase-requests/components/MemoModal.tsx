@@ -8,12 +8,20 @@ import { Button } from '../../../../components/ui';
 import html2pdf from 'html2pdf.js';
 import * as XLSX from 'xlsx';
 
-interface MemoModalProps {
-  request: PurchaseRequest;
+export interface MemoModalProps {
+  request?: PurchaseRequest;
   onClose: () => void;
+  isOpen?: boolean;
+  memoText?: string;
+  requestId?: number;
+  onSubmit?: (memo: string) => void;
+  title?: string;
+  loading?: boolean;
 }
 
-export const MemoModal: React.FC<MemoModalProps> = ({ request, onClose }) => {
+export const MemoModal: React.FC<MemoModalProps> = ({ request: propRequest, onClose, isOpen = true, memoText, requestId }) => {
+  if (isOpen === false) return null;
+  const request = propRequest || ({ ID: requestId || 0, memo_text: memoText } as any);
   const printRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadPDF = () => {
@@ -21,11 +29,11 @@ export const MemoModal: React.FC<MemoModalProps> = ({ request, onClose }) => {
     if (!element) return;
 
     const opt = {
-      margin: [0.5, 0.5, 0.5, 0.5],
-      filename: `Memo_${request.RequestedNo || request.ID}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
+      margin: [0.5, 0.5, 0.5, 0.5] as [number, number, number, number],
+      filename: `Memo_${request?.RequestedNo || request?.ID || 'document'}.pdf`,
+      image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
     };
 
     html2pdf().set(opt).from(element).save();
@@ -33,18 +41,18 @@ export const MemoModal: React.FC<MemoModalProps> = ({ request, onClose }) => {
 
   const handleDownloadExcel = () => {
     const data = [
-      { 'Field': 'Memo No', 'Value': request.RequestedNo || '—' },
-      { 'Field': 'Posting Date', 'Value': request.PostDate ? format(new Date(request.PostDate), 'dd-MM-yyyy') : '—' },
-      { 'Field': 'Vendor Code', 'Value': request.CustCode || '—' },
-      { 'Field': 'Vendor Name', 'Value': request.CustName || '—' },
-      { 'Field': 'Doc Total', 'Value': request.DocTotal || '0' },
-      { 'Field': 'Memo Text', 'Value': request.memo_text || request.Remarks || '—' },
+      { 'Field': 'Memo No', 'Value': request?.RequestedNo || '—' },
+      { 'Field': 'Posting Date', 'Value': request?.PostDate ? format(new Date(request.PostDate), 'dd-MM-yyyy') : '—' },
+      { 'Field': 'Vendor Code', 'Value': request?.CustCode || '—' },
+      { 'Field': 'Vendor Name', 'Value': request?.CustName || '—' },
+      { 'Field': 'Doc Total', 'Value': request?.DocTotal || '0' },
+      { 'Field': 'Memo Text', 'Value': request?.memo_text || request?.Remarks || '—' },
     ];
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Memo Details");
-    XLSX.writeFile(wb, `Memo_${request.RequestedNo || request.ID}.xlsx`);
+    XLSX.writeFile(wb, `Memo_${request?.RequestedNo || request?.ID || 'document'}.xlsx`);
   };
 
   return createPortal(

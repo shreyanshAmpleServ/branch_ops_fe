@@ -6,7 +6,7 @@ import { ChevronDown, ChevronLeft, LogOut, X } from 'lucide-react';
 import { NAVIGATION, type NavItem } from '../../config/navigation';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useThemeStore } from '../../store/useThemeStore';
-import { Avatar } from '../../components/ui';
+import { Avatar, GlobalSearch } from '../../components/ui';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -153,7 +153,7 @@ export const Sidebar1: React.FC<SidebarProps> = ({ collapsed, onToggle, mobileOp
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${borderCol}` }}>
         {!collapsed && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white font-bold text-lg" style={{ background: 'var(--color-primary)' }}>
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm" style={{ background: 'var(--color-primary)' }}>
               S
             </div>
             <span className={`text-lg font-bold font-display ${textClass}`}>Sales App</span>
@@ -167,8 +167,13 @@ export const Sidebar1: React.FC<SidebarProps> = ({ collapsed, onToggle, mobileOp
         </button>
       </div>
 
+      {/* Search in Sidebar below Logo */}
+      <div className={`pt-3 pb-1 ${collapsed ? 'px-2' : 'px-3'}`}>
+        <GlobalSearch inSidebar collapsed={collapsed} onSelect={onMobileClose} />
+      </div>
+
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 pt-2 space-y-1 overflow-y-auto no-scrollbar">
+      <nav className="flex-1 px-3 py-2 pt-2 space-y-1 overflow-y-auto no-scrollbar">
         {filteredNav.map(renderNavItem)}
       </nav>
 

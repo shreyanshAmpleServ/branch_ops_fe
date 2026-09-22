@@ -9,7 +9,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useThemeStore } from '../../store/useThemeStore';
 import { PRIMARY_COLORS } from '../../types/theme.types';
 import { useLocaleStore } from '../../store/useLocaleStore';
-import { Avatar, Dropdown, Card, Button, Modal, GlobalSearch, ThemeSettingsDropdown } from '../../components/ui';
+import { Avatar, Dropdown, Card, Button, Modal, GlobalSearch, HeaderPageTitle, ThemeSettingsDropdown } from '../../components/ui';
 import { LANGUAGES } from '../../types/i18n.types';
 import { useIdleTimeout } from '../../hooks/useIdleTimeout';
 import { Users, Target, DollarSign, ArrowUpRight, ArrowDownRight, CheckSquare } from 'lucide-react';
@@ -64,7 +64,12 @@ const Sidebar3: React.FC<{ collapsed: boolean; onToggle: () => void; mobileOpen:
         <button onClick={onMobileClose} className="p-1 rounded-md hover:bg-white/10 lg:hidden"><X className="h-4 w-4" /></button>
       </div>
 
-      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto no-scrollbar">
+      {/* Search in Sidebar */}
+      <div className={`pt-2.5 pb-1 ${collapsed ? 'px-1.5' : 'px-2'}`}>
+        <GlobalSearch inSidebar collapsed={collapsed} onSelect={onMobileClose} />
+      </div>
+
+      <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto no-scrollbar">
         {filteredNav.map(item => {
           if (item.isHeader) {
             if (collapsed) return <div key={item.id} className="h-4" />;
@@ -149,9 +154,9 @@ const Header3: React.FC<{ onMenuClick: () => void; collapsed: boolean }> = ({ on
         borderBottom: '1px solid var(--color-border)'
       }}
     >
-      <div className="flex items-center gap-4">
-        <button onClick={onMenuClick} className="p-2 rounded-lg hover:bg-surface-hover lg:hidden"><Menu className="h-5 w-5" /></button>
-        <GlobalSearch />
+      <div className="flex items-center gap-3 min-w-0 flex-1 mr-4">
+        <button onClick={onMenuClick} className="p-2 rounded-lg hover:bg-surface-hover lg:hidden shrink-0"><Menu className="h-5 w-5" /></button>
+        <HeaderPageTitle />
       </div>
       <div className="flex items-center gap-2">
         <Dropdown trigger={<button className="p-2 rounded-lg hover:bg-surface-hover"><Globe className="h-5 w-5" style={{ color: 'var(--color-text-secondary)' }} /></button>}

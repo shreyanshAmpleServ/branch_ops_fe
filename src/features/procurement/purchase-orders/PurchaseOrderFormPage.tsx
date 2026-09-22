@@ -176,6 +176,8 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
   const [remarks, setRemarks] = useState('');
   const [discPrcnt, setDiscPrcnt] = useState<number>(0);
   const [freight, setFreight] = useState<number>(0);
+  const [isRounding, setIsRounding] = useState<boolean>(false);
+  const [roundingAmnt, setRoundingAmnt] = useState<number>(0);
   const [purchaseRequestId, setPurchaseRequestId] = useState<number | ''>('');
   const [prId, setPrId] = useState<string>('');
   const [purchaseQuotationId, setPurchaseQuotationId] = useState<number | ''>('');
@@ -406,6 +408,8 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
       setRemarks(existingOrder.Remarks || '');
       setDiscPrcnt(Number(existingOrder.DiscPrcnt || 0));
       setFreight(Number(existingOrder.Freight || 0));
+      setIsRounding(existingOrder.Rounding === 'Y');
+      setRoundingAmnt(Number(existingOrder.RoundingAmnt || 0));
       setPurchaseRequestId((existingOrder as any).PurchaseRequestId || '');
       setPrId(existingOrder.Pr_ID ? String(existingOrder.Pr_ID) : '');
       setPurchaseQuotationId((existingOrder as any).PurchaseQuotationId || '');
@@ -654,7 +658,7 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
   const subtotal = items.reduce((sum, item) => sum + (Number(item.Quantity || 0) * Number(item.UnitPrice || 0)), 0);
   const totalTax = items.reduce((sum, item) => sum + Number(item.LineTax || 0), 0);
   const discountAmount = subtotal * (discPrcnt / 100);
-  const grandTotal = (subtotal - discountAmount) + totalTax + Number(freight || 0);
+  const grandTotal = (subtotal - discountAmount) + totalTax + Number(freight || 0) + (isRounding ? Number(roundingAmnt || 0) : 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -705,6 +709,8 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
       PurchaseQuotationId: purchaseQuotationId ? Number(purchaseQuotationId) : undefined,
       DiscPrcnt: Number(discPrcnt),
       Freight: Number(freight),
+      Rounding: isRounding ? 'Y' : 'N',
+      RoundingAmnt: isRounding ? roundingAmnt : 0,
       items: items.map((item, idx) => ({
         LineNum: idx + 1,
         ItemID: Number(item.ItemID || 0),
@@ -939,7 +945,7 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                   setPurchaseQuotationId(qId);
                   const matchedQ = (rawQuotations || []).find((q: any) => q.ID === qId);
                   if (matchedQ) {
-                    setPqId(matchedQ.QuotCode || matchedQ.RequestedNo || String(matchedQ.ID));
+                    setPqId(matchedQ.QuotCode || (matchedQ as any).RequestedNo || String(matchedQ.ID));
                     if (matchedQ.items && matchedQ.items.length > 0) {
                       setItems(matchedQ.items.map((it: any, idx: number) => ({
                         LineNum: idx + 1,
@@ -1501,7 +1507,7 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                         </td>
                         <td className="py-3 px-2 min-w-[110px]">
                           <select
-                            value={item.VATPer !== undefined ? item.VATPer : 18}
+                            value={item.VATPer ?? 18}
                             onChange={(e) => handleUpdateItemRow(idx, 'VATPer', Number(e.target.value))}
                             disabled={mode === 'view'}
                             className="w-full text-center py-2 px-2 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm cursor-pointer"
@@ -1663,7 +1669,7 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                     className="w-20 text-right px-2 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
                   />
                 </div>
-                <div className="flex justify-between items-center text-xs text-slate-600 dark:text-slate-400">
+                                <div className="flex justify-between items-center text-xs text-slate-600 dark:text-slate-400">
                   <span>Freight Charges:</span>
                   <input
                     type="number"
@@ -1673,6 +1679,27 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                     disabled={mode === 'view'}
                     className="w-24 text-right px-2 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
                   />
+                </div>
+                <div className="flex justify-between items-center text-xs text-slate-600 dark:text-slate-400">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={isRounding}
+                      onChange={(e) => setIsRounding(e.target.checked)}
+                      disabled={mode === 'view'}
+                      className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                    />
+                    <span>Rounding Option:</span>
+                  </div>
+                  {isRounding && (
+                    <input
+                      type="number"
+                      value={roundingAmnt}
+                      onChange={(e) => setRoundingAmnt(Number(e.target.value))}
+                      disabled={mode === 'view'}
+                      className="w-24 text-right px-2 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+                    />
+                  )}
                 </div>
                 <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
                   <span>Tax Amount:</span>

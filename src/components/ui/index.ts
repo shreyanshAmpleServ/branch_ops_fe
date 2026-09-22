@@ -11,6 +11,7 @@ export { Tabs } from './Tabs';
 export { Toggle } from './Toggle';
 export { Spinner, PageSpinner } from './Spinner';
 export { GlobalSearch } from './GlobalSearch';
+export { HeaderPageTitle } from './HeaderPageTitle';
 export { ThemeSettingsDropdown } from './ThemeSettingsDropdown';
 export { LocationMapPicker } from './LocationMapPicker';
 export { DateRangePicker, type DateRange } from './DateRangePicker';

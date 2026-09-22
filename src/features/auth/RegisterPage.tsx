@@ -95,7 +95,7 @@ const RegisterForm: React.FC<{ variant: 'glass' | 'card' | 'split'; onSubmit: (d
 
 export const RegisterPage: React.FC = () => {
   const { activeDesign } = useDesignStore();
-  const { register, isLoading } = useAuthStore();
+  const { register, isLoading } = useAuthStore() as any;
   const navigate = useNavigate();
 
   const handleSubmit = async (data: any) => {

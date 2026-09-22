@@ -410,7 +410,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
 
         const qty = line.Quantity || 1;
         const disc = line.DiscPrcnt || 0;
-        const vat = line.VATPer !== undefined ? line.VATPer : 18;
+        const vat = line.VATPer ?? 18;
         const baseAmount = qty * unitPrice;
         const afterDisc = baseAmount * (1 - disc / 100);
         const tax = afterDisc * (vat / 100);
@@ -497,7 +497,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
       const qty = line.Quantity || 1;
       const price = line.UnitPrice;
       const disc = line.DiscPrcnt || 0;
-      const vat = line.VATPer !== undefined ? line.VATPer : 18;
+      const vat = line.VATPer ?? 18;
       const baseAmount = qty * price;
       const afterDisc = baseAmount * (1 - disc / 100);
       const tax = afterDisc * (vat / 100);
@@ -700,8 +700,6 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                 }}
                 options={supplierOptions}
                 placeholder="Select Supplier…"
-                modalTitle="Select Supplier / Vendor"
-                searchPlaceholder="Search supplier code, name, TIN, address..."
                 disabled={isView}
               />
               <div>
@@ -1229,14 +1227,14 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                         <td className="py-3 px-2 min-w-[110px]">
                           <select
                             className={tableInputCls + ' text-center font-bold'}
-                            value={line.VATPer !== undefined ? line.VATPer : 18}
+                            value={line.VATPer ?? 18}
                             onChange={e => handleItemLineChange(idx, 'VATPer', Number(e.target.value))}
                             disabled={isView}
                           >
                             <option value={18} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">18% VAT</option>
                             <option value={9} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">9% VAT</option>
                             <option value={0} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">0% VAT</option>
-                            {line.VATPer !== undefined && line.VATPer !== 18 && line.VATPer !== 9 && line.VATPer !== 0 && (
+                            {line.VATPer != null && line.VATPer !== 18 && line.VATPer !== 9 && line.VATPer !== 0 && (
                               <option value={line.VATPer} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{line.VATPer}% VAT</option>
                             )}
                           </select>

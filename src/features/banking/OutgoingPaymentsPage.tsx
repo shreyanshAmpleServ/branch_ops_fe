@@ -351,7 +351,7 @@ export const OutgoingPaymentsPage: React.FC = () => {
             searchPlaceholder="Search by doc #, vendor, reference..."
             enableViewToggle={true}
             defaultViewMode="table"
-            pagination
+            enablePagination={true}
             pageSize={10}
             extraFilters={
               <div className="flex flex-wrap items-center gap-2">
@@ -367,11 +367,10 @@ export const OutgoingPaymentsPage: React.FC = () => {
                 </select>
 
                 <DateRangePicker
-                  startDate={startDate}
-                  endDate={endDate}
-                  onChange={(start, end) => {
-                    setStartDate(start);
-                    setEndDate(end);
+                  value={{ startDate, endDate }}
+                  onChange={(range) => {
+                    setStartDate(range.startDate || '');
+                    setEndDate(range.endDate || '');
                   }}
                 />
 

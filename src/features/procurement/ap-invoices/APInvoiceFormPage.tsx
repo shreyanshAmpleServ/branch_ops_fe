@@ -142,6 +142,7 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
   const [remarks, setRemarks] = useState('');
   const [discPrcnt, setDiscPrcnt] = useState<number>(0);
   const [freight, setFreight] = useState<number>(0);
+  const [isRounding, setIsRounding] = useState<boolean>(false);
   const [roundingAmnt, setRoundingAmnt] = useState<number>(0);
 
   const [items, setItems] = useState<ApInvoiceItem[]>([]);
@@ -184,6 +185,7 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
       setRemarks(existingInvoice.Remarks || '');
       setDiscPrcnt(Number(existingInvoice.DiscPrcnt || 0));
       setFreight(Number(existingInvoice.Freight || 0));
+      setIsRounding(existingInvoice.Rounding === 'Y');
       setRoundingAmnt(Number(existingInvoice.RoundingAmnt || 0));
 
       if (existingInvoice.items && existingInvoice.items.length > 0) {
@@ -256,7 +258,7 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
   }, [items]);
 
   const grandTotal = useMemo(() => {
-    return subtotal - totalDiscount + totalTax + Number(freight || 0) + Number(roundingAmnt || 0);
+    return subtotal - totalDiscount + totalTax + Number(freight || 0) + (isRounding ? Number(roundingAmnt || 0) : 0);
   }, [subtotal, totalDiscount, totalTax, freight, roundingAmnt]);
 
   // Row operations
@@ -641,7 +643,8 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
       Remarks: remarks || undefined,
       DiscPrcnt: Number(discPrcnt || 0),
       Freight: Number(freight || 0),
-      RoundingAmnt: Number(roundingAmnt || 0),
+      Rounding: isRounding ? 'Y' : 'N',
+      RoundingAmnt: isRounding ? Number(roundingAmnt || 0) : undefined,
       items: items.map((item, idx) => ({
         LineNum: idx + 1,
         ItemID: Number(item.ItemID || 0),
@@ -1403,7 +1406,7 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
                         {/* VAT % */}
                         <td className="p-2.5">
                           <select
-                            value={item.VATPer !== undefined ? item.VATPer : 18}
+                            value={item.VATPer ?? 18}
                             onChange={e => handleUpdateItemRow(index, 'VATPer', parseFloat(e.target.value) || 0)}
                             disabled={mode === 'view'}
                             className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
@@ -1638,17 +1641,28 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
 
                 {/* Rounding */}
                 <div className="flex justify-between items-center gap-4">
-                  <span className="text-slate-600 dark:text-slate-400">Rounding Amount:</span>
-                  <div className="w-32">
+                  <div className="flex items-center gap-2">
                     <input
-                      type="number"
-                      step="any"
-                      value={roundingAmnt}
-                      onChange={e => setRoundingAmnt(parseFloat(e.target.value) || 0)}
+                      type="checkbox"
+                      checked={isRounding}
+                      onChange={(e) => setIsRounding(e.target.checked)}
                       disabled={mode === 'view'}
-                      className="w-full px-2 py-1 text-right text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
                     />
+                    <span className="text-slate-600 dark:text-slate-400">Rounding Option</span>
                   </div>
+                  {isRounding && (
+                    <div className="w-32">
+                      <input
+                        type="number"
+                        step="any"
+                        value={roundingAmnt}
+                        onChange={e => setRoundingAmnt(parseFloat(e.target.value) || 0)}
+                        disabled={mode === 'view'}
+                        className="w-full px-2 py-1 text-right text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t-2 border-slate-200 dark:border-slate-700 pt-3 flex justify-between items-center">

@@ -641,7 +641,7 @@ export const PettyCashPage: React.FC = () => {
             searchPlaceholder="Search by claim #, requester, or department..."
             enableViewToggle={true}
             defaultViewMode="table"
-            pagination
+            enablePagination={true}
             pageSize={10}
             extraFilters={
               <div className="flex flex-wrap items-center gap-2">
@@ -817,7 +817,7 @@ export const PettyCashPage: React.FC = () => {
                     {users.length > 0 ? (
                       users.map((u) => (
                         <option key={u.id} value={u.id}>
-                          {u.full_name || u.email}
+                          {(u as any).full_name || (u as any).fullName || u.email}
                         </option>
                       ))
                     ) : (

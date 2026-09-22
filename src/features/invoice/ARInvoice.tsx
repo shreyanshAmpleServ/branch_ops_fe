@@ -16,7 +16,7 @@ import {
 import {
   useARInvoices,
   useDeleteARInvoice,
-  type ARInvoice,
+  type ARInvoice as ARInvoiceType,
 } from './api/useARInvoices';
 import { DataTable, type ColumnDef } from '../../components/table/DataTable';
 import { Button, Spinner, DateRangePicker, Tooltip, Badge, Card } from '../../components/ui';
@@ -36,7 +36,7 @@ export const ARInvoice: React.FC = () => {
   });
 
   const deleteMutation = useDeleteARInvoice();
-  const invoicesList: ARInvoice[] = rawData?.invoices || [];
+  const invoicesList: ARInvoiceType[] = rawData?.invoices || [];
   const metrics = rawData?.metrics || {
     totalInvoiced: 0,
     totalPaid: 0,
@@ -77,7 +77,7 @@ export const ARInvoice: React.FC = () => {
     }
   };
 
-  const columns: ColumnDef<ARInvoice, unknown>[] = [
+  const columns: ColumnDef<ARInvoiceType, unknown>[] = [
     {
       accessorKey: 'InvoiceCode',
       header: 'Invoice #',

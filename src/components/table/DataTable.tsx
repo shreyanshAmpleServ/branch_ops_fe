@@ -14,6 +14,8 @@ import {
   type RowSelectionState,
   type ExpandedState,
 } from '@tanstack/react-table';
+
+export type { ColumnDef };
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUpDown, ArrowUp, ArrowDown, Search, Columns3, Download, ChevronDown, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, X, FileText, FileJson, Trash2, CheckSquare, LayoutGrid, List, MoreVertical, Check, Filter } from 'lucide-react';
@@ -589,14 +591,18 @@ export function DataTable<TData>({
               <AntTable
                 columns={table.getVisibleFlatColumns().map((col) => {
                   const headerObj = table.getFlatHeaders().find(h => h.column.id === col.id);
+                  const isActionsCol = col.id === 'actions';
+                  const isIdCol = col.id === 'ID' || col.id === 'id';
                   return {
                     title: headerObj && !headerObj.isPlaceholder ? (
-                      <span style={{ fontSize: '12px' }} className="font-bold uppercase tracking-wider">
+                      <span className="font-bold uppercase tracking-wider" style={{ fontSize: '11px', letterSpacing: '0.05em' }}>
                         {flexRender(col.columnDef.header, headerObj.getContext())}
                       </span>
                     ) : null,
                     key: col.id,
                     dataIndex: col.id,
+                    width: isActionsCol ? 100 : isIdCol ? 60 : undefined,
+                    ellipsis: !isActionsCol,
                     render: (_: any, record: any, index: number) => {
                       const row = table.getRowModel().rows[index];
                       if (!row) return null;
@@ -607,15 +613,25 @@ export function DataTable<TData>({
                 })}
                 dataSource={table.getRowModel().rows.map(r => ({ ...r.original as object, key: r.id }))}
                 pagination={false}
-                bordered={tableDesign === 'card'}
-                size={tableDesign === 'striped' ? 'small' : 'middle'}
+                bordered={false}
+                size="middle"
+                scroll={{ x: 'max-content' }}
                 rowClassName={(record, index) => {
-                  let cls = '';
+                  let cls = 'transition-colors duration-150 ';
                   if (tableDesign === 'striped' && index % 2 === 1) cls += 'bg-surface-hover/30 ';
                   const row = table.getRowModel().rows[index];
                   if (row && row.getIsSelected()) cls += 'bg-primary/10 ';
+                  if (onRowClick) cls += 'cursor-pointer ';
                   return cls.trim();
                 }}
+                onRow={(record, index) => ({
+                  onClick: () => {
+                    if (onRowClick && index !== undefined) {
+                      const row = table.getRowModel().rows[index];
+                      if (row) onRowClick(row.original);
+                    }
+                  }
+                })}
               />
             )}
 

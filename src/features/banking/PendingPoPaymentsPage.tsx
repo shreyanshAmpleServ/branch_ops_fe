@@ -18,7 +18,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '../../components/table';
-import { Button, Tooltip, Badge, Card } from '../../components/ui';
+import { Spinner, Card, Button, Tooltip, Badge } from '../../components/ui';
 import { usePendingPoPayments, type PendingPoPayment } from './api/useBanking';
 
 export const PendingPoPaymentsPage: React.FC = () => {
@@ -414,7 +414,7 @@ export const PendingPoPaymentsPage: React.FC = () => {
             searchPlaceholder="Search by Request #, PO #, or justification..."
             enableViewToggle={true}
             defaultViewMode="table"
-            pagination
+            enablePagination={true}
             pageSize={10}
             extraFilters={
               <div className="flex flex-wrap items-center gap-2">

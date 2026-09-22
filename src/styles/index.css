@@ -402,7 +402,7 @@
     padding: 1rem 1.5rem;
   }
 
-  .p-datatable .p-datatable-thead>tr>th {
+  .p-datatable .p-datatable-thead > tr > th {
     background: var(--color-surface-hover) !important;
     color: var(--color-text-secondary) !important;
     border-color: var(--color-border) !important;
@@ -414,33 +414,33 @@
     border-width: 0 0 1px 0 !important;
   }
 
-  .p-datatable .p-datatable-tbody>tr {
+  .p-datatable .p-datatable-tbody > tr {
     background: var(--color-surface) !important;
     color: var(--color-text) !important;
     transition: all 0.2s ease;
   }
 
-  .p-datatable .p-datatable-tbody>tr>td {
+  .p-datatable .p-datatable-tbody > tr > td {
     border-color: var(--color-border) !important;
     padding: 1rem 1.5rem;
     border-width: 0 0 1px 0 !important;
   }
 
-  .p-datatable .p-datatable-tbody>tr:hover {
+  .p-datatable .p-datatable-tbody > tr:hover {
     background: var(--color-surface-hover) !important;
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   }
 
-  .p-datatable .p-datatable-tbody>tr.bg-primary\/10 {
+  .p-datatable .p-datatable-tbody > tr[class*="bg-primary"] {
     background: rgba(99, 102, 241, 0.1) !important;
   }
 
-  .p-datatable .p-datatable-tbody>tr.bg-primary\/10:hover {
+  .p-datatable .p-datatable-tbody > tr[class*="bg-primary"]:hover {
     background: rgba(99, 102, 241, 0.15) !important;
   }
 
-  .p-datatable .p-datatable-tbody>tr:last-child>td {
+  .p-datatable .p-datatable-tbody > tr:last-child > td {
     border-bottom: none !important;
   }
 
@@ -511,24 +511,82 @@
     }
   }
 
-  /* Antd */
+  /* ─── Ant Design Table — Premium Overrides ─── */
   .ant-table-wrapper .ant-table {
     background: var(--color-surface) !important;
     color: var(--color-text) !important;
+    font-size: 12px !important;
   }
 
-  .ant-table-wrapper .ant-table-thead>tr>th {
+  .ant-table-wrapper .ant-table-container {
+    border-radius: 0 !important;
+  }
+
+  /* Header */
+  .ant-table-wrapper .ant-table-thead>tr>th,
+  .ant-table-wrapper .ant-table-thead>tr>td {
     background: var(--color-surface-hover) !important;
     color: var(--color-text-secondary) !important;
     border-bottom: 1px solid var(--color-border) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    padding: 10px 16px !important;
+    white-space: nowrap !important;
+    line-height: 1.4 !important;
   }
 
+  /* Body Cells */
   .ant-table-wrapper .ant-table-tbody>tr>td {
     border-bottom: 1px solid var(--color-border) !important;
+    padding: 10px 16px !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+    color: var(--color-text) !important;
+    vertical-align: middle !important;
+    transition: background 0.15s ease !important;
   }
 
+  /* Hover */
   .ant-table-wrapper .ant-table-tbody>tr:hover>td {
     background: var(--color-surface-hover) !important;
+  }
+
+  /* Striped rows (even) */
+  .ant-table-wrapper .ant-table-tbody>tr:nth-child(even)>td {
+    background: rgba(0, 0, 0, 0.015) !important;
+  }
+  .dark .ant-table-wrapper .ant-table-tbody>tr:nth-child(even)>td {
+    background: rgba(255, 255, 255, 0.015) !important;
+  }
+  .ant-table-wrapper .ant-table-tbody>tr:nth-child(even):hover>td {
+    background: var(--color-surface-hover) !important;
+  }
+
+  /* Remove last row bottom border for cleaner look */
+  .ant-table-wrapper .ant-table-tbody>tr:last-child>td {
+    border-bottom: none !important;
+  }
+
+  /* Remove Ant default cell-fix and extra borders */
+  .ant-table-wrapper .ant-table-cell-fix-left,
+  .ant-table-wrapper .ant-table-cell-fix-right {
+    background: var(--color-surface) !important;
+  }
+
+  /* Row selection highlight */
+  .ant-table-wrapper .ant-table-tbody>tr.ant-table-row-selected>td {
+    background: rgba(20, 184, 166, 0.06) !important;
+  }
+
+  /* Empty state */
+  .ant-table-wrapper .ant-table-placeholder {
+    background: var(--color-surface) !important;
+    color: var(--color-text-secondary) !important;
+  }
+  .ant-table-wrapper .ant-empty-description {
+    color: var(--color-text-secondary) !important;
   }
 
   /* Bootstrap */

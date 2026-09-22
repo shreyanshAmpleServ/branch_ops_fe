@@ -9,7 +9,7 @@ import { NAVIGATION } from '../../config/navigation';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useThemeStore } from '../../store/useThemeStore';
 import { useLocaleStore } from '../../store/useLocaleStore';
-import { Avatar, Dropdown, ThemeSettingsDropdown } from '../../components/ui';
+import { Avatar, Dropdown, ThemeSettingsDropdown, GlobalSearch, HeaderPageTitle } from '../../components/ui';
 import { LANGUAGES } from '../../types/i18n.types';
 import { useIdleTimeout } from '../../hooks/useIdleTimeout';
 import { Modal, Button } from '../../components/ui';
@@ -69,7 +69,12 @@ const Sidebar2: React.FC<{ collapsed: boolean; onToggle: () => void; mobileOpen:
         <button onClick={onMobileClose} className={`p-1 rounded-md transition-colors lg:hidden ${hoverClass}`}><X className="h-4 w-4" style={{ color: isDarkSidebar ? 'white' : 'inherit' }} /></button>
       </div>
 
-      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+      {/* Search in Sidebar */}
+      <div className={`pt-2.5 pb-1 ${collapsed ? 'px-1.5' : 'px-2'}`}>
+        <GlobalSearch inSidebar collapsed={collapsed} onSelect={onMobileClose} />
+      </div>
+
+      <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
         {filteredNav.map((item) => {
           if (item.isHeader) {
             if (collapsed) return <div key={item.id} className="h-4" />;
@@ -97,15 +102,15 @@ const Sidebar2: React.FC<{ collapsed: boolean; onToggle: () => void; mobileOpen:
                   color: isDarkSidebar ? 'rgba(255,255,255,0.8)' : 'var(--color-text-secondary)'
                 }}
               >
-                {item.icon && <item.icon className="h-[18px] w-[18px] shrink-0" style={active ? { color: 'white' } : {}} />}
-                {!collapsed && <><span className="flex-1 text-left">{t(item.translationKey, item.label)}</span>{hasChildren && <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} style={active ? { color: 'white' } : {}} />}</>}
+                {item.icon && <span className="shrink-0" style={active ? { color: 'white' } : undefined}><item.icon className="h-[18px] w-[18px]" /></span>}
+                {!collapsed && <><span className="flex-1 text-left">{t(item.translationKey, item.label)}</span>{hasChildren && <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} style={active ? { color: 'white' } : undefined} />}</>}
               </button>
               {hasChildren && !collapsed && isExpanded && (
                 <div className="ml-8 mt-0.5 space-y-0.5">
                   {item.children!.filter(c => !c.permission || hasPermission(c.permission)).map(child => {
-                    const childActive = isActive(child.path);
+                    const childActive = child.path ? isActive(child.path) : false;
                     return (
-                      <Link key={child.id} to={child.path!} onClick={onMobileClose}
+                      <Link key={child.id} to={child.path || '#'} onClick={onMobileClose}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all ${hoverClass} ${childActive ? 'font-semibold' : ''}`}
                         style={childActive ? {
                           color: isDarkSidebar ? 'white' : 'var(--color-primary)',
@@ -172,17 +177,9 @@ const Header2: React.FC<{ onMenuClick: () => void; collapsed: boolean }> = ({ on
         borderBottom: '1px solid var(--color-border)'
       }}
     >
-      <div className="flex items-center gap-3">
-        <button onClick={onMenuClick} className="p-1.5 rounded-md hover:bg-surface-hover lg:hidden"><Menu className="h-5 w-5" /></button>
-        <div className="hidden sm:flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          <Home className="h-3.5 w-3.5" />
-          {breadcrumb.map((crumb, i) => (
-            <React.Fragment key={crumb}>
-              <span>/</span>
-              <span className={`capitalize ${i === breadcrumb.length - 1 ? 'font-medium' : ''}`} style={i === breadcrumb.length - 1 ? { color: 'var(--color-text)' } : {}}>{crumb}</span>
-            </React.Fragment>
-          ))}
-        </div>
+      <div className="flex items-center gap-3 min-w-0 flex-1 mr-4">
+        <button onClick={onMenuClick} className="p-1.5 rounded-md hover:bg-surface-hover lg:hidden shrink-0"><Menu className="h-5 w-5" /></button>
+        <HeaderPageTitle />
       </div>
       <div className="flex items-center gap-1.5">
         <Dropdown trigger={<button className="p-1.5 rounded-md hover:bg-surface-hover"><Globe className="h-4 w-4" style={{ color: 'var(--color-text-secondary)' }} /></button>}

@@ -324,7 +324,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
 
         const qty = line.Quantity || 1;
         const disc = line.DiscPrcnt || 0;
-        const vat = line.VATPer !== undefined ? line.VATPer : 18;
+        const vat = line.VATPer ?? 18;
         const baseAmount = qty * unitPrice;
         const afterDisc = baseAmount * (1 - disc / 100);
         const tax = afterDisc * (vat / 100);

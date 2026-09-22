@@ -19,9 +19,9 @@ export const useIdleTimeout = (options: IdleTimeoutOptions = {}) => {
   const [showWarning, setShowWarning] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(warningTime);
 
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  const warningRef = useRef<ReturnType<typeof setTimeout>>();
-  const countdownRef = useRef<ReturnType<typeof setInterval>>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const warningRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const clearTimers = useCallback(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);

@@ -5,8 +5,7 @@ import { useThemeStore } from '../../store/useThemeStore';
 import { PRIMARY_COLORS } from '../../types/theme.types';
 import { useLocaleStore } from '../../store/useLocaleStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Avatar, Dropdown, ThemeSettingsDropdown } from '../../components/ui';
-import { GlobalSearch } from '../../components/ui';
+import { Avatar, Dropdown, ThemeSettingsDropdown, HeaderPageTitle } from '../../components/ui';
 import { LANGUAGES } from '../../types/i18n.types';
 
 import { useNavigate } from 'react-router-dom';
@@ -32,11 +31,11 @@ export const Header1: React.FC<HeaderProps> = ({ onMenuClick, collapsed }) => {
         borderBottom: 'none',
       }}
     >
-      <div className="flex items-center gap-4">
-        <button onClick={onMenuClick} className="p-2 rounded-lg hover:bg-surface-hover transition-colors lg:hidden">
+      <div className="flex items-center gap-3 min-w-0 flex-1 mr-4">
+        <button onClick={onMenuClick} className="p-2 rounded-lg hover:bg-surface-hover transition-colors lg:hidden shrink-0">
           <Menu className="h-5 w-5" />
         </button>
-        <GlobalSearch />
+        <HeaderPageTitle />
       </div>
 
       <div className="flex items-center gap-2">

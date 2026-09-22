@@ -258,7 +258,7 @@ export const ProfilePage: React.FC = () => {
                   src={avatarSrc}
                   alt={user?.firstName}
                   className="h-28 w-28 rounded-2xl object-cover mx-auto ring-4"
-                  style={{ ringColor: 'var(--color-primary)' }}
+                  style={{ boxShadow: '0 0 0 4px var(--color-primary)' }}
                 />
               ) : (
                 <div

@@ -25,11 +25,11 @@ export const PurchaseOrderReceiptView: React.FC<PurchaseOrderReceiptViewProps> =
     if (!element) return;
 
     const opt = {
-      margin: [0.3, 0.3, 0.3, 0.3],
+      margin: [0.3, 0.3, 0.3, 0.3] as [number, number, number, number],
       filename: `Purchase_Order_${order.OrderCode || order.ID}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
+      image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, windowWidth: 1123 },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' as const },
       pagebreak: { mode: 'css', avoid: ['.avoid-page-break', 'tr'] }
     };
 

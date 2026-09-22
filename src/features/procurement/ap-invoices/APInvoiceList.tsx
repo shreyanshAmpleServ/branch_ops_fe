@@ -303,11 +303,10 @@ export const APInvoiceList: React.FC = () => {
 
         <div>
           <DateRangePicker
-            startDate={startDate}
-            endDate={endDate}
-            onChange={(s, e) => {
-              setStartDate(s || '');
-              setEndDate(e || '');
+            value={{ startDate, endDate }}
+            onChange={(range) => {
+              setStartDate(range.startDate || '');
+              setEndDate(range.endDate || '');
             }}
           />
         </div>
