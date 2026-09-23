@@ -19,8 +19,8 @@ import {
 } from './api/useQuotations';
 import { useRetailers } from '../customers/api/useRetailers';
 import { useItems } from '../items/api/useItems';
-import { useWarehouses } from '../warehouse/api/useWarehouse';
 import { Button, Input, Spinner } from '../../components/ui';
+import WarehousePicker from '../../components/select-dropdown-components/WarehousePicker';
 
 interface FormRow {
   ItemID: number;
@@ -41,7 +41,7 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
   const { data: existingQuotation, isLoading: isLoadingQuotation } = useQuotation(id);
   const { data: retailersData, isLoading: isLoadingRetailers } = useRetailers();
   const { data: itemsData, isLoading: isLoadingItems } = useItems({ limit: 500 });
-  const { data: warehousesData } = useWarehouses();
+  // const { data: warehousesData } = useWarehouses();
 
   const createMutation = useCreateQuotation();
   const updateMutation = useUpdateQuotation();
@@ -64,8 +64,8 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
 
   const customersList = Array.isArray(retailersData) ? retailersData : [];
   const productsList = itemsData?.items || [];
-  const warehousesList = Array.isArray(warehousesData) ? warehousesData : (warehousesData as any)?.data || [];
-
+  // const warehousesList = Array.isArray(warehousesData) ? warehousesData : (warehousesData as any)?.data || [];
+  
   // Populate form in edit mode
   useEffect(() => {
     if (mode === 'edit' && existingQuotation) {
@@ -454,20 +454,14 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
                     </select>
                   </td>
 
-                  {/* Warehouse Picker */}
-                  <td className="py-2 px-3">
-                    <select
-                      value={row.WhsCode}
-                      onChange={(e) => handleRowChange(idx, 'WhsCode', Number(e.target.value))}
-                      className="w-full px-2 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
-                    >
-                      {warehousesList.map((wh: any) => (
-                        <option key={wh.ID} value={wh.ID}>
-                          {wh.Name || wh.Code}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
+           <td className="py-2 px-3">
+  <WarehousePicker
+    value={row.WhsCode}
+    onChange={(value) =>
+      handleRowChange(idx, 'WhsCode', value)
+    }
+  />
+</td>
 
                   {/* Quantity */}
                   <td className="py-2 px-3">
