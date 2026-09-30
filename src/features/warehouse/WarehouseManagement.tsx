@@ -120,50 +120,53 @@ export const WarehouseManagement: React.FC = () => {
   ];
 
   return (
-    <div className="page-container p-6 space-y-6 max-w-7xl mx-auto animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b" style={{ borderColor: 'var(--color-border)' }}>
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
+      {/* Top Header Card Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 flex items-center justify-center border border-teal-200 dark:border-teal-800">
-            <Warehouse className="w-6 h-6" />
+          <div 
+            className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 shadow-2xs"
+            style={{ background: 'var(--color-primary-50, rgba(99,102,241,0.08))', border: '1px solid var(--color-primary-200, rgba(99,102,241,0.2))' }}
+          >
+            <Warehouse className="w-4.5 h-4.5" style={{ color: 'var(--color-primary)' }} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
               Warehouse Management
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               Manage physical distribution hubs, branches, and navigate warehouse-specific stock inventory
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="secondary"
             onClick={() => navigate('/warehouse/item-prices')}
-            className="text-xs font-semibold border-slate-200 dark:border-slate-700 py-2 rounded-xl text-teal-600 dark:text-teal-400"
+            className="text-xs font-medium border-slate-200 dark:border-slate-700 py-1.5 px-3 rounded-lg"
           >
-            <DollarSign className="w-4 h-4 mr-1.5" /> Item Price Lists
+            <DollarSign className="w-3.5 h-3.5 mr-1 text-emerald-600" /> Item Price Lists
           </Button>
 
           <Button
             variant="secondary"
             onClick={() => navigate('/warehouse/items')}
-            className="text-xs font-semibold border-slate-200 dark:border-slate-700 py-2 rounded-xl"
+            className="text-xs font-medium border-slate-200 dark:border-slate-700 py-1.5 px-3 rounded-lg"
           >
-            <Boxes className="w-4 h-4 mr-1.5 text-indigo-600" /> All Inventory Items
+            <Boxes className="w-3.5 h-3.5 mr-1 text-indigo-600" /> All Inventory Items
           </Button>
 
           <button
             onClick={() => refetch()}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-colors bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </button>
         </div>
       </div>
 
-      {/* Unified DataTable Component */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm p-4">
+      {/* Main Table Container */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs overflow-hidden">
         <DataTable
           data={warehouses}
           columns={columns}

@@ -1,18 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Plus, RefreshCw, Edit2, FileSpreadsheet, Eye } from 'lucide-react';
+import {
+  Plus,
+  RefreshCw,
+  Edit2,
+  Eye,
+  CheckCircle2,
+  Clock,
+  FileText,
+  TrendingUp,
+  Upload,
+  Download,
+  SlidersHorizontal,
+  BarChart3
+} from 'lucide-react';
 import {
   usePurchaseQuotations,
-  useDeletePurchaseQuotation,
   type PurchaseQuotation
 } from './api/usePurchaseQuotations';
 import { DataTable, type ColumnDef } from '../../../components/table/DataTable';
-import { Button, Spinner, DateRangePicker, Tooltip } from '../../../components/ui';
+import { Spinner, DateRangePicker, Tooltip } from '../../../components/ui';
 
 export const PurchaseQuotationList: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [vendorFilter, setVendorFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -23,26 +36,87 @@ export const PurchaseQuotationList: React.FC = () => {
     endDate: endDate || undefined,
   });
 
-  const quotationsList: PurchaseQuotation[] = (Array.isArray(rawQuotations) ? rawQuotations : (rawQuotations as any)?.data) || [];
+  const quotationsList: PurchaseQuotation[] = useMemo(() => {
+    return (Array.isArray(rawQuotations) ? rawQuotations : (rawQuotations as any)?.data) || [];
+  }, [rawQuotations]);
+
+  // Dynamic KPI Stats calculated purely from API response
+  const stats = useMemo(() => {
+    const totalCount = quotationsList.length;
+    let openCount = 0;
+    let approvedCount = 0;
+    let totalValue = 0;
+
+    quotationsList.forEach(q => {
+      const s = (q.Status || 'Open').toUpperCase();
+      totalValue += Number(q.DocTotal || 0);
+
+      if (s === 'OPEN' || s === 'O') {
+        openCount++;
+      } else if (s === 'CLOSED' || s === 'C' || q.AprStatus === 'Y') {
+        approvedCount++;
+      }
+    });
+
+    return {
+      totalCount,
+      openCount,
+      approvedCount,
+      totalValue,
+    };
+  }, [quotationsList]);
+
+  // Dynamic Vendor Options from API data
+  const vendorOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    quotationsList.forEach(q => {
+      const vCode = q.CustCode || q.CustName;
+      if (vCode) {
+        map.set(vCode, q.CustName || vCode);
+      }
+    });
+    return Array.from(map.entries()).map(([code, name]) => ({ code, name }));
+  }, [quotationsList]);
+
+  // Filtered List
+  const filteredList = useMemo(() => {
+    return quotationsList.filter(q => {
+      const s = (q.Status || 'Open').toUpperCase();
+
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'open' && s !== 'OPEN' && s !== 'O') return false;
+        if (statusFilter === 'closed' && s !== 'CLOSED' && s !== 'C') return false;
+        if (statusFilter === 'pending' && s !== 'PENDING' && s !== 'P') return false;
+      }
+
+      if (vendorFilter !== 'all' && (q.CustCode !== vendorFilter && q.CustName !== vendorFilter)) return false;
+
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const codeMatch = (q.QuotCode || '').toLowerCase().includes(term);
+        const vendorMatch = (q.CustName || '').toLowerCase().includes(term);
+        const sapMatch = (q.SAPDocNum ? String(q.SAPDocNum) : '').toLowerCase().includes(term);
+        if (!codeMatch && !vendorMatch && !sapMatch) return false;
+      }
+
+      return true;
+    });
+  }, [quotationsList, statusFilter, vendorFilter, searchTerm]);
 
   const handleExportCSV = () => {
-    if (!quotationsList || quotationsList.length === 0) return;
-    const headers = ['ID', 'DOCNUM', 'DOC STATUS', 'RELATION FROM', 'PURCHASE QUOTATION NO', 'VENDOR', 'BASE REQ.', 'BASE QUOT.', 'REQUEST TYPE', 'CREATED DATE', 'DOC TOTAL', 'APRDATE', 'APPROVAL STATUS'];
+    if (!filteredList || filteredList.length === 0) return;
+    const headers = ['ID', 'DOCNUM', 'DOC STATUS', 'PURCHASE QUOTATION NO', 'VENDOR', 'REQUEST TYPE', 'CREATED DATE', 'DOC TOTAL', 'APPROVAL STATUS'];
     const csvRows = [
       headers.join(','),
-      ...quotationsList.map(q => [
+      ...filteredList.map(q => [
         q.ID,
         `"${q.SAPDocNum || q.ID}"`,
         `"${q.Status || 'Open'}"`,
-        `"${(q as any).relation_from || q.Remarks || ''}"`,
         `"${q.QuotCode || `PQ26/${q.ID}`}"`,
         `"${(q.CustName || q.CustCode || '').replace(/"/g, '""')}"`,
-        `"${(q as any).Pr_ID ? `PR26/${(q as any).Pr_ID}` : 'N/A'}"`,
-        `"${q.QuotCode || `PQ26/${q.ID}`}"`,
         `"${q.RequestType || 'Item'}"`,
         `"${q.CreatedDate ? new Date(q.CreatedDate).toISOString().split('T')[0] : ''}"`,
         q.DocTotal || 0,
-        `"${q.AprDate ? new Date(q.AprDate).toISOString().split('T')[0] : ''}"`,
         `"${q.AprStatus === 'Y' ? 'APPROVED' : q.AprStatus === 'N' ? 'REJECTED' : 'PENDING'}"`,
       ].join(','))
     ];
@@ -69,7 +143,7 @@ export const PurchaseQuotationList: React.FC = () => {
       accessorKey: 'SAPDocNum',
       header: 'DOCNUM',
       cell: ({ row }) => (
-        <span className="text-xs text-slate-700 dark:text-slate-300">
+        <span className="text-xs font-mono text-slate-600 dark:text-slate-400">
           {row.original.SAPDocNum || row.original.ID}
         </span>
       ),
@@ -96,22 +170,17 @@ export const PurchaseQuotationList: React.FC = () => {
       },
     },
     {
-      accessorKey: 'relation_from',
-      header: 'RELATION FROM',
-      cell: ({ row }) => {
-        const rel = (row.original as any).relation_from || '';
-        return (
-          <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-            {rel || ''}
-          </span>
-        );
-      },
-    },
-    {
       accessorKey: 'QuotCode',
       header: 'PURCHASE QUOTATION NO',
       cell: ({ row }) => (
-        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+        <span 
+          className="text-xs font-semibold cursor-pointer hover:underline"
+          style={{ color: 'var(--color-primary)' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/procurement/quotation/view/${row.original.ID}`);
+          }}
+        >
           {row.original.QuotCode || `PQ26/${row.original.ID}`}
         </span>
       ),
@@ -120,211 +189,269 @@ export const PurchaseQuotationList: React.FC = () => {
       accessorKey: 'CustName',
       header: 'VENDOR',
       cell: ({ row }) => (
-        <span className="text-xs font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">
-          {row.original.CustName || 'N/A'}
-        </span>
+        <div className="py-0.5">
+          <div className="font-semibold text-slate-800 dark:text-slate-100 text-xs">{row.original.CustName || '—'}</div>
+          <div className="text-[11px] text-slate-400 font-mono mt-0.5">{row.original.CustCode}</div>
+        </div>
       ),
-    },
-    {
-      id: 'base_req',
-      header: 'BASE REQ.',
-      cell: ({ row }) => {
-        const prId = (row.original as any).Pr_ID || (row.original as any).RequestedNo;
-        if (!prId) {
-          return (
-            <span className="px-1.5 py-0.5 text-[10px] bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 rounded border border-slate-200 dark:border-slate-700">
-              N/A
-            </span>
-          );
-        }
-        const prList = Array.isArray(prId) ? prId : String(prId).split(',');
-        return (
-          <div className="flex flex-wrap gap-1 max-w-[200px]">
-            {prList.map((pr: string, idx: number) => {
-              const clean = pr.trim();
-              const label = clean.startsWith('PR') ? clean : `PR26/${clean}`;
-              return (
-                <span key={idx} className="px-1.5 py-0.5 text-[10px] font-semibold bg-sky-50 text-sky-600 border border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800 rounded">
-                  {label}
-                </span>
-              );
-            })}
-          </div>
-        );
-      },
-    },
-    {
-      id: 'base_quot',
-      header: 'BASE QUOT.',
-      cell: ({ row }) => {
-        const quotCode = row.original.QuotCode || (row.original as any).quotation_id;
-        if (!quotCode) {
-          return (
-            <span className="px-1.5 py-0.5 text-[10px] bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 rounded border border-slate-200 dark:border-slate-700">
-              N/A
-            </span>
-          );
-        }
-        const label = String(quotCode).startsWith('PQ') ? String(quotCode) : `PQ26/${quotCode}`;
-        return (
-          <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-purple-50 text-purple-600 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800 rounded">
-            {label}
-          </span>
-        );
-      },
     },
     {
       accessorKey: 'RequestType',
       header: 'REQUEST TYPE',
-      cell: ({ row }) => {
-        const reqType = row.original.RequestType || (row.original as any).SalesType === 0 ? 'Service' : 'Item';
-        return (
-          <span className="text-xs text-slate-600 dark:text-slate-400">
-            {reqType}
-          </span>
-        );
-      },
+      cell: ({ row }) => (
+        <span className="text-xs text-slate-600 dark:text-slate-400">
+          {row.original.RequestType || 'Item'}
+        </span>
+      ),
     },
     {
       accessorKey: 'CreatedDate',
       header: 'CREATED DATE',
       cell: ({ row }) => {
-        const val = row.original.CreatedDate || row.original.PostDate;
-        return (
-          <span className="text-xs text-slate-600 dark:text-slate-400 font-mono whitespace-nowrap">
-            {val ? new Date(val).toISOString().split('T')[0] : '2026-00-00'}
-          </span>
-        );
+        const val = row.original.CreatedDate;
+        return <span className="text-xs text-slate-600 dark:text-slate-400">{val ? new Date(val).toLocaleDateString() : '—'}</span>;
       },
     },
     {
       accessorKey: 'DocTotal',
       header: 'DOC TOTAL',
-      cell: ({ row }) => {
-        const amt = Number(row.original.DocTotal || 0);
-        return (
-          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 font-mono whitespace-nowrap">
-            {amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-        );
-      },
-    },
-    {
-      accessorKey: 'AprDate',
-      header: 'APRDATE',
-      cell: ({ row }) => {
-        const val = row.original.AprDate;
-        return (
-          <span className="text-xs text-slate-600 dark:text-slate-400 font-mono whitespace-nowrap">
-            {val ? new Date(val).toISOString().split('T')[0] : ''}
-          </span>
-        );
-      },
+      cell: ({ row }) => (
+        <span className="font-bold text-slate-900 dark:text-white text-xs">
+          ${Number(row.original.DocTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+      ),
     },
     {
       accessorKey: 'AprStatus',
       header: 'APPROVAL STATUS',
       cell: ({ row }) => {
-        const st = (row.original.AprStatus || 'Y').toUpperCase();
-        let badgeStyle = 'bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-400';
-        let label = 'APPROVED';
-        if (st === 'N' || st === 'REJECTED') {
-          badgeStyle = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-400';
-          label = 'REJECTED';
-        } else if (st === 'P' || st === 'PENDING') {
-          badgeStyle = 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400';
-          label = 'PENDING';
+        const status = row.original.AprStatus;
+        if (status === 'Y') {
+          return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800">
+              Approved
+            </span>
+          );
+        }
+        if (status === 'N') {
+          return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800">
+              Rejected
+            </span>
+          );
         }
         return (
-          <span className={`inline-block px-3 py-1 text-[10px] font-bold rounded-full border tracking-wider uppercase ${badgeStyle}`}>
-            {label}
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800">
+            Pending
           </span>
         );
       },
     },
     {
       id: 'actions',
-      header: 'ACTION',
+      header: 'ACTIONS',
       cell: ({ row }) => (
-        <div className="flex items-center gap-1.5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => navigate(`/procurement/quotation/view/${row.original.ID}`)}
-            className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center shadow-sm transition-all hover:scale-105 active:scale-95"
-            title="View Details"
-          >
-            <Eye className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-          </button>
-          <button
-            onClick={() => navigate(`/procurement/quotation/edit/${row.original.ID}`)}
-            className="w-8 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shadow transition-all hover:scale-105 active:scale-95"
-            title="Edit Quotation"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
+        <div className="flex items-center gap-1">
+          <Tooltip content="View Purchase Quotation" position="top">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/procurement/quotation/view/${row.original.ID}`);
+              }}
+              className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg transition-colors cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
+          <Tooltip content="Edit" position="top">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/procurement/quotation/edit/${row.original.ID}`);
+              }}
+              className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg transition-colors cursor-pointer"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
         </div>
       ),
     },
   ];
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto animate-fade-in">
-      {/* Top Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Purchase Quotations
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Manage and process vendor quotations
-          </p>
-        </div>
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
+      
+      {/* Top Header Card Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
         <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
-            onClick={handleExportCSV}
-            className="border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-xs font-medium py-2 rounded-xl"
+          <div 
+            className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 shadow-2xs"
+            style={{ background: 'var(--color-primary-50, rgba(99,102,241,0.08))', border: '1px solid var(--color-primary-200, rgba(99,102,241,0.2))' }}
           >
-            <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-600" />
-            Export CSV
-          </Button>
+            <FileText className="w-4.5 h-4.5" style={{ color: 'var(--color-primary)' }} />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+              Purchase Quotations
+            </h1>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Manage vendor purchase quotations, compare pricing and convert to purchase orders
+            </p>
+          </div>
+        </div>
+
+        {/* Right side: Action Buttons */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+          >
+            <Upload className="w-3.5 h-3.5 text-emerald-600" />
+            Import
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-600" />
+            Export <span className="text-[10px] opacity-70">▼</span>
+          </button>
+
           <Link to="/procurement/quotation/new">
-            <Button
-              variant="primary"
-              className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold py-2 px-4 rounded-xl shadow-md transition-all hover:shadow-lg"
+            <button
+              className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-lg text-white shadow-xs transition-all hover:opacity-95 active:scale-98 cursor-pointer"
+              style={{ background: 'var(--color-primary)' }}
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-3.5 h-3.5" />
               New Purchase Quotation
-            </Button>
+            </button>
           </Link>
         </div>
       </div>
 
-      {/* Main Table Container */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center p-12 space-y-3">
-            <Spinner className="w-8 h-8 text-teal-600" />
-            <p className="text-xs text-slate-500">Loading purchase quotations...</p>
+      {/* Dynamic KPI Stats Cards Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        
+        {/* Card 1: Total Purchase Quotations */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <FileText className="w-3 h-3" />
+              </div>
+              Total Quotations
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{stats.totalCount}</div>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+              <TrendingUp className="w-3 h-3" />
+              Active in database
+            </div>
           </div>
-        ) : (
-          <DataTable
-            columns={columns}
-            data={quotationsList}
+          <div className="text-blue-400 opacity-60">
+            <BarChart3 className="w-5.5 h-5.5 stroke-[1.5]" />
+          </div>
+        </div>
+
+        {/* Card 2: Open Quotations */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <Clock className="w-3 h-3" />
+              </div>
+              Open Quotations
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{stats.openCount}</div>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+              Pending review
+            </div>
+          </div>
+          <div className="text-amber-400 opacity-60">
+            <BarChart3 className="w-5.5 h-5.5 stroke-[1.5]" />
+          </div>
+        </div>
+
+        {/* Card 3: Approved Quotations */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <CheckCircle2 className="w-3 h-3" />
+              </div>
+              Approved / Closed
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{stats.approvedCount}</div>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+              Ready for PO
+            </div>
+          </div>
+          <div className="text-emerald-400 opacity-60">
+            <BarChart3 className="w-5.5 h-5.5 stroke-[1.5]" />
+          </div>
+        </div>
+
+        {/* Card 4: Total Quotation Value */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                <span className="font-bold text-xs">$</span>
+              </div>
+              Total Quotation Value
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+              ${stats.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+              Cumulative value
+            </div>
+          </div>
+          <div className="text-purple-400 opacity-60">
+            <BarChart3 className="w-5.5 h-5.5 stroke-[1.5]" />
+          </div>
+        </div>
+
+      </div>
+
+      {/* Main Table Container - Full Width */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs overflow-hidden w-full">
+        <DataTable
+          columns={columns}
+          data={filteredList}
+          isLoading={isLoading}
+            enableRowSelection={true}
+            enableExport={true}
+            exportFileName="purchase-quotations"
             searchValue={searchTerm}
             onSearchChange={setSearchTerm}
             searchPlaceholder="Search vendor, quotation code..."
+            onRowClick={(row) => navigate(`/procurement/quotation/view/${row.ID}`)}
             extraFilters={
               <div className="flex flex-wrap items-center gap-2">
                 <select
+                  value={vendorFilter}
+                  onChange={(e) => setVendorFilter(e.target.value)}
+                  className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none text-slate-700 dark:text-slate-300 font-medium cursor-pointer"
+                >
+                  <option value="all">All Vendors</option>
+                  {vendorOptions.map(v => (
+                    <option key={v.code} value={v.code}>{v.name}</option>
+                  ))}
+                </select>
+
+                <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-700 dark:text-slate-300 font-medium cursor-pointer"
+                  className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none text-slate-700 dark:text-slate-300 font-medium cursor-pointer"
                 >
                   <option value="all">All Statuses</option>
                   <option value="open">Open</option>
                   <option value="closed">Closed</option>
                   <option value="pending">Pending</option>
                 </select>
+
                 <DateRangePicker
                   value={{ startDate, endDate }}
                   onChange={(range) => {
@@ -332,21 +459,30 @@ export const PurchaseQuotationList: React.FC = () => {
                     setEndDate(range.endDate);
                   }}
                 />
+
+                <button
+                  className="px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                  <span>More Filters</span>
+                </button>
+
                 <Tooltip content="Refresh" position="bottom">
                   <button
                     onClick={() => refetch()}
                     disabled={isRefetching}
-                    className="p-2 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors flex items-center justify-center cursor-pointer"
+                    className="p-1.5 text-xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors flex items-center justify-center cursor-pointer"
                   >
-                    <RefreshCw className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefetching ? 'animate-spin' : ''}`} />
                   </button>
                 </Tooltip>
               </div>
             }
-            onRowClick={(row) => navigate(`/procurement/quotation/view/${row.ID}`)}
           />
-        )}
       </div>
+
     </div>
   );
 };
+
+export default PurchaseQuotationList;

@@ -23,7 +23,7 @@ const paddingClasses = {
 export const Card: React.FC<CardProps> = ({ children, className = '', padding = 'md', hover = false, glass = false, onClick }) => {
   const { activeDesign } = useDesignStore();
   const { backgroundImage, backgroundColor } = useThemeStore();
-  const resolvedGlass = glass || activeDesign === 'design1';
+  const resolvedGlass = glass || activeDesign === 'design1' || !!backgroundImage || !!backgroundColor;
 
   return (
     <motion.div

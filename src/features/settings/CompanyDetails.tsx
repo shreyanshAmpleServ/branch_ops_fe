@@ -107,7 +107,7 @@ export const CompanyDetails: React.FC = () => {
   ];
 
   return (
-    <div className="page-container p-6 space-y-8 max-w-6xl mx-auto">
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in pb-20">
       
       {/* Title & Top Save Row */}
       <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b" style={{ borderColor: 'var(--color-border)' }}>

@@ -291,86 +291,137 @@ export const IncomingPaymentsPage: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto animate-fade-in">
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            <ArrowDownRight className="w-7 h-7 text-teal-600" /> Incoming Payments
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Customer collections, AR invoice settlements, bank transfers, and cash receipts
-          </p>
-        </div>
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
+      {/* Top Header Card */}
+      <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Button
-            variant="primary"
-            onClick={() => setIsCreateOpen(true)}
-            className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold py-2 px-4 rounded-xl shadow-md flex items-center gap-2"
+          <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-800/60 flex items-center justify-center shrink-0">
+            <ArrowDownRight className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+              Incoming Payments (A/R)
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Customer collections, AR invoice settlements, bank transfers, and cash receipts
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
           >
-            <Plus className="w-4 h-4" /> Record Incoming Payment
-          </Button>
+            <Download className="w-3.5 h-3.5 text-emerald-600" />
+            Export CSV
+          </button>
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white shadow-2xs transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Record Incoming Payment
+          </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-5 border-l-4 border-l-teal-500 bg-white dark:bg-slate-800 rounded-2xl shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Total Received</span>
-            <ArrowDownRight className="w-4 h-4 text-teal-600" />
+      {/* KPI Stats Cards Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Card 1: Total Received */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                <ArrowDownRight className="w-3 h-3" />
+              </div>
+              Total Received
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight font-mono">
+              ${metrics.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold">
+              Total customer cashflow
+            </div>
           </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white font-mono">
-            ${metrics.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="text-teal-400 opacity-60">
+            <ArrowDownRight className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
-          <div className="text-[11px] text-teal-600 font-medium mt-1">Total customer cashflow</div>
-        </Card>
+        </div>
 
-        <Card className="p-5 border-l-4 border-l-blue-500 bg-white dark:bg-slate-800 rounded-2xl shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Bank & Cheque</span>
-            <Building className="w-4 h-4 text-blue-600" />
+        {/* Card 2: Bank & Cheque */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <Building className="w-3 h-3" />
+              </div>
+              Bank & Cheque
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight font-mono">
+              ${metrics.bankTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">
+              Direct wire & cheques
+            </div>
           </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white font-mono">
-            ${metrics.bankTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="text-blue-400 opacity-60">
+            <Building className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
-          <div className="text-[11px] text-blue-600 font-medium mt-1">Direct wire & cheques</div>
-        </Card>
+        </div>
 
-        <Card className="p-5 border-l-4 border-l-emerald-500 bg-white dark:bg-slate-800 rounded-2xl shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Cash Collections</span>
-            <Wallet className="w-4 h-4 text-emerald-600" />
+        {/* Card 3: Cash Collections */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <Wallet className="w-3 h-3" />
+              </div>
+              Cash Collections
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight font-mono">
+              ${metrics.cashTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+              Over-the-counter cash
+            </div>
           </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white font-mono">
-            ${metrics.cashTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="text-emerald-400 opacity-60">
+            <Wallet className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
-          <div className="text-[11px] text-emerald-600 font-medium mt-1">Over-the-counter cash</div>
-        </Card>
+        </div>
 
-        <Card className="p-5 border-l-4 border-l-purple-500 bg-white dark:bg-slate-800 rounded-2xl shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Total Transactions</span>
-            <CheckCircle2 className="w-4 h-4 text-purple-600" />
+        {/* Card 4: Total Transactions */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                <CheckCircle2 className="w-3 h-3" />
+              </div>
+              Total Receipts
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight font-mono">
+              {metrics.count}
+            </div>
+            <div className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold">
+              Completed records
+            </div>
           </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white font-mono">
-            {metrics.count}
+          <div className="text-purple-400 opacity-60">
+            <CheckCircle2 className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
-          <div className="text-[11px] text-purple-600 font-medium mt-1">Completed records</div>
-        </Card>
+        </div>
       </div>
 
       {/* Main Table Container */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm overflow-hidden">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center p-12 space-y-3">
-            <Spinner className="w-8 h-8 text-teal-600" />
-            <p className="text-xs text-slate-500">Loading incoming payments...</p>
-          </div>
-        ) : (
-          <DataTable
-            data={payments}
-            columns={columns}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs overflow-hidden">
+        <DataTable
+          data={payments}
+          columns={columns}
+          isLoading={isLoading}
+            enableRowSelection={true}
+            enableExport={true}
+            exportFileName="incoming-payments"
             searchValue={searchTerm}
             onSearchChange={setSearchTerm}
             searchPlaceholder="Search by doc #, customer, reference..."
@@ -491,7 +542,6 @@ export const IncomingPaymentsPage: React.FC = () => {
             }}
             emptyMessage="No incoming payments found matching your criteria."
           />
-        )}
       </div>
 
       {/* View / Printable Receipt Modal */}

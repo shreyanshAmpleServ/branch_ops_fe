@@ -167,11 +167,11 @@ const Header2: React.FC<{ onMenuClick: () => void; collapsed: boolean }> = ({ on
 
   return (
     <header
-      className="sticky top-0 z-20 h-14 flex items-center justify-between px-5"
+      className="sticky top-0 z-20 h-14 flex items-center justify-between px-5 backdrop-blur-xl transition-all duration-300"
       style={(backgroundImage || backgroundColor) ? {
-        background: resolvedMode === 'dark' ? 'rgba(17, 24, 39, 0.7)' : 'rgba(255, 255, 255, 0.7)',
-        backdropFilter: 'blur(16px)',
-        borderBottom: '1px solid var(--color-border)'
+        background: resolvedMode === 'dark' ? 'rgba(15, 23, 42, 0.82)' : 'rgba(255, 255, 255, 0.85)',
+        borderBottom: resolvedMode === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.6)',
+        boxShadow: resolvedMode === 'dark' ? '0 4px 20px -2px rgba(0, 0, 0, 0.3)' : '0 4px 20px -2px rgba(0, 0, 0, 0.04)'
       } : {
         background: 'var(--color-surface)',
         borderBottom: '1px solid var(--color-border)'
@@ -252,7 +252,7 @@ export const DashboardHome2: React.FC = () => {
 /* ========= Layout ========= */
 export const Layout2: React.FC = () => {
   const { t } = useTranslation();
-  const { backgroundImage, mode } = useThemeStore();
+  const { backgroundImage, backgroundColor, mode } = useThemeStore();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { showWarning, secondsLeft, stayActive } = useIdleTimeout();
@@ -266,11 +266,14 @@ export const Layout2: React.FC = () => {
       className="min-h-screen"
       style={backgroundImage ? {
         background: resolvedMode === 'dark'
-          ? `linear-gradient(rgba(10, 14, 26, 0.5), rgba(10, 14, 26, 0.5)), url(${backgroundImage})`
-          : `linear-gradient(rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)), url(${backgroundImage})`,
+          ? `linear-gradient(rgba(10, 14, 26, 0.55), rgba(10, 14, 26, 0.55)), url(${backgroundImage})`
+          : `linear-gradient(rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.18)), url(${backgroundImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed'
+      } : backgroundColor ? {
+        background: backgroundColor,
+        minHeight: '100vh',
       } : { background: 'var(--color-background)' }}
     >
       <Sidebar2 collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />

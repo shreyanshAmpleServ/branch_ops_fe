@@ -196,18 +196,12 @@ export const HeaderPageTitle: React.FC<{ className?: string }> = ({ className = 
   return (
     <div className={`flex flex-col justify-center min-w-0 ${className}`}>
       <div className="flex items-center gap-2">
-        <h1
-          className="text-base sm:text-lg font-bold tracking-tight truncate leading-tight mb-0"
-          style={{ color: 'var(--color-text)' }}
-        >
+        <h1 className="text-base sm:text-lg font-bold tracking-tight truncate leading-tight mb-0 text-slate-900 dark:text-white">
           {routeMeta.title}
         </h1>
       </div>
       {routeMeta.category && (
-        <span
-          className="text-[11px] font-medium hidden sm:block leading-none mt-0.5 opacity-70 truncate"
-          style={{ color: 'var(--color-text-secondary)' }}
-        >
+        <span className="text-[11px] font-medium hidden sm:block leading-none mt-0.5 text-slate-500 dark:text-slate-400 truncate">
           {routeMeta.category}
         </span>
       )}

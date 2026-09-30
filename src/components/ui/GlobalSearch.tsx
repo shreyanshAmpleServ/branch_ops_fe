@@ -203,28 +203,23 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
     <div ref={wrapperRef} className={`relative w-full ${className}`}>
       <div
         className={`relative flex items-center rounded-xl transition-all duration-200 ${
-          isOpen ? 'ring-2 ring-primary/30' : ''
+          isOpen ? 'ring-2 ring-white/30' : ''
         }`}
         style={{
           background: inSidebar
-            ? isDarkSidebar
-              ? 'rgba(255, 255, 255, 0.07)'
-              : 'rgba(0, 0, 0, 0.04)'
+            ? 'rgba(255, 255, 255, 0.12)'
             : 'var(--color-surface-hover)',
           border: inSidebar
-            ? isDarkSidebar
-              ? '1px solid rgba(255, 255, 255, 0.1)'
-              : '1px solid rgba(0, 0, 0, 0.08)'
+            ? '1px solid rgba(255, 255, 255, 0.2)'
             : '1px solid var(--color-border)',
+          backdropFilter: inSidebar ? 'blur(10px)' : undefined,
         }}
       >
         <Search
           className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
           style={{
             color: inSidebar
-              ? isDarkSidebar
-                ? 'rgba(255, 255, 255, 0.5)'
-                : 'var(--color-text-secondary)'
+              ? 'rgba(255, 255, 255, 0.75)'
               : 'var(--color-text-secondary)',
           }}
         />
@@ -236,14 +231,12 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
-          placeholder={t('common.search', 'Search menu & apps...')}
-          className="bg-transparent border-none outline-none pl-9 pr-8 py-2 w-full text-xs sm:text-sm font-medium transition-all"
+          placeholder={t('common.search', 'Search...')}
+          className={`bg-transparent border-none outline-none pl-9 pr-8 py-2 w-full text-xs sm:text-sm font-medium transition-all ${
+            inSidebar ? 'placeholder:text-white/60 text-white' : ''
+          }`}
           style={{
-            color: inSidebar
-              ? isDarkSidebar
-                ? '#ffffff'
-                : 'var(--color-text)'
-              : 'var(--color-text)',
+            color: inSidebar ? '#ffffff' : 'var(--color-text)',
           }}
         />
         {query && (
@@ -253,8 +246,8 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
               setQuery('');
               inputRef.current?.focus();
             }}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-            style={{ color: 'var(--color-text-secondary)' }}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-white/20 transition-colors"
+            style={{ color: inSidebar ? 'rgba(255, 255, 255, 0.75)' : 'var(--color-text-secondary)' }}
           >
             <X className="h-3.5 w-3.5" />
           </button>

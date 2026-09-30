@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, UserCheck, UserX, Shield, Edit2, Phone, Mail,
-  RefreshCw
+  RefreshCw, TrendingUp, BarChart3
 } from 'lucide-react';
 import { useUsers, useUpdateUser, getUserAvatarUrl, type ApiUser, type UpdateUserPayload } from './api/useUsers';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -156,24 +156,35 @@ export const UserManagement: React.FC = () => {
 
 
   return (
-    <div className="page-container p-6 space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b" style={{ borderColor: 'var(--color-border)' }}>
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text)' }}>
-            User Management
-          </h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            Manage system users, roles, and permissions
-          </p>
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
+      {/* Top Header Card Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div 
+            className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 shadow-2xs"
+            style={{ background: 'var(--color-primary-50, rgba(99,102,241,0.08))', border: '1px solid var(--color-primary-200, rgba(99,102,241,0.2))' }}
+          >
+            <Users className="w-4.5 h-4.5" style={{ color: 'var(--color-primary)' }} />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+              User Management
+            </h1>
+            <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 mt-0.5">
+              Manage system users, access credentials, roles, and permissions
+            </p>
+          </div>
         </div>
-        <button
-          onClick={() => refetch()}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors hover:bg-surface-hover"
-          style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
-        >
-          <RefreshCw className="h-4 w-4" /> Refresh
-        </button>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => refetch()}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200/90 dark:border-slate-700/80 bg-white/70 dark:bg-slate-800/60 hover:bg-white dark:hover:bg-slate-700/70 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer shadow-2xs"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Success toast */}
@@ -183,41 +194,99 @@ export const UserManagement: React.FC = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="p-4 rounded-xl text-sm font-medium text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2"
+            className="p-3 rounded-xl text-xs font-medium text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2"
           >
             <UserCheck className="h-4 w-4" /> {successMsg}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map(s => (
-          <div
-            key={s.label}
-            className="rounded-2xl px-4 py-4 flex items-center gap-4"
-            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-          >
-            <div className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: s.bg }}>
-              <s.icon className="h-5 w-5" style={{ color: s.color }} />
+      {/* Dynamic KPI Stats Cards Row (Real counts from API) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Card 1: Total Users */}
+        <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs flex items-center justify-between hover:border-slate-300 dark:hover:border-white/20 transition-all">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+              <div className="w-5.5 h-5.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center">
+                <Users className="w-3 h-3" />
+              </div>
+              Total Users
             </div>
-            <div>
-              <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                {s.label}
-              </p>
-              <p className="text-2xl font-bold mt-0.5" style={{ color: s.color }}>
-                {isLoading ? '—' : s.value}
-              </p>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{isLoading ? '—' : stats.total}</div>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+              <TrendingUp className="w-3 h-3" />
+              Registered staff
             </div>
           </div>
-        ))}
+          <div className="text-blue-500/60 dark:text-blue-400/50">
+            <BarChart3 className="w-5.5 h-5.5 stroke-[1.5]" />
+          </div>
+        </div>
+
+        {/* Card 2: Active Users */}
+        <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs flex items-center justify-between hover:border-slate-300 dark:hover:border-white/20 transition-all">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+              <div className="w-5.5 h-5.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
+                <UserCheck className="w-3 h-3" />
+              </div>
+              Active Users
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{isLoading ? '—' : stats.active}</div>
+            <div className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+              Enabled logins
+            </div>
+          </div>
+          <div className="text-emerald-500/60 dark:text-emerald-400/50">
+            <UserCheck className="w-5.5 h-5.5 stroke-[1.5]" />
+          </div>
+        </div>
+
+        {/* Card 3: Inactive Users */}
+        <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs flex items-center justify-between hover:border-slate-300 dark:hover:border-white/20 transition-all">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+              <div className="w-5.5 h-5.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 flex items-center justify-center">
+                <UserX className="w-3 h-3" />
+              </div>
+              Inactive Users
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{isLoading ? '—' : stats.inactive}</div>
+            <div className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+              Disabled accounts
+            </div>
+          </div>
+          <div className="text-rose-500/60 dark:text-rose-400/50">
+            <UserX className="w-5.5 h-5.5 stroke-[1.5]" />
+          </div>
+        </div>
+
+        {/* Card 4: Administrators */}
+        <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs flex items-center justify-between hover:border-slate-300 dark:hover:border-white/20 transition-all">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+              <div className="w-5.5 h-5.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center">
+                <Shield className="w-3 h-3" />
+              </div>
+              Administrators
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{isLoading ? '—' : stats.admins}</div>
+            <div className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+              Full system privileges
+            </div>
+          </div>
+          <div className="text-amber-500/60 dark:text-amber-400/50">
+            <Shield className="w-5.5 h-5.5 stroke-[1.5]" />
+          </div>
+        </div>
       </div>
 
       {/* Unified DataTable Component */}
-      <DataTable
-        data={users}
-        columns={columns}
-        rowActions={rowActions}
+      <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl rounded-xl border border-slate-200/80 dark:border-white/10 shadow-xs overflow-hidden">
+        <DataTable
+          data={users}
+          columns={columns}
+          rowActions={rowActions}
         isLoading={isLoading}
         enableRowSelection
         enableExport
@@ -249,7 +318,8 @@ export const UserManagement: React.FC = () => {
           totalPages: pagination.totalPages,
           onPageChange: setPage,
         } : undefined}
-      />
+        />
+      </div>
 
       {/* Edit Canvas overlay */}
       <AnimatePresence>

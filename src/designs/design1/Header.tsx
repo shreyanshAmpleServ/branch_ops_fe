@@ -23,17 +23,23 @@ export const Header1: React.FC<HeaderProps> = ({ onMenuClick, collapsed }) => {
   const { user, openLogoutModal } = useAuthStore();
 
   const resolvedMode = mode === 'system' ? 'dark' : mode;
+  const isCustomBg = !!backgroundImage || !!backgroundColor;
 
   return (
     <header
-      className="sticky top-0 z-20 h-16 flex items-center justify-between px-6 transition-all duration-300 glass-light"
-      style={{
-        borderBottom: 'none',
-      }}
+      className={`sticky top-0 z-20 h-16 flex items-center justify-between px-6 transition-all duration-300 backdrop-blur-xl ${
+        isCustomBg
+          ? (resolvedMode === 'dark'
+              ? 'bg-slate-900/80 border-b border-white/10 shadow-lg shadow-black/10'
+              : 'bg-white/85 border-b border-white/60 shadow-xs')
+          : (resolvedMode === 'dark'
+              ? 'bg-surface/90 border-b border-border shadow-xs'
+              : 'bg-white/90 border-b border-slate-200/80 shadow-2xs')
+      }`}
     >
       <div className="flex items-center gap-3 min-w-0 flex-1 mr-4">
-        <button onClick={onMenuClick} className="p-2 rounded-lg hover:bg-surface-hover transition-colors lg:hidden shrink-0">
-          <Menu className="h-5 w-5" />
+        <button onClick={onMenuClick} className="p-2 rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/10 transition-colors lg:hidden shrink-0">
+          <Menu className="h-5 w-5 text-slate-700 dark:text-slate-200" />
         </button>
         <HeaderPageTitle />
       </div>
@@ -42,8 +48,8 @@ export const Header1: React.FC<HeaderProps> = ({ onMenuClick, collapsed }) => {
         {/* Language Switcher */}
         <Dropdown
           trigger={
-            <button className="p-2 rounded-lg hover:bg-surface-hover transition-colors">
-              <Globe className="h-5 w-5" style={{ color: 'var(--color-text-secondary)' }} />
+            <button className="p-2 rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/10 transition-colors">
+              <Globe className="h-5 w-5 text-slate-600 dark:text-slate-300" />
             </button>
           }
           items={LANGUAGES.map((lang) => ({
@@ -57,28 +63,28 @@ export const Header1: React.FC<HeaderProps> = ({ onMenuClick, collapsed }) => {
         <ThemeSettingsDropdown />
 
         {/* Theme Toggle */}
-        <button onClick={toggleMode} className="p-2 rounded-lg hover:bg-surface-hover transition-colors">
+        <button onClick={toggleMode} className="p-2 rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/10 transition-colors">
           {resolvedMode === 'dark' ? (
-            <Sun className="h-5 w-5" style={{ color: 'var(--color-text-secondary)' }} />
+            <Sun className="h-5 w-5 text-slate-600 dark:text-slate-300" />
           ) : (
-            <Moon className="h-5 w-5" style={{ color: 'var(--color-text-secondary)' }} />
+            <Moon className="h-5 w-5 text-slate-600 dark:text-slate-300" />
           )}
         </button>
 
         {/* Notifications */}
-        <button className="relative p-2 rounded-lg hover:bg-surface-hover transition-colors">
-          <Bell className="h-5 w-5" style={{ color: 'var(--color-text-secondary)' }} />
+        <button className="relative p-2 rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/10 transition-colors">
+          <Bell className="h-5 w-5 text-slate-600 dark:text-slate-300" />
           <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-error" />
         </button>
 
         {/* User Menu */}
         <Dropdown
           trigger={
-            <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-surface-hover transition-colors cursor-pointer">
+            <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-slate-100/60 dark:hover:bg-white/10 transition-colors cursor-pointer">
               <Avatar name={`${user?.firstName} ${user?.lastName}`} size="sm" />
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{user?.firstName}</p>
-                <p className="text-xs capitalize" style={{ color: 'var(--color-text-secondary)' }}>{user?.role}</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-white leading-tight">{user?.firstName}</p>
+                <p className="text-xs capitalize text-slate-500 dark:text-slate-400 mt-0.5">{user?.role}</p>
               </div>
             </div>
           }

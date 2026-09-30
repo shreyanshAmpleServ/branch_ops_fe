@@ -135,17 +135,19 @@
   }
 
   .glass-card {
-    background: rgba(255, 255, 255, 0.45);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(16px) saturate(190%);
+    -webkit-backdrop-filter: blur(16px) saturate(190%);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08), 0 1px 3px rgba(0, 0, 0, 0.02);
   }
 
   .dark .glass-card {
-    background: rgba(15, 23, 42, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    background: rgba(15, 23, 42, 0.62);
+    backdrop-filter: blur(20px) saturate(190%);
+    -webkit-backdrop-filter: blur(20px) saturate(190%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
   }
 
   /* Background Image Overlay */
@@ -641,43 +643,161 @@
     background-color: rgba(255, 255, 255, 0.03) !important;
   }
 
-  /* Glass card styling when custom background is active */
-  .has-custom-bg .glass-card {
-    background: rgba(15, 23, 42, 0.45) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    color: #f8fafc !important;
-    --color-surface: rgba(15, 23, 42, 0.45);
-    --color-surface-hover: rgba(255, 255, 255, 0.08);
-    --color-text: #f8fafc;
-    --color-text-secondary: #94a3b8;
-    --color-border: rgba(255, 255, 255, 0.1);
+  /* ========================================================
+     Custom Design Background & Glassmorphic Styling
+     ======================================================== */
+
+  /* Glass card styling when custom background is active in LIGHT MODE */
+  .has-custom-bg:not(.dark) .glass-card,
+  :not(.dark).has-custom-bg .glass-card {
+    background: rgba(255, 255, 255, 0.55) !important;
+    backdrop-filter: blur(16px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.03) !important;
+    color: #0f172a !important;
+    --color-surface: rgba(255, 255, 255, 0.65);
+    --color-surface-hover: rgba(255, 255, 255, 0.45);
+    --color-text: #0f172a;
+    --color-text-secondary: #475569;
+    --color-border: rgba(255, 255, 255, 0.45);
   }
 
+  /* Table cell borders and text in light mode glass */
+  .has-custom-bg:not(.dark) .glass-card td,
+  .has-custom-bg:not(.dark) .glass-card th,
+  .has-custom-bg:not(.dark) .glass-card tr,
+  .has-custom-bg:not(.dark) .glass-card .ant-table-cell {
+    border-color: rgba(226, 232, 240, 0.8) !important;
+    color: #0f172a !important;
+  }
+
+  .has-custom-bg:not(.dark) .glass-card th {
+    color: #475569 !important;
+  }
+
+  .has-custom-bg:not(.dark) .glass-card tbody tr:hover {
+    background-color: rgba(241, 245, 249, 0.65) !important;
+  }
+
+  /* Harmonize standard cards with the glass aesthetic on custom backgrounds */
+  .has-custom-bg:not(.dark) .bg-white {
+    background-color: rgba(255, 255, 255, 0.58) !important;
+    backdrop-filter: blur(16px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(190%) !important;
+    border-color: rgba(255, 255, 255, 0.45) !important;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08) !important;
+  }
+
+  /* Inputs, selects and fields in light frosted glass */
+  .has-custom-bg:not(.dark) .glass-card input:not([type="checkbox"]):not([type="radio"]),
+  .has-custom-bg:not(.dark) .glass-card select,
+  .has-custom-bg:not(.dark) .bg-white input:not([type="checkbox"]):not([type="radio"]),
+  .has-custom-bg:not(.dark) .bg-white select {
+    color: #0f172a !important;
+  }
+
+  .has-custom-bg:not(.dark) input::placeholder {
+    color: #94a3b8 !important;
+  }
+
+  /* Frosted Header in LIGHT MODE */
+  .has-custom-bg:not(.dark) header,
+  :not(.dark).has-custom-bg header {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04) !important;
+    color: #0f172a !important;
+  }
+
+  /* Headings & Text in LIGHT MODE: Always crisp dark slate */
+  .has-custom-bg:not(.dark) h1,
+  .has-custom-bg:not(.dark) h2,
+  .has-custom-bg:not(.dark) h3,
+  .has-custom-bg:not(.dark) h4,
+  .has-custom-bg:not(.dark) h5,
+  .has-custom-bg:not(.dark) h6,
+  .has-custom-bg:not(.dark) .page-container > h1,
+  .has-custom-bg:not(.dark) .page-container > div h1 {
+    color: #0f172a !important;
+  }
+
+  /* Glass card styling when custom background is active in DARK MODE */
   .dark.has-custom-bg .glass-card,
+  .has-custom-bg.dark .glass-card,
   .has-custom-bg .dark .glass-card {
-    background: rgba(15, 23, 42, 0.65) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: rgba(15, 23, 42, 0.62) !important;
+    backdrop-filter: blur(20px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.5) !important;
     color: #f8fafc !important;
-    --color-surface: rgba(15, 23, 42, 0.45);
+    --color-surface: rgba(15, 23, 42, 0.65);
     --color-surface-hover: rgba(255, 255, 255, 0.08);
     --color-text: #f8fafc;
     --color-text-secondary: #94a3b8;
     --color-border: rgba(255, 255, 255, 0.1);
   }
 
-  /* Target main page headers directly on the dark custom backgrounds to always be white */
-  .has-custom-bg h1,
-  .has-custom-bg .page-container > h1,
-  .has-custom-bg .page-container > div h1 {
+  .dark.has-custom-bg .glass-card td,
+  .dark.has-custom-bg .glass-card th,
+  .dark.has-custom-bg .glass-card tr,
+  .dark.has-custom-bg .glass-card .ant-table-cell,
+  .has-custom-bg.dark .glass-card td,
+  .has-custom-bg.dark .glass-card th,
+  .has-custom-bg.dark .glass-card tr,
+  .has-custom-bg.dark .glass-card .ant-table-cell {
+    border-color: rgba(255, 255, 255, 0.08) !important;
     color: #f8fafc !important;
   }
 
-  /* Glass dropdown item hover styles */
-  .glass-card button {
-    color: var(--color-text) !important;
+  .dark.has-custom-bg .glass-card th,
+  .has-custom-bg.dark .glass-card th {
+    color: #94a3b8 !important;
   }
-  .glass-card button:hover {
-    background-color: var(--color-surface-hover) !important;
+
+  .dark.has-custom-bg .glass-card tbody tr:hover,
+  .has-custom-bg.dark .glass-card tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+  }
+
+  .dark.has-custom-bg .dark\:bg-slate-800,
+  .has-custom-bg.dark .dark\:bg-slate-800 {
+    background-color: rgba(15, 23, 42, 0.62) !important;
+    backdrop-filter: blur(20px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(190%) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  /* Frosted Header in DARK MODE */
+  .dark.has-custom-bg header,
+  .has-custom-bg.dark header,
+  .has-custom-bg .dark header {
+    background: rgba(15, 23, 42, 0.82) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.35) !important;
+    color: #f8fafc !important;
+  }
+
+  /* Headings & Text in DARK MODE: Always crisp white */
+  .dark.has-custom-bg h1,
+  .dark.has-custom-bg h2,
+  .dark.has-custom-bg h3,
+  .dark.has-custom-bg h4,
+  .dark.has-custom-bg h5,
+  .dark.has-custom-bg h6,
+  .has-custom-bg.dark h1,
+  .has-custom-bg.dark h2,
+  .has-custom-bg.dark h3,
+  .has-custom-bg.dark h4,
+  .has-custom-bg.dark h5,
+  .has-custom-bg.dark h6 {
+    color: #f8fafc !important;
   }
 
   /* Override Ant Design color variables inside glass cards */

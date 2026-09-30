@@ -15,7 +15,7 @@ export interface NavItem {
 
 export const NAVIGATION: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', translationKey: 'nav.dashboard', icon: LayoutDashboard, path: '/dashboard' },
-  { id: 'users', label: 'Users Management', translationKey: 'nav.userManagement', icon: UserCog, path: '/settings/users', permission: 'users.view' },
+  { id: 'users', label: 'Users Management', translationKey: 'nav.userManagement', icon: UserCog, path: '/users' },
   
   
   { id: 'sales-crm-header', label: 'SALES', translationKey: 'nav.salesCrm', isHeader: true },
@@ -39,7 +39,7 @@ export const NAVIGATION: NavItem[] = [
     path: '/sales',
     children: [
       { id: 'quotations', label: 'Quotations', translationKey: 'nav.quotations', icon: CheckSquare, path: '/quotations' },
-      { id: 'orders', label: 'Orders', translationKey: 'nav.orders', icon: Handshake, path: '/deals' },
+      { id: 'orders', label: 'Orders', translationKey: 'nav.orders', icon: Handshake, path: '/orders' },
       { id: 'ar-invoice', label: 'AR Invoice', translationKey: 'nav.arInvoice', icon: BarChart3, path: '/invoice' },
     ]
   },

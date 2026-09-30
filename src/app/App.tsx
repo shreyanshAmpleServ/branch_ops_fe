@@ -10,6 +10,7 @@ import { Layout2 } from '../designs/design2';
 import { Layout3 } from '../designs/design3';
 
 import { LogoutModal } from '../features/auth/LogoutModal';
+import { ToastContainer } from '../components/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { routes } from './routes';
 
@@ -68,6 +69,7 @@ const App: React.FC = () => {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
       <LogoutModal />
+      <ToastContainer />
     </BrowserRouter>
     </QueryClientProvider>
   );

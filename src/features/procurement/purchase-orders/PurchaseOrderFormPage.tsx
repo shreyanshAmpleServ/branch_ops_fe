@@ -16,7 +16,10 @@ import {
   Layers,
   CheckSquare,
   Square,
-  AlertCircle
+  AlertCircle,
+  Info,
+  ExternalLink,
+  Image as ImageIcon
 } from 'lucide-react';
 import {
   useCreatePurchaseOrder,
@@ -25,13 +28,36 @@ import {
   type PurchaseOrderItem,
   type PurchaseOrderInput
 } from './api/usePurchaseOrders';
-import api, { getFileName } from '../../../lib/api';
+import api, { getFileName, getAttachmentUrl } from '../../../lib/api';
 import { useRetailers } from '../../customers/api/useRetailers';
 import { usePurchaseRequests } from '../purchase-requests/api/usePurchaseRequests';
 import { usePurchaseQuotations } from '../purchase-quotations/api/usePurchaseQuotations';
 import { useItems } from '../../items/api/useItems';
-import { useProjects, useWarehouses, useCostCentersMain, useBranches } from '../../users/api/useMasterData';
-import { Button, Spinner, SearchableSelect, type SearchableSelectOption } from '../../../components/ui';
+import { useProjects, useWarehouses, useCostCentersMain, useBranches, useAccounts } from '../../users/api/useMasterData';
+import {
+  PAYMENT_TERMS_OPTIONS,
+  TAX_CODE_OPTIONS,
+  formatItemCatalogOption,
+  renderItemOption,
+  formatVendorOption,
+  renderVendorOption,
+  validateDiscountPercent,
+} from '../procurementConstants';
+import {
+  Button,
+  Spinner,
+  SearchableSelect,
+  VendorSelect,
+  WarehouseSelect,
+  ProjectSelect,
+  TaxSelect,
+  GLAccountSelect,
+  PaymentTermsSelect,
+  StageSelect,
+  CostCenterSelect,
+  BranchSelect,
+  type SearchableSelectOption,
+} from '../../../components/ui';
 
 interface PurchaseOrderFormPageProps {
   mode: 'add' | 'edit' | 'view';
@@ -83,8 +109,10 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
   const { data: warehousesResponse } = useWarehouses();
   const { data: costCentersResponse } = useCostCentersMain();
   const { data: branchesResponse } = useBranches();
+  const { data: accountsResponse } = useAccounts();
 
   const suppliersList = Array.isArray(suppliersResponse) ? suppliersResponse : (suppliersResponse as any)?.data || [];
+  const accountsList = accountsResponse?.data || [];
   const itemsList = itemsResponse?.items || (Array.isArray(itemsResponse) ? itemsResponse : (itemsResponse as any)?.data) || [];
   const projectsList = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse as any)?.data || [];
   const warehousesList = Array.isArray(warehousesResponse) ? warehousesResponse : (warehousesResponse as any)?.data || [];
@@ -92,46 +120,32 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
   const branchesList = Array.isArray(branchesResponse) ? branchesResponse : (branchesResponse as any)?.data || [];
 
   const supplierOptions: SearchableSelectOption[] = React.useMemo(() => {
-    return suppliersList.map((supp: any) => {
-      const code = supp.Code || supp.code || supp.cardCode || supp.CardCode;
-      const name = supp.Name || supp.name || supp.cardName || supp.CardName || 'Unnamed Vendor';
-      const tin = supp.TIN || supp.tin;
-      const address = supp.Address || supp.address;
-      return {
-        value: code,
-        label: `${name} (${code})`,
-        subtext: [tin ? `TIN: ${tin}` : '', address].filter(Boolean).join(' • '),
-        raw: supp,
-      };
-    });
+    return suppliersList.map(formatVendorOption);
   }, [suppliersList]);
 
   const itemCatalogOptions: SearchableSelectOption[] = React.useMemo(() => {
-    return itemsList.map((itm: any) => {
-      const code = itm.itemCode || itm.ItemCode || itm.code || `ITM-${itm.id || itm.ID}`;
-      const name = itm.itemName || itm.ItemName || itm.name || 'Unnamed Item';
-      const price = Number(itm.lastPurPrc || itm.price || itm.UnitPrice || 0);
-      return {
-        value: code,
-        label: `${code} — ${name}`,
-        subtext: `Price: ${price.toLocaleString(undefined, { minimumFractionDigits: 2 })} TZS`,
-        extra: `${price.toLocaleString(undefined, { minimumFractionDigits: 2 })} TZS`,
-        raw: itm,
-      };
-    });
+    return itemsList.map(formatItemCatalogOption);
   }, [itemsList]);
 
-  const productsList = React.useMemo(() => {
+  const projectStagesList = React.useMemo(() => {
     return costCentersList.filter((cc: any) => cc.dimCode === 1);
   }, [costCentersList]);
 
-  const locationsList = React.useMemo(() => {
+  const projectSubStagesList = React.useMemo(() => {
+    return costCentersList.filter((cc: any) => cc.dimCode === 2);
+  }, [costCentersList]);
+
+  const detailSubStagesList = React.useMemo(() => {
     return costCentersList.filter((cc: any) => cc.dimCode === 3);
   }, [costCentersList]);
 
-  const assetsList = React.useMemo(() => {
+  const moreDetailSubStagesList = React.useMemo(() => {
     return costCentersList.filter((cc: any) => cc.dimCode === 4);
   }, [costCentersList]);
+
+  const productsList = projectStagesList;
+  const locationsList = detailSubStagesList;
+  const assetsList = moreDetailSubStagesList;
 
   const { data: existingOrder, isLoading: isLoadingExisting } = usePurchaseOrder(numericId);
 
@@ -186,6 +200,8 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
   const { data: rawQuotations } = usePurchaseQuotations({});
   const [items, setItems] = useState<PurchaseOrderItem[]>([]);
   const [attachments, setAttachments] = useState<{ id?: number; LineNum: number; Attachment: string }[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Copy From Quotation Modal State
   const [isCopyPqModalOpen, setIsCopyPqModalOpen] = useState(false);
@@ -206,6 +222,47 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
   const requestsList = useMemo(() => {
     return Array.isArray(rawRequests) ? rawRequests : (rawRequests as any)?.data || [];
   }, [rawRequests]);
+
+  const requestOptions: SearchableSelectOption[] = useMemo(() => {
+    return requestsList.map((req: any) => ({
+      value: req.ID,
+      label: `${req.RequestedNo || req.OrderCode || `PR #${req.ID}`} - ${req.CustName || 'Request'}`,
+      badge: 'PR',
+      subtext: req.DocDate ? `Date: ${new Date(req.DocDate).toLocaleDateString()}` : undefined,
+    }));
+  }, [requestsList]);
+
+  const quotationOptions: SearchableSelectOption[] = useMemo(() => {
+    return quotationsList.map((q: any) => ({
+      value: q.ID,
+      label: `${q.QuotCode || q.RequestedNo || `PQ #${q.ID}`} - ${q.CustName || 'Quotation'}`,
+      badge: 'PQ',
+      subtext: q.DocDate ? `Date: ${new Date(q.DocDate).toLocaleDateString()}` : undefined,
+    }));
+  }, [quotationsList]);
+
+  const currencyOptions: SearchableSelectOption[] = [
+    { value: 'TZS', label: 'TZS - Tanzanian Shilling', badge: 'TZS' },
+    { value: 'USD', label: 'USD - US Dollar', badge: 'USD' },
+    { value: 'EUR', label: 'EUR - Euro', badge: 'EUR' },
+  ];
+
+  const requestTypeOptions: SearchableSelectOption[] = [
+    { value: 'Direct', label: 'Direct' },
+    { value: 'Base Document', label: 'Base Document' },
+  ];
+
+  const typeRequestOptions: SearchableSelectOption[] = [
+    { value: 'Item', label: 'Item (Products/Materials)', badge: 'Item' },
+    { value: 'Service', label: 'Service (Service Lines)', badge: 'Service' },
+  ];
+
+  const typePaymentOptions: SearchableSelectOption[] = [
+    { value: 'Cash', label: 'Cash Payment' },
+    { value: 'Credit', label: 'Credit' },
+    { value: 'Bank Transfer', label: 'Bank Wire Transfer' },
+    { value: 'Cheque', label: 'Cheque' },
+  ];
 
   // Handle Copy From Quotation
   const handleOpenCopyPqModal = () => {
@@ -547,6 +604,19 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
       Remarks: '',
       UoM: 'svc',
       vendor: custCode || '',
+      VendorCode: custCode || '',
+      VendorName: custName || '',
+      GLCode: '',
+      GLName: '',
+      PaymentTerms: 'Net 30 Days',
+      po_id: 'Net 30 Days',
+      TotalExclusive: 0,
+      TotalInclusive: 0,
+      TaxCode: 'VAT_18',
+      TaxAmount: 0,
+      Discount: 0,
+      project: '',
+      DIM1: '', DIM2: '', DIM3: '', DIM4: '', DIM5: '',
     };
     setItems([...items, newItem]);
   };
@@ -594,12 +664,21 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
 
   const handleUpdateItemRow = (index: number, field: keyof PurchaseOrderItem, value: any) => {
     const updated = [...items];
-    const item = { ...updated[index], [field]: value };
+    let processedValue = value;
+    if (field === 'DiscPrcnt' || (field as any) === 'Discount') {
+      processedValue = validateDiscountPercent(Number(value));
+    }
+    const item = { ...updated[index], [field]: processedValue };
 
-    const qty = Number(field === 'Quantity' ? value : item.Quantity || 0);
-    const price = Number(field === 'UnitPrice' ? value : item.UnitPrice || 0);
-    const disc = Number(field === 'DiscPrcnt' ? value : item.DiscPrcnt || 0);
-    const vatPer = Number(field === 'VATPer' ? value : item.VATPer || 0);
+    if (field === 'VATCode') {
+      const rate = value === 'VAT_18' ? 18 : value === 'VAT_10' ? 10 : 0;
+      item.VATPer = rate;
+    }
+
+    const qty = Number(field === 'Quantity' ? processedValue : item.Quantity || 0);
+    const price = Number(field === 'UnitPrice' ? processedValue : item.UnitPrice || 0);
+    const disc = Number((field === 'DiscPrcnt' || (field as any) === 'Discount') ? processedValue : item.DiscPrcnt || 0);
+    const vatPer = Number(field === 'VATPer' ? processedValue : item.VATPer || 0);
 
     const lineTotalBefDisc = qty * price;
     const lineTotalAfterDisc = lineTotalBefDisc * (1 - disc / 100);
@@ -625,25 +704,44 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const formData = new FormData();
-      formData.append('file', file);
+    setIsUploading(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append('file', file);
 
-      try {
-        const { data } = await api.post('/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        const fileUrl = data.url || data.path || data.file;
-        if (fileUrl) {
-          setAttachments(prev => [
-            ...prev,
-            { LineNum: prev.length + 1, Attachment: fileUrl },
-          ]);
+        try {
+          const res = await api.post('/upload/file', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          const fileUrl = res.data?.data?.path || res.data?.url || res.data?.path || res.data?.file;
+          if (fileUrl) {
+            setAttachments(prev => [
+              ...prev,
+              { LineNum: prev.length + 1, Attachment: fileUrl },
+            ]);
+          }
+        } catch (err) {
+          try {
+            const res = await api.post('/upload', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            const fileUrl = res.data?.data?.path || res.data?.url || res.data?.path || res.data?.file;
+            if (fileUrl) {
+              setAttachments(prev => [
+                ...prev,
+                { LineNum: prev.length + 1, Attachment: fileUrl },
+              ]);
+            }
+          } catch (e2) {
+            console.error('Failed to upload file', e2);
+          }
         }
-      } catch (err) {
-        console.error('Failed to upload file', err);
       }
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -726,13 +824,15 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
         project: item.project,
         Remarks: item.Remarks,
         UoM: item.UoM || (typeRequest === 'Service' ? 'svc' : undefined),
-        vendor: item.vendor,
+        vendor: item.vendor || item.VendorCode || undefined,
+        vendorRef: item.GLCode || item.vendorRef || undefined,
+        po_id: item.PaymentTerms || item.po_id || undefined,
         DIM1: item.DIM1,
         DIM2: item.DIM2,
         DIM3: item.DIM3,
         DIM4: item.DIM4,
         DIM5: item.DIM5,
-        Location: item.Location,
+        Location: item.Location || item.DIM3,
       })),
       attachments: attachments.map((att, idx) => ({
         LineNum: idx + 1,
@@ -780,7 +880,7 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
   });
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto space-y-6 animate-fade-in">
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
       {/* Top Header Card */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="flex items-center gap-3">
@@ -832,12 +932,12 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
           <SectionHeader icon={<Building2 className="w-4 h-4" />} title="Header & Vendor Information" />
           <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {/* Vendor Dropdown */}
-            <SearchableSelect
+            <VendorSelect
               label="Supplier / Vendor *"
               value={custCode}
-              onChange={(val, opt) => {
+              data={suppliersList}
+              onChange={(val, supp) => {
                 const code = String(val || '');
-                const supp = opt?.raw || suppliersList.find((s: any) => (s.Code || s.code || s.cardCode || s.CardCode) === code);
                 if (supp) {
                   setCustCode(code);
                   setCustName(supp.Name || supp.name || supp.cardName || supp.CardName || '');
@@ -846,8 +946,6 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                   setCustName('');
                 }
               }}
-              options={supplierOptions}
-              placeholder="Search & select vendor..."
               disabled={mode === 'view'}
             />
 
@@ -890,13 +988,15 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
               />
             </div>
 
-            {/* Posting Date */}
+            {/* Linked Purchase Request */}
             <div>
-              <FieldLabel>Linked Purchase Request</FieldLabel>
-              <select
+              <SearchableSelect
+                label="Linked Purchase Request"
                 value={purchaseRequestId}
-                onChange={(e) => {
-                  const reqId = e.target.value ? Number(e.target.value) : '';
+                options={requestOptions}
+                placeholder="None (Direct Order)"
+                onChange={(val) => {
+                  const reqId = val ? Number(val) : '';
                   setPurchaseRequestId(reqId);
                   const matchedReq = (rawRequests || []).find((r: any) => r.ID === reqId);
                   if (matchedReq) {
@@ -924,24 +1024,19 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                   }
                 }}
                 disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              >
-                <option value="">None (Direct Order)</option>
-                {(rawRequests || []).map((req: any) => (
-                  <option key={req.ID} value={req.ID}>
-                    {req.RequestedNo || req.OrderCode || `PR #${req.ID}`} - {req.CustName || 'Request'}
-                  </option>
-                ))}
-              </select>
+                clearable
+              />
             </div>
 
             {/* Linked Purchase Quotation */}
             <div>
-              <FieldLabel>Linked Purchase Quotation</FieldLabel>
-              <select
+              <SearchableSelect
+                label="Linked Purchase Quotation"
                 value={purchaseQuotationId}
-                onChange={(e) => {
-                  const qId = e.target.value ? Number(e.target.value) : '';
+                options={quotationOptions}
+                placeholder="None (Direct Order)"
+                onChange={(val) => {
+                  const qId = val ? Number(val) : '';
                   setPurchaseQuotationId(qId);
                   const matchedQ = (rawQuotations || []).find((q: any) => q.ID === qId);
                   if (matchedQ) {
@@ -969,15 +1064,8 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                   }
                 }}
                 disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              >
-                <option value="">None (Direct Order)</option>
-                {(rawQuotations || []).map((q: any) => (
-                  <option key={q.ID} value={q.ID}>
-                    {q.QuotCode || q.RequestedNo || `PQ #${q.ID}`} - {q.CustName || 'Quotation'}
-                  </option>
-                ))}
-              </select>
+                clearable
+              />
             </div>
 
             {/* Posting Date */}
@@ -1018,79 +1106,62 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
 
             {/* Currency */}
             <div>
-              <FieldLabel>Currency</FieldLabel>
-              <select
+              <SearchableSelect
+                label="Currency"
                 value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
+                options={currencyOptions}
+                onChange={(val) => setCurrency(String(val || 'TZS'))}
                 disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              >
-                <option value="TZS">TZS - Tanzanian Shilling</option>
-                <option value="USD">USD - US Dollar</option>
-                <option value="EUR">EUR - Euro</option>
-              </select>
+                clearable={false}
+              />
             </div>
 
             {/* Branch */}
             <div>
-              <FieldLabel>Branch</FieldLabel>
-              <select
+              <BranchSelect
+                label="Branch"
                 value={branchId}
-                onChange={(e) => setBranchId(e.target.value ? Number(e.target.value) : '')}
+                data={branchesList}
+                onChange={(val) => setBranchId(val ? Number(val) : '')}
                 disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              >
-                <option value="">Select Branch...</option>
-                {branchesList.map((b: any) => (
-                  <option key={b.id || b.ID} value={b.id || b.ID}>
-                    {b.name || b.Name || `Branch #${b.id || b.ID}`}
-                  </option>
-                ))}
-              </select>
+                placeholder="Select Branch..."
+              />
             </div>
 
             {/* Request Type */}
             <div>
-              <FieldLabel>Request Type</FieldLabel>
-              <select
+              <SearchableSelect
+                label="Request Type"
                 value={requestType}
-                onChange={(e) => setRequestType(e.target.value)}
+                options={requestTypeOptions}
+                onChange={(val) => setRequestType(String(val || 'Direct'))}
                 disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              >
-                <option value="Direct">Direct</option>
-                <option value="Base Document">Base Document</option>
-              </select>
+                clearable={false}
+              />
             </div>
 
             {/* Type Request */}
             <div>
-              <FieldLabel>Type Request</FieldLabel>
-              <select
+              <SearchableSelect
+                label="Type Request"
                 value={typeRequest}
-                onChange={(e) => setTypeRequest(e.target.value)}
+                options={typeRequestOptions}
+                onChange={(val) => setTypeRequest(String(val || 'Item'))}
                 disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              >
-                <option value="Item">Item</option>
-                <option value="Service">Service</option>
-              </select>
+                clearable={false}
+              />
             </div>
 
             {/* Payment Type */}
             <div>
-              <FieldLabel>Payment Type</FieldLabel>
-              <select
+              <SearchableSelect
+                label="Payment Type"
                 value={typePayment}
-                onChange={(e) => setTypePayment(e.target.value)}
+                options={typePaymentOptions}
+                onChange={(val) => setTypePayment(String(val || 'Cash'))}
                 disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              >
-                <option value="Cash">Cash</option>
-                <option value="Credit">Credit</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Cheque">Cheque</option>
-              </select>
+                clearable={false}
+              />
             </div>
 
             {/* Department */}
@@ -1195,17 +1266,18 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
             ) : typeRequest === 'Service' ? (
               /* ─── SERVICE TABLE ─── */
               <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm animate-fade-in">
-                <table className="w-full text-left border-collapse min-w-[1500px]">
+                <table className="w-full text-left border-collapse min-w-[2200px]">
                   <thead>
-                    <tr className="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700">
+                    <tr className="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold uppercase text-[9px] tracking-widest border-b border-slate-200 dark:border-slate-700">
                       {[
-                        '#', 'SERVICE DESCRIPTION *', 'AMOUNT / FEE (TZS)', 'TAX CODE', 'DISC %',
-                        'TAX AMOUNT', 'TOTAL WITH TAX', 'PROJECT', 'PRODUCT / DIM1',
-                        'LOCATION', 'ASSET', 'REMARKS', 'ACTION'
+                        '#', 'VENDOR', 'DESCRIPTION *', 'GL CODE', 'TOTAL (EXCLUSIVE)',
+                        'TAX CODE', 'DISCOUNT', 'TAX AMOUNT', 'TOTAL (INCLUSIVE)', 'PAYMENT TERMS',
+                        'PROJECT', 'PROJECT STAGE', 'PROJECT SUB STAGE',
+                        'DETAIL SUB STAGE', 'MORE DETAIL SUB STAGE', 'ACTION'
                       ].map((h, i) => (
                         <th
                           key={i}
-                          className="py-3 px-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap text-slate-600 dark:text-slate-300"
+                          className="py-3 px-3 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap text-slate-600 dark:text-slate-300"
                         >
                           {h}
                         </th>
@@ -1221,24 +1293,65 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                           className="border-b transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-700/30"
                         >
                           {/* Line number */}
-                          <td className="py-2.5 px-3 w-[50px] text-center font-bold text-slate-500">
+                          <td className="py-2.5 px-3 w-[45px] text-center font-bold text-slate-500">
                             {idx + 1}
                           </td>
 
+                          {/* VENDOR */}
+                          <td className="py-2.5 px-2 min-w-[210px]">
+                            <VendorSelect
+                              size="sm"
+                              data={suppliersList}
+                              value={line.vendor || line.VendorCode || ''}
+                              onChange={(selectedVendorCode, supp) => {
+                                handleUpdateItemRow(idx, 'vendor', selectedVendorCode);
+                                handleUpdateItemRow(idx, 'VendorCode' as any, selectedVendorCode);
+                                if (supp) {
+                                  handleUpdateItemRow(idx, 'VendorName' as any, supp.Name || supp.name);
+                                  if (supp.PaymentTerms && !line.PaymentTerms) {
+                                    handleUpdateItemRow(idx, 'PaymentTerms' as any, supp.PaymentTerms);
+                                    handleUpdateItemRow(idx, 'po_id', supp.PaymentTerms);
+                                  }
+                                }
+                              }}
+                              disabled={mode === 'view'}
+                            />
+                          </td>
+
                           {/* SERVICE DESCRIPTION */}
-                          <td className="py-2.5 px-2 min-w-[320px]">
+                          <td className="py-2.5 px-2 min-w-[260px]">
                             <input
                               type="text"
                               placeholder="Describe service / fee / contract details..."
                               className="w-full text-xs font-semibold py-2 px-3 rounded-lg border outline-none bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-600 shadow-sm focus:ring-2 focus:ring-teal-500"
                               value={line.ItemName || line.Remarks || ''}
-                              onChange={e => handleUpdateItemRow(idx, 'ItemName', e.target.value)}
+                              onChange={e => {
+                                handleUpdateItemRow(idx, 'ItemName', e.target.value);
+                                handleUpdateItemRow(idx, 'Remarks', e.target.value);
+                              }}
+                              disabled={mode === 'view'}
+                            />
+                          </td>
+
+                          {/* GL CODE */}
+                          <td className="py-2.5 px-2 min-w-[220px]">
+                            <GLAccountSelect
+                              size="sm"
+                              data={accountsList}
+                              value={line.GLCode || line.vendorRef || ''}
+                              onChange={(val, acct) => {
+                                handleUpdateItemRow(idx, 'GLCode' as any, val);
+                                handleUpdateItemRow(idx, 'vendorRef', val);
+                                if (acct) {
+                                  handleUpdateItemRow(idx, 'GLName' as any, acct.acctName || acct.name);
+                                }
+                              }}
                               disabled={mode === 'view'}
                             />
                           </td>
 
                           {/* AMOUNT / FEE */}
-                          <td className="py-2.5 px-2 w-[160px]">
+                          <td className="py-2.5 px-2 w-[150px]">
                             <input
                               type="number" step="any" min="0"
                               placeholder="0.00"
@@ -1247,6 +1360,7 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                               onChange={e => {
                                 const price = Number(e.target.value) || 0;
                                 handleUpdateItemRow(idx, 'UnitPrice', price);
+                                handleUpdateItemRow(idx, 'TotalExclusive' as any, price);
                                 handleUpdateItemRow(idx, 'Quantity', 1);
                               }}
                               disabled={mode === 'view'}
@@ -1254,32 +1368,32 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                           </td>
 
                           {/* TAX CODE */}
-                          <td className="py-2.5 px-2 min-w-[150px]">
-                            <select
-                              className="w-full py-2 px-3 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm cursor-pointer"
+                          <td className="py-2.5 px-2 w-[160px]">
+                            <TaxSelect
+                              size="sm"
                               value={line.VATCode || 'VAT_18'}
-                              onChange={e => {
-                                const code = e.target.value;
+                              onChange={code => {
                                 const rate = code === 'VAT_18' ? 18 : code === 'VAT_10' ? 10 : 0;
                                 handleUpdateItemRow(idx, 'VATCode', code);
+                                handleUpdateItemRow(idx, 'TaxCode' as any, code);
                                 handleUpdateItemRow(idx, 'VATPer', rate);
                               }}
                               disabled={mode === 'view'}
-                            >
-                              <option value="VAT_18" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Input VAT 18%</option>
-                              <option value="VAT_10" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Input VAT 10%</option>
-                              <option value="VAT_0" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Zero Rated 0%</option>
-                              <option value="VAT_EXEMPT" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Exempt 0%</option>
-                            </select>
+                            />
                           </td>
 
                           {/* DISCOUNT % */}
                           <td className="py-2.5 px-2 w-[90px]">
                             <input
                               type="number" min="0" max="100" step="any"
+                              placeholder="0"
                               className="w-full text-right py-2 px-2.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               value={line.DiscPrcnt || 0}
-                              onChange={e => handleUpdateItemRow(idx, 'DiscPrcnt', Math.min(100, Math.max(0, Number(e.target.value))))}
+                              onChange={e => {
+                                const disc = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                                handleUpdateItemRow(idx, 'DiscPrcnt', disc);
+                                handleUpdateItemRow(idx, 'Discount' as any, disc);
+                              }}
                               disabled={mode === 'view'}
                             />
                           </td>
@@ -1295,84 +1409,87 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                           </td>
 
                           {/* TOTAL WITH TAX */}
-                          <td className="py-2.5 px-3 w-[140px] text-right font-extrabold font-mono text-xs text-teal-600 dark:text-teal-400">
+                          <td className="py-2.5 px-3 w-[150px] text-right font-extrabold font-mono text-xs text-teal-600 dark:text-teal-400">
                             {Number(line.LineTotalLC || amountBeforeTax).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                           </td>
 
+                          {/* PAYMENT TERMS */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <PaymentTermsSelect
+                              size="sm"
+                              value={line.PaymentTerms || line.po_id || 'Net 30 Days'}
+                              onChange={val => {
+                                handleUpdateItemRow(idx, 'PaymentTerms' as any, val);
+                                handleUpdateItemRow(idx, 'po_id', val);
+                              }}
+                              disabled={mode === 'view'}
+                            />
+                          </td>
+
                           {/* PROJECT */}
-                          <td className="py-2.5 px-2 min-w-[160px]">
-                            <select
-                              className="w-full py-2 px-3 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm cursor-pointer"
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <ProjectSelect
+                              size="sm"
+                              data={projectsList}
                               value={line.project || ''}
-                              onChange={e => handleUpdateItemRow(idx, 'project', e.target.value)}
+                              onChange={val => handleUpdateItemRow(idx, 'project', val)}
                               disabled={mode === 'view'}
-                            >
-                              <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Project…</option>
-                              {projectsList.map((p: any) => (
-                                <option key={p.code || p.PrjCode || p.id} value={p.code || p.PrjCode} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{p.code || p.PrjCode} — {p.name || p.PrjName}</option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
-                          {/* PRODUCT / DIM1 */}
-                          <td className="py-2.5 px-2 min-w-[160px]">
-                            <select
-                              className="w-full py-2 px-3 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm cursor-pointer"
+                          {/* PROJECT STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={1}
+                              data={costCentersList}
                               value={line.DIM1 || ''}
-                              onChange={e => handleUpdateItemRow(idx, 'DIM1', e.target.value)}
+                              onChange={val => handleUpdateItemRow(idx, 'DIM1', val)}
                               disabled={mode === 'view'}
-                            >
-                              <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Product / CC…</option>
-                              {productsList.map((p: any) => (
-                                <option key={p.code || p.id} value={p.code || p.name} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{p.code ? `${p.code} — ` : ''}{p.name || p.PrcName}</option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
-                          {/* LOCATION */}
-                          <td className="py-2.5 px-2 min-w-[150px]">
-                            <select
-                              className="w-full py-2 px-3 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm cursor-pointer"
+                          {/* PROJECT SUB STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={2}
+                              data={costCentersList}
+                              value={line.DIM2 || ''}
+                              onChange={val => handleUpdateItemRow(idx, 'DIM2', val)}
+                              disabled={mode === 'view'}
+                            />
+                          </td>
+
+                          {/* DETAIL SUB STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={3}
+                              data={costCentersList}
                               value={line.DIM3 || ''}
-                              onChange={e => handleUpdateItemRow(idx, 'DIM3', e.target.value)}
+                              onChange={val => {
+                                handleUpdateItemRow(idx, 'DIM3', val);
+                                handleUpdateItemRow(idx, 'Location', val);
+                              }}
                               disabled={mode === 'view'}
-                            >
-                              <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Location…</option>
-                              {locationsList.map((l: any) => (
-                                <option key={l.code || l.id} value={l.code || l.name} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{l.code ? `${l.code} — ` : ''}{l.name || l.PrcName}</option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
-                          {/* ASSET */}
-                          <td className="py-2.5 px-2 min-w-[150px]">
-                            <select
-                              className="w-full py-2 px-3 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm cursor-pointer"
+                          {/* MORE DETAIL SUB STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={4}
+                              data={costCentersList}
                               value={line.DIM4 || ''}
-                              onChange={e => handleUpdateItemRow(idx, 'DIM4', e.target.value)}
-                              disabled={mode === 'view'}
-                            >
-                              <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Asset…</option>
-                              {assetsList.map((a: any) => (
-                                <option key={a.code || a.id} value={a.code || a.name} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{a.code ? `${a.code} — ` : ''}{a.name || a.PrcName}</option>
-                              ))}
-                            </select>
-                          </td>
-
-                          {/* REMARKS */}
-                          <td className="py-2.5 px-2 min-w-[180px]">
-                            <input
-                              type="text"
-                              placeholder="Notes…"
-                              className="w-full py-2 px-3 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-                              value={line.Remarks || ''}
-                              onChange={e => handleUpdateItemRow(idx, 'Remarks', e.target.value)}
+                              onChange={val => handleUpdateItemRow(idx, 'DIM4', val)}
                               disabled={mode === 'view'}
                             />
                           </td>
 
                           {/* ACTION */}
-                          <td className="py-2.5 px-2 text-center w-[50px]">
+                          <td className="py-2.5 px-2 text-center w-[55px]">
                             {mode !== 'view' && (
                               <button
                                 type="button"
@@ -1408,9 +1525,10 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                       <th className="py-3.5 px-3 min-w-[180px]">Warehouse</th>
                       <th className="py-3.5 px-3 min-w-[180px]">Cost Center</th>
                       <th className="py-3.5 px-3 min-w-[180px]">Project</th>
-                      <th className="py-3.5 px-3 min-w-[180px]">Product (DIM1)</th>
-                      <th className="py-3.5 px-3 min-w-[180px]">Location (DIM3)</th>
-                      <th className="py-3.5 px-3 min-w-[180px]">Asset (DIM4)</th>
+                      <th className="py-3.5 px-3 min-w-[180px]">Project Stage</th>
+                      <th className="py-3.5 px-3 min-w-[180px]">Project Sub Stage</th>
+                      <th className="py-3.5 px-3 min-w-[180px]">Detail Sub Stage</th>
+                      <th className="py-3.5 px-3 min-w-[180px]">More Detail Sub Stage</th>
                       {mode !== 'view' && <th className="py-3.5 px-3 w-12 text-center">Action</th>}
                     </tr>
                   </thead>
@@ -1462,6 +1580,7 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                             placeholder="Search item code or name..."
                             disabled={mode === 'view'}
                             size="sm"
+                            renderOption={renderItemOption}
                           />
                         </td>
                         <td className="py-3 px-2 min-w-[100px]">
@@ -1500,22 +1619,22 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                             min="0"
                             max="100"
                             value={item.DiscPrcnt || 0}
-                            onChange={(e) => handleUpdateItemRow(idx, 'DiscPrcnt', Number(e.target.value))}
+                            onChange={(e) => handleUpdateItemRow(idx, 'DiscPrcnt', validateDiscountPercent(Number(e.target.value)))}
                             disabled={mode === 'view'}
                             className="w-full text-right py-2 px-2.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </td>
-                        <td className="py-3 px-2 min-w-[110px]">
-                          <select
-                            value={item.VATPer ?? 18}
-                            onChange={(e) => handleUpdateItemRow(idx, 'VATPer', Number(e.target.value))}
+                        <td className="py-3 px-2 min-w-[140px]">
+                          <TaxSelect
+                            size="sm"
+                            value={item.VATCode || (item.VATPer === 18 ? 'VAT_18' : item.VATPer === 9 ? 'VAT_10' : item.VATPer === 0 ? 'VAT_0' : 'VAT_18')}
+                            onChange={code => {
+                              const rate = code === 'VAT_18' ? 18 : (code === 'VAT_10' || code === 'VAT_9') ? 10 : 0;
+                              handleUpdateItemRow(idx, 'VATCode', code);
+                              handleUpdateItemRow(idx, 'VATPer', rate);
+                            }}
                             disabled={mode === 'view'}
-                            className="w-full text-center py-2 px-2 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm cursor-pointer"
-                          >
-                            <option value={18} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">18%</option>
-                            <option value={9} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">9%</option>
-                            <option value={0} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">0%</option>
-                          </select>
+                          />
                         </td>
                         <td className="py-3 px-3 min-w-[130px] text-right font-mono font-bold text-slate-800 dark:text-slate-200">
                           {Number(item.LineTax || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -1525,99 +1644,80 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                         </td>
                         {/* Warehouse Dropdown */}
                         <td className="py-3 px-3 min-w-[180px]">
-                          <select
+                          <WarehouseSelect
+                            size="sm"
+                            data={warehousesList}
                             value={item.WhsCode || ''}
-                            onChange={(e) => handleUpdateItemRow(idx, 'WhsCode', e.target.value ? Number(e.target.value) : null)}
+                            onChange={val => handleUpdateItemRow(idx, 'WhsCode', val ? Number(val) : null)}
                             disabled={mode === 'view'}
-                            className="w-full py-2 px-3 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm cursor-pointer"
-                          >
-                            <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Warehouse...</option>
-                            {warehousesList.map((wh: any) => (
-                              <option key={wh.id || wh.WhsCode} value={wh.id || wh.WhsCode} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
-                                {wh.name || wh.WhsName || `Whs #${wh.id || wh.WhsCode}`}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </td>
                         {/* Cost Center Select */}
                         <td className="py-3 px-3 min-w-[180px]">
-                          <select
+                          <CostCenterSelect
+                            size="sm"
+                            data={costCentersList}
                             value={item.cost_center || ''}
-                            onChange={(e) => handleUpdateItemRow(idx, 'cost_center', e.target.value ? Number(e.target.value) : null)}
+                            onChange={val => handleUpdateItemRow(idx, 'cost_center', val ? Number(val) : null)}
                             disabled={mode === 'view'}
-                            className="w-full py-2 px-3 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm cursor-pointer"
-                          >
-                            <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Cost Center...</option>
-                            {costCentersList.map((cc: any) => (
-                              <option key={cc.id || cc.ID || cc.code} value={cc.id || cc.ID || cc.code} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
-                                {cc.name || cc.PrcName || cc.code}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </td>
                         {/* Project Select */}
                         <td className="py-3 px-3 min-w-[180px]">
-                          <select
+                          <ProjectSelect
+                            size="sm"
+                            data={projectsList}
                             value={item.project || ''}
-                            onChange={(e) => handleUpdateItemRow(idx, 'project', e.target.value)}
+                            onChange={val => handleUpdateItemRow(idx, 'project', val)}
                             disabled={mode === 'view'}
-                            className="w-full py-2 px-3 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm cursor-pointer"
-                          >
-                            <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Project...</option>
-                            {projectsList.map((prj: any) => (
-                              <option key={prj.id || prj.Code || prj.code} value={prj.code || prj.Code || prj.name} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
-                                {prj.name || prj.Name || prj.code || prj.Code}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </td>
-                        {/* Product Select (DIM1) */}
+                        {/* PROJECT STAGE */}
                         <td className="py-3 px-3 min-w-[180px]">
-                          <select
+                          <StageSelect
+                            size="sm"
+                            dimCode={1}
+                            data={costCentersList}
                             value={item.DIM1 || ''}
-                            onChange={(e) => handleUpdateItemRow(idx, 'DIM1', e.target.value)}
+                            onChange={val => handleUpdateItemRow(idx, 'DIM1', val)}
                             disabled={mode === 'view'}
-                            className="w-full py-2 px-3 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm cursor-pointer"
-                          >
-                            <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Product...</option>
-                            {productsList.map((p: any) => (
-                              <option key={p.code || p.id} value={p.code || p.name} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
-                                {p.code ? `${p.code} — ` : ''}{p.name || p.PrcName}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </td>
-                        {/* Location Select (DIM3) */}
+                        {/* PROJECT SUB STAGE */}
                         <td className="py-3 px-3 min-w-[180px]">
-                          <select
+                          <StageSelect
+                            size="sm"
+                            dimCode={2}
+                            data={costCentersList}
+                            value={item.DIM2 || ''}
+                            onChange={val => handleUpdateItemRow(idx, 'DIM2', val)}
+                            disabled={mode === 'view'}
+                          />
+                        </td>
+                        {/* DETAIL SUB STAGE */}
+                        <td className="py-3 px-3 min-w-[180px]">
+                          <StageSelect
+                            size="sm"
+                            dimCode={3}
+                            data={costCentersList}
                             value={item.DIM3 || ''}
-                            onChange={(e) => handleUpdateItemRow(idx, 'DIM3', e.target.value)}
+                            onChange={val => {
+                              handleUpdateItemRow(idx, 'DIM3', val);
+                              handleUpdateItemRow(idx, 'Location', val);
+                            }}
                             disabled={mode === 'view'}
-                            className="w-full py-2 px-3 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm cursor-pointer"
-                          >
-                            <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Location...</option>
-                            {locationsList.map((l: any) => (
-                              <option key={l.code || l.id} value={l.code || l.name} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
-                                {l.code ? `${l.code} — ` : ''}{l.name || l.PrcName}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </td>
-                        {/* Asset Select (DIM4) */}
+                        {/* MORE DETAIL SUB STAGE */}
                         <td className="py-3 px-3 min-w-[180px]">
-                          <select
+                          <StageSelect
+                            size="sm"
+                            dimCode={4}
+                            data={costCentersList}
                             value={item.DIM4 || ''}
-                            onChange={(e) => handleUpdateItemRow(idx, 'DIM4', e.target.value)}
+                            onChange={val => handleUpdateItemRow(idx, 'DIM4', val)}
                             disabled={mode === 'view'}
-                            className="w-full py-2 px-3 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm cursor-pointer"
-                          >
-                            <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Asset...</option>
-                            {assetsList.map((a: any) => (
-                              <option key={a.code || a.id} value={a.code || a.name} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
-                                {a.code ? `${a.code} — ` : ''}{a.name || a.PrcName}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </td>
                         {mode !== 'view' && (
                           <td className="py-3 px-3 text-center">
@@ -1637,121 +1737,235 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                 </table>
               </div>
             )}
+          </div>
+        </SectionCard>
 
-            {/* Totals Summary */}
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-6 pt-4">
-              <div className="w-full sm:w-1/2 space-y-3">
-                <FieldLabel>Remarks / Instructions</FieldLabel>
+        {/* BOTTOM ROW: REMARKS & ATTACHMENTS | FINANCIAL SUMMARY */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+          <div className="xl:col-span-2 space-y-5">
+            {/* Remarks & Instructions */}
+            <SectionCard>
+              <SectionHeader icon={<Info className="h-3.5 w-3.5" />} title="Remarks & Instructions" />
+              <div className="p-5">
                 <textarea
                   rows={3}
-                  placeholder="Additional order comments..."
+                  className="w-full text-xs resize-none py-2.5 px-3 border rounded-xl focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500 outline-none transition-all placeholder:text-slate-400 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-700 shadow-xs"
+                  placeholder="Additional order comments, instructions, or delivery conditions…"
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                   disabled={mode === 'view'}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
                 />
               </div>
+            </SectionCard>
 
-              <div className="w-full sm:w-80 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2.5">
-                <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
-                  <span>Subtotal:</span>
-                  <span className="font-semibold text-slate-900 dark:text-white">{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}</span>
+            {/* Attachments Section */}
+            <SectionCard>
+              <SectionHeader
+                icon={<Paperclip className="w-4 h-4" />}
+                title={`Attachments (${attachments.length})`}
+                right={
+                  mode !== 'view' && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-teal-600 dark:text-teal-400 bg-teal-500/10 hover:bg-teal-500/20 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      {isUploading ? <Spinner size="sm" /> : <UploadCloud className="h-3.5 w-3.5" />}
+                      <span>Upload File</span>
+                    </button>
+                  )
+                }
+              />
+              <div className="p-5 space-y-4">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  multiple
+                  className="hidden"
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                />
+
+                {/* If no attachments: show dashed dropzone box */}
+                {mode !== 'view' && attachments.length === 0 && (
+                  <div
+                    onClick={() => !isUploading && fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all h-[155px] flex flex-col items-center justify-center ${
+                      isUploading
+                        ? 'opacity-60 cursor-not-allowed border-gray-300'
+                        : 'cursor-pointer hover:border-teal-500 hover:bg-teal-50/20 dark:hover:bg-teal-950/20 border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-teal-500/10 transition-colors flex items-center justify-center mx-auto mb-2 shrink-0">
+                      {isUploading ? (
+                        <Spinner size="sm" />
+                      ) : (
+                        <UploadCloud className="h-5 w-5 text-teal-600" />
+                      )}
+                    </div>
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      {isUploading ? 'Uploading files...' : 'Click or drop order documents here to upload'}
+                    </p>
+                    <p className="text-[10px] uppercase tracking-wider font-semibold mt-1 text-slate-400">
+                      PDF · JPG · PNG · DOC · XLSX · Max 10 MB
+                    </p>
+                  </div>
+                )}
+
+                {attachments.length > 0 ? (
+                  <div className="h-[155px] overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 gap-2.5 auto-rows-max">
+                    {attachments.map((att, idx) => {
+                      const fileUrl = getAttachmentUrl(att.Attachment);
+                      const fileName = getFileName(att.Attachment);
+                      const isImg = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(att.Attachment);
+                      const isPdf = /\.pdf$/i.test(att.Attachment);
+
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 transition-all hover:shadow-xs"
+                        >
+                          <div className="flex items-center gap-2.5 overflow-hidden min-w-0">
+                            <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center shrink-0">
+                              {isImg ? (
+                                <ImageIcon className="h-4 w-4 text-emerald-500" />
+                              ) : isPdf ? (
+                                <FileText className="h-4 w-4 text-rose-500" />
+                              ) : (
+                                <Paperclip className="h-4 w-4 text-teal-600" />
+                              )}
+                            </div>
+                            <div className="truncate min-w-0">
+                              <p className="text-xs font-bold truncate text-slate-800 dark:text-slate-200" title={fileName}>
+                                {fileName}
+                              </p>
+                              <a
+                                href={fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1 mt-0.5"
+                              >
+                                View File <ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            </div>
+                          </div>
+
+                          {mode !== 'view' && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAttachment(idx)}
+                              className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all shrink-0 ml-1.5"
+                              title="Delete attachment"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  mode === 'view' && (
+                    <div className="h-[155px] flex items-center justify-center">
+                      <p className="text-xs italic text-center py-2 text-slate-400">
+                        No attachments attached to this purchase order.
+                      </p>
+                    </div>
+                  )
+                )}
+              </div>
+            </SectionCard>
+          </div>
+
+          {/* FINANCIAL SUMMARY */}
+          <div className="xl:col-span-1">
+            <div
+              className="rounded-2xl border overflow-hidden shadow-xs sticky top-5 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+            >
+              <div className="px-5 py-3.5 border-b flex items-center gap-2 border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50">
+                <DollarSign className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+                <span className="text-[11px] font-bold uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                  Order Financial Summary
+                </span>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Subtotal (before tax)</span>
+                  <span className="text-xs font-bold font-mono text-slate-900 dark:text-white">
+                    {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
+                  </span>
                 </div>
-                <div className="flex justify-between items-center text-xs text-slate-600 dark:text-slate-400">
-                  <span>Header Discount (%):</span>
+
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                    Header Discount (%)
+                  </span>
                   <input
                     type="number"
                     min="0"
                     max="100"
                     value={discPrcnt}
-                    onChange={(e) => setDiscPrcnt(Number(e.target.value))}
+                    onChange={(e) => setDiscPrcnt(validateDiscountPercent(Number(e.target.value)))}
                     disabled={mode === 'view'}
-                    className="w-20 text-right px-2 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+                    className="w-20 text-right px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500/20 outline-none text-slate-900 dark:text-slate-100"
                   />
                 </div>
-                                <div className="flex justify-between items-center text-xs text-slate-600 dark:text-slate-400">
-                  <span>Freight Charges:</span>
+
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                    Freight Charges
+                  </span>
                   <input
                     type="number"
                     min="0"
                     value={freight}
                     onChange={(e) => setFreight(Number(e.target.value))}
                     disabled={mode === 'view'}
-                    className="w-24 text-right px-2 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+                    className="w-24 text-right px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500/20 outline-none text-slate-900 dark:text-slate-100"
                   />
                 </div>
-                <div className="flex justify-between items-center text-xs text-slate-600 dark:text-slate-400">
-                  <div className="flex items-center gap-2">
+
+                <div className="flex items-center justify-between gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={isRounding}
                       onChange={(e) => setIsRounding(e.target.checked)}
                       disabled={mode === 'view'}
-                      className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                      className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-3.5 h-3.5"
                     />
-                    <span>Rounding Option:</span>
-                  </div>
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Rounding Option</span>
+                  </label>
                   {isRounding && (
                     <input
                       type="number"
                       value={roundingAmnt}
                       onChange={(e) => setRoundingAmnt(Number(e.target.value))}
                       disabled={mode === 'view'}
-                      className="w-24 text-right px-2 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+                      className="w-24 text-right px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500/20 outline-none text-slate-900 dark:text-slate-100"
                     />
                   )}
                 </div>
-                <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
-                  <span>Tax Amount:</span>
-                  <span className="font-semibold text-slate-900 dark:text-white">{totalTax.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}</span>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Tax Amount</span>
+                  <span className="text-xs font-bold font-mono text-slate-900 dark:text-white">
+                    {totalTax.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
+                  </span>
                 </div>
-                <div className="border-t border-slate-200 dark:border-slate-700 pt-2 flex justify-between items-center text-sm font-bold text-slate-900 dark:text-white">
-                  <span>Grand Total:</span>
-                  <span className="text-teal-600 dark:text-teal-400 font-black">{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}</span>
+
+                <div className="border-t border-slate-200 dark:border-slate-700 pt-3 flex justify-between items-center text-sm font-bold text-slate-900 dark:text-white">
+                  <span>Grand Total</span>
+                  <span className="text-teal-600 dark:text-teal-400 font-black text-base font-mono">
+                    {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
+                  </span>
                 </div>
               </div>
             </div>
           </div>
-        </SectionCard>
-
-        {/* Attachments Section */}
-        <SectionCard>
-          <SectionHeader icon={<Paperclip className="w-4 h-4" />} title="Attachments" />
-          <div className="p-6 space-y-4">
-            {mode !== 'view' && (
-              <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-teal-500 rounded-2xl cursor-pointer bg-slate-50/50 dark:bg-slate-900/30 transition-colors">
-                <UploadCloud className="w-8 h-8 text-teal-600 mb-2" />
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Click to upload files</span>
-                <span className="text-[10px] text-slate-400 mt-1">PDF, Images, Excel up to 10MB</span>
-                <input type="file" multiple onChange={handleFileUpload} className="hidden" />
-              </label>
-            )}
-
-            {attachments.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {attachments.map((att, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs"
-                  >
-                    <span className="truncate max-w-[80%] text-slate-700 dark:text-slate-300 font-medium">
-                      {getFileName(att.Attachment)}
-                    </span>
-                    {mode !== 'view' && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveAttachment(idx)}
-                        className="text-rose-500 hover:text-rose-700 p-1"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </SectionCard>
+        </div>
 
         {/* Submit Actions Footer */}
         {mode !== 'view' && (

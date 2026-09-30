@@ -36,7 +36,7 @@ export const APInvoiceViewPage: React.FC = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
       <APInvoiceReceiptView
         invoice={invoice}
         onBack={() => navigate('/procurement/ap-invoice')}

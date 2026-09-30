@@ -1,11 +1,22 @@
 import React, { useRef } from 'react';
 import type { ApInvoice } from '../api/useApInvoices';
 import { format } from 'date-fns';
-import { ArrowLeft, Download, FileSpreadsheet, Paperclip, ExternalLink, Printer } from 'lucide-react';
+import {
+  ArrowLeft,
+  Download,
+  FileSpreadsheet,
+  Paperclip,
+  ExternalLink,
+  Printer,
+  CheckCircle2,
+  Clock,
+  XCircle
+} from 'lucide-react';
 import { Button } from '../../../../components/ui';
 import * as XLSX from 'xlsx';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
+import "../../purchase-quotations/components/view.css";
 import { getAttachmentUrl, getFileName } from '../../../../lib/api';
 
 interface APInvoiceReceiptViewProps {
@@ -48,7 +59,7 @@ export const APInvoiceReceiptView: React.FC<APInvoiceReceiptViewProps> = ({ invo
       'UOM': item.UoM || 'pcs',
       'UNIT PRICE': Number(item.UnitPrice || 0).toFixed(2),
       'DISCOUNT %': Number(item.DiscPrcnt || 0).toFixed(2),
-      'TOTAL EXCLUSIVE': (Number(item.Quantity || 0) * Number(item.UnitPrice || 0)).toFixed(2),
+      'TOTAL EXCLUSIVE': (Number(item.DeliveredQty !== undefined ? item.DeliveredQty : item.Quantity || 0) * Number(item.UnitPrice || 0)).toFixed(2),
       'TAX AMOUNT': Number(item.LineTax || 0).toFixed(2),
       'TOTAL INCLUSIVE': Number(item.LineTotalLC || 0).toFixed(2),
       'WAREHOUSE': item.WhsCode || '',
@@ -61,11 +72,18 @@ export const APInvoiceReceiptView: React.FC<APInvoiceReceiptViewProps> = ({ invo
     XLSX.writeFile(wb, `AP_Invoice_${invoice.OrderCode || invoice.ID}.xlsx`);
   };
 
-  const subtotal = invoice.items?.reduce((sum, item) => sum + (Number(item.DeliveredQty !== undefined ? item.DeliveredQty : item.Quantity || 0) * Number(item.UnitPrice || 0)), 0) || 0;
+  const subtotal = invoice.items?.reduce((sum, item) => {
+    const qty = Number(item.DeliveredQty !== undefined ? item.DeliveredQty : item.Quantity || 0);
+    const price = Number(item.UnitPrice || 0);
+    return sum + (qty * price);
+  }, 0) || 0;
+
   const headerDisc = Number(invoice.DiscPrcnt || 0);
   const discountAmount = subtotal * (headerDisc / 100);
   const totalExclusive = subtotal - discountAmount;
   const isService = (invoice.TypeRequest || invoice.RequestType || '').toLowerCase() === 'service';
+  const aprStatus = invoice.AprStatus || (invoice.Status === 'C' ? 'Y' : invoice.Status === 'O' ? 'P' : 'P');
+  const amountInWords = "Tanzanian Shillings " + Number(invoice.DocTotal || totalExclusive + Number(invoice.TaxTotal || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " Only";
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -88,7 +106,11 @@ export const APInvoiceReceiptView: React.FC<APInvoiceReceiptViewProps> = ({ invo
               <span className="font-mono text-xs font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 px-2 py-0.5 rounded-md border border-teal-200 dark:border-teal-800">
                 {invoice.OrderCode || `ID #${invoice.ID}`}
               </span>
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                isService
+                  ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                  : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+              }`}>
                 {invoice.TypeRequest || 'Item'}
               </span>
             </div>
@@ -126,262 +148,329 @@ export const APInvoiceReceiptView: React.FC<APInvoiceReceiptViewProps> = ({ invo
         </div>
       </div>
 
-      {/* Printable Invoice Container */}
-      <div 
-        ref={printRef}
-        className="bg-white text-gray-900 p-8 sm:p-12 rounded-3xl shadow-xl border border-gray-200 print:border-none print:shadow-none print:p-0 max-w-5xl mx-auto"
-        style={{ minHeight: '842px', fontFamily: "'Inter', sans-serif" }}
-      >
-        {/* Document Header */}
-        <div className="flex justify-between items-start border-b border-gray-200 pb-8 gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="h-8 w-2 bg-teal-600 rounded-full inline-block"></span>
-              <h1 className="text-2xl font-black tracking-tight text-gray-900">
-                ACCOUNTS PAYABLE INVOICE
-              </h1>
+      {/* Main Printable Document Card */}
+      <div className="flex justify-center overflow-x-auto pb-8 w-full">
+        <div 
+          ref={printRef}
+          className="purchase-quotation-print bg-white text-slate-800 shadow-2xl rounded-2xl border border-slate-200 min-w-[920px] w-full max-w-[1140px] mx-auto shrink-0 overflow-hidden"
+          style={{ position: 'relative' }}
+        >
+          {/* Header Branding Banner */}
+          <div className="w-full bg-gradient-to-r from-[#005f73] via-[#0A9396] to-[#94D2BD] text-white px-10 py-6 flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white font-black text-xl shadow-md border border-white/30">
+                  AP
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-teal-200">ACCOUNTS PAYABLE</span>
+                  <h1 className="text-2xl font-black tracking-tight uppercase text-white">AP INVOICE VOUCHER</h1>
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-gray-500 font-mono">
-              OFFICIAL TAX & PROCUREMENT INVOICE
-            </p>
-            <div className="text-xs space-y-1 text-gray-600 pt-2">
-              <p className="font-semibold text-gray-800">Branch Operations & Procurement</p>
-              <p>Dar es Salaam, Tanzania</p>
-              <p>TIN: 100-234-567 | VRN: 40-001234-Z</p>
+            <div className="text-right flex items-center gap-3">
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-white/20 backdrop-blur-md text-white border border-white/30 uppercase tracking-wider">
+                <span className="text-xs text-teal-100 font-bold uppercase tracking-wider">Invoice No:</span>
+                <span className="text-sm font-black text-white">{invoice.OrderCode || `INV-${invoice.ID}`}</span>
+              </div>
+              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-white/90 text-slate-800 shadow-xs`}>
+                {aprStatus === 'Y' ? (
+                  <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /><span className="text-emerald-700 font-bold">Approved</span></>
+                ) : aprStatus === 'N' ? (
+                  <><XCircle className="w-3.5 h-3.5 text-rose-600" /><span className="text-rose-700 font-bold">Rejected</span></>
+                ) : (
+                  <><Clock className="w-3.5 h-3.5 text-amber-600" /><span className="text-amber-700 font-bold">Pending</span></>
+                )}
+              </span>
             </div>
           </div>
 
-          <div className="text-right space-y-2">
-            <div className="inline-block bg-slate-50 border border-slate-200 p-3 rounded-2xl text-left min-w-[200px]">
-              <div className="text-[10px] uppercase font-bold text-gray-400">Invoice Number</div>
-              <div className="text-base font-black text-teal-700 font-mono">
-                {invoice.OrderCode || `INV-${invoice.ID}`}
+          <div className="p-8 sm:p-10 space-y-8">
+            {/* Balanced 2-Column Info Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50/80 rounded-2xl p-6 border border-gray-200/80">
+              {/* Left Column: Vendor & Supplier Info */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-teal-700 uppercase tracking-wider border-b border-gray-200 pb-1">
+                  Vendor & Supplier Info
+                </h3>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <span className="font-semibold text-gray-500">Supplier Name:</span>
+                  <span className="col-span-2 font-bold text-gray-900">{invoice.CustName || invoice.CustCode || 'N/A'}</span>
+
+                  <span className="font-semibold text-gray-500">Vendor Code:</span>
+                  <span className="col-span-2 text-gray-800 font-medium font-mono">{invoice.CustCode || 'N/A'}</span>
+
+                  {invoice.RequestType && (
+                    <>
+                      <span className="font-semibold text-gray-500">Request Type:</span>
+                      <span className="col-span-2 text-gray-800 font-medium">{invoice.RequestType}</span>
+                    </>
+                  )}
+
+                  {invoice.TypeRequest && (
+                    <>
+                      <span className="font-semibold text-gray-500">Procurement Type:</span>
+                      <span className="col-span-2 text-gray-800 font-medium">{invoice.TypeRequest}</span>
+                    </>
+                  )}
+
+                  {invoice.Department && (
+                    <>
+                      <span className="font-semibold text-gray-500">Department:</span>
+                      <span className="col-span-2 text-gray-800 font-medium">{invoice.Department}</span>
+                    </>
+                  )}
+
+                  {invoice.ExpenseType && (
+                    <>
+                      <span className="font-semibold text-gray-500">Expense Type:</span>
+                      <span className="col-span-2 text-gray-800 font-medium">{invoice.ExpenseType}</span>
+                    </>
+                  )}
+
+                  {invoice.TypePayment && (
+                    <>
+                      <span className="font-semibold text-gray-500">Payment Terms:</span>
+                      <span className="col-span-2 text-gray-800 font-medium">{invoice.TypePayment}</span>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="text-[10px] uppercase font-bold text-gray-400 mt-2">Posting Date</div>
-              <div className="text-xs font-bold text-gray-800">
-                {invoice.PostDate ? format(new Date(invoice.PostDate), 'dd MMM yyyy') : 'N/A'}
+
+              {/* Right Column: Dates & References */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-teal-700 uppercase tracking-wider border-b border-gray-200 pb-1">
+                  Dates & Document Details
+                </h3>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <span className="font-semibold text-gray-500">Posting Date:</span>
+                  <span className="col-span-2 text-gray-800 font-medium">
+                    {invoice.PostDate ? format(new Date(invoice.PostDate), 'dd MMM yyyy') : 'N/A'}
+                  </span>
+
+                  {invoice.DueDate && (
+                    <>
+                      <span className="font-semibold text-gray-500">Due Date:</span>
+                      <span className="col-span-2 text-rose-600 font-bold">
+                        {format(new Date(invoice.DueDate), 'dd MMM yyyy')}
+                      </span>
+                    </>
+                  )}
+
+                  {invoice.PODate && (
+                    <>
+                      <span className="font-semibold text-gray-500">Document Date:</span>
+                      <span className="col-span-2 text-gray-800 font-medium">
+                        {format(new Date(invoice.PODate), 'dd MMM yyyy')}
+                      </span>
+                    </>
+                  )}
+
+                  <span className="font-semibold text-gray-500">Base Ref / PO:</span>
+                  <span className="col-span-2 text-gray-800 font-mono font-medium">
+                    {invoice.purchaseOrder || invoice.RequestedNo || invoice.relation_from || 'Direct Invoice'}
+                  </span>
+
+                  <span className="font-semibold text-gray-500">Currency:</span>
+                  <span className="col-span-2 text-gray-800 font-mono font-bold">{currency}</span>
+
+                  <span className="font-semibold text-gray-500">Created By:</span>
+                  <span className="col-span-2 text-gray-800 font-medium">{invoice.CreatedByName || 'Accounts Payable'}</span>
+                </div>
               </div>
-              {invoice.DueDate && (
-                <>
-                  <div className="text-[10px] uppercase font-bold text-gray-400 mt-2">Due Date</div>
-                  <div className="text-xs font-bold text-rose-600">
-                    {format(new Date(invoice.DueDate), 'dd MMM yyyy')}
+            </div>
+
+            {/* Line Items Table */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                {isService ? 'Invoice Service Lines & Accounts' : 'Invoiced Material Items & Quantities'}
+              </h3>
+              <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-slate-100 to-gray-100 text-gray-700 font-bold border-b border-gray-200">
+                      <th className="py-3 px-3 text-center w-12">#</th>
+                      <th className="py-3 px-4">{isService ? 'Service Description & GL Account' : 'Item Code & Description'}</th>
+                      {!isService && <th className="py-3 px-3 text-center w-20">Qty</th>}
+                      {!isService && <th className="py-3 px-3 text-center w-16">UoM</th>}
+                      <th className="py-3 px-3 text-right w-28">{isService ? 'Amount' : 'Unit Price'}</th>
+                      <th className="py-3 px-3 text-right w-16">Disc %</th>
+                      <th className="py-3 px-3 text-right w-24">Tax Amount</th>
+                      <th className="py-3 px-4 text-right w-32">Total ({currency})</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {invoice.items && invoice.items.length > 0 ? (
+                      invoice.items.map((item, idx) => {
+                        const qty = Number(item.DeliveredQty !== undefined ? item.DeliveredQty : item.Quantity || 0);
+                        const price = Number(item.UnitPrice || 0);
+                        const disc = Number(item.DiscPrcnt || 0);
+                        const lineTax = Number(item.LineTax || 0);
+                        const lineTotal = Number(item.LineTotalLC || 0);
+
+                        return (
+                          <tr key={item.ID || idx} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="py-3 px-3 text-center font-medium text-gray-500 font-mono text-[11px]">
+                              {item.LineNum || idx + 1}
+                            </td>
+                            <td className="py-3 px-4 font-medium text-gray-900">
+                              <div className="font-bold text-gray-900">
+                                {item.ItemName || item.Remarks || (item.ItemCode ? `Item ${item.ItemCode}` : 'Procurement Item')}
+                              </div>
+                              {item.ItemCode && item.ItemCode !== 'SERVICE' && (
+                                <div className="text-[10px] text-gray-400 font-mono">Code: {item.ItemCode}</div>
+                              )}
+                              {item.GLCode && (
+                                <div className="text-[10px] text-indigo-600 font-mono">GL: {item.GLCode} {item.GLName ? `(${item.GLName})` : ''}</div>
+                              )}
+                              <div className="flex flex-wrap gap-2 text-[10px] text-gray-500 mt-0.5">
+                                {item.WhsCode && <span>Whs: {item.WhsCode}</span>}
+                                {item.project && <span className="text-teal-600 font-semibold">Prj: {item.project}</span>}
+                                {item.cost_center && <span>CC: {item.cost_center}</span>}
+                              </div>
+                            </td>
+                            {!isService && (
+                              <td className="py-3 px-3 text-center font-bold text-gray-800 font-mono">{qty}</td>
+                            )}
+                            {!isService && (
+                              <td className="py-3 px-3 text-center text-gray-600">{item.UoM || 'pcs'}</td>
+                            )}
+                            <td className="py-3 px-3 text-right font-mono text-gray-700">
+                              {price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-3 px-3 text-right font-mono text-gray-600">
+                              {disc > 0 ? `${disc}%` : '-'}
+                            </td>
+                            <td className="py-3 px-3 text-right font-mono text-gray-600">
+                              {lineTax > 0 ? lineTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+                            </td>
+                            <td className="py-3 px-4 text-right font-bold font-mono text-teal-800">
+                              {lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={isService ? 6 : 8} className="py-8 text-center text-gray-400 italic">
+                          No line items recorded for this invoice.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Calculations & Remarks Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+              <div className="space-y-4">
+                {invoice.Remarks && (
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-1">
+                    <div className="text-xs font-bold text-gray-700 uppercase tracking-wider">Remarks / Notes</div>
+                    <p className="text-xs text-gray-600 whitespace-pre-wrap">{invoice.Remarks}</p>
                   </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+                )}
 
-        {/* Vendor & Metadata Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 py-6 border-b border-gray-200 text-xs">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Vendor / Supplier</span>
-            <span className="font-bold text-gray-900 text-sm block">
-              {invoice.CustName || invoice.CustCode || 'N/A'}
-            </span>
-            <span className="font-mono text-gray-500 text-[11px] block">
-              Code: {invoice.CustCode}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Base Document / Ref</span>
-            <span className="font-semibold text-gray-800 block">
-              {invoice.purchaseOrder || invoice.RequestedNo || invoice.relation_from || 'Direct Invoice'}
-            </span>
-            <span className="text-[11px] text-gray-500 block">
-              Payment: {invoice.TypePayment || 'Cash'}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Type & Currency</span>
-            <span className="font-bold text-gray-800 block">
-              {invoice.TypeRequest || 'Item'} Procurement
-            </span>
-            <span className="font-mono text-gray-500 text-[11px] block">
-              Currency: {currency}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Department / Branch</span>
-            <span className="font-semibold text-gray-800 block">
-              {invoice.Department || 'Procurement'}
-            </span>
-            <span className="text-gray-500 text-[11px] block">
-              {invoice.ExpenseType || 'Operational'}
-            </span>
-          </div>
-        </div>
-
-        {/* Line Items Table */}
-        <div className="py-6">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b-2 border-gray-900 text-[10px] font-black uppercase text-gray-900 tracking-wider">
-                <th className="py-2.5 px-2 w-10 text-center">#</th>
-                <th className="py-2.5 px-3">{isService ? 'Service Description' : 'Item Description & Code'}</th>
-                {!isService && <th className="py-2.5 px-3 text-right w-20">Qty</th>}
-                {!isService && <th className="py-2.5 px-3 text-center w-16">UoM</th>}
-                <th className="py-2.5 px-3 text-right w-28">{isService ? 'Fee / Amount' : 'Unit Price'}</th>
-                <th className="py-2.5 px-2 text-right w-16">Disc %</th>
-                <th className="py-2.5 px-3 text-right w-24">Tax</th>
-                <th className="py-2.5 px-3 text-right w-32">Total ({currency})</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {invoice.items && invoice.items.length > 0 ? (
-                invoice.items.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50/50">
-                    <td className="py-3 px-2 text-center text-gray-400 font-mono text-[11px]">
-                      {item.LineNum || idx + 1}
-                    </td>
-                    <td className="py-3 px-3">
-                      <div className="font-bold text-gray-900">
-                        {item.ItemName || item.Remarks || (item.ItemCode ? `Item ${item.ItemCode}` : 'Procurement Item')}
-                      </div>
-                      {item.ItemCode && item.ItemCode !== 'SERVICE' && (
-                        <div className="text-[10px] text-gray-500 font-mono">
-                          Code: {item.ItemCode}
-                        </div>
-                      )}
-                      {item.project && (
-                        <div className="text-[10px] text-teal-600">
-                          Project: {item.project}
-                        </div>
-                      )}
-                    </td>
-                    {!isService && (
-                      <td className="py-3 px-3 text-right font-mono font-bold text-gray-900">
-                        {Number(item.DeliveredQty !== undefined ? item.DeliveredQty : item.Quantity || 0).toLocaleString()}
-                      </td>
-                    )}
-                    {!isService && (
-                      <td className="py-3 px-3 text-center text-gray-600">
-                        {item.UoM || 'pcs'}
-                      </td>
-                    )}
-                    <td className="py-3 px-3 text-right font-mono text-gray-800">
-                      {Number(item.UnitPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-3 px-2 text-right font-mono text-gray-600">
-                      {Number(item.DiscPrcnt || 0)}%
-                    </td>
-                    <td className="py-3 px-3 text-right font-mono text-gray-600">
-                      {Number(item.LineTax || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-3 px-3 text-right font-mono font-bold text-gray-900">
-                      {Number(item.LineTotalLC || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={isService ? 6 : 8} className="py-8 text-center text-gray-400 italic">
-                    No line items recorded
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Financial Calculations & Totals */}
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 pt-4 border-t border-gray-200">
-          <div className="sm:col-span-7 space-y-4">
-            {invoice.Remarks && (
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
-                <span className="font-bold text-gray-900 block mb-1">Remarks / Terms:</span>
-                <p className="text-gray-600 whitespace-pre-wrap">{invoice.Remarks}</p>
+                <div className="bg-teal-50/60 rounded-xl p-4 border border-teal-100 space-y-1">
+                  <div className="text-xs font-bold text-teal-800 uppercase tracking-wider">Amount in Words</div>
+                  <p className="text-xs font-medium text-teal-900 italic">{amountInWords}</p>
+                </div>
               </div>
-            )}
 
+              {/* Totals Box */}
+              <div className="bg-gray-50 rounded-2xl p-5 border border-gray-200 space-y-3">
+                <div className="flex justify-between text-xs text-gray-600">
+                  <span>Subtotal Exclusive:</span>
+                  <span className="font-semibold text-gray-800 font-mono">
+                    {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                  </span>
+                </div>
+                {headerDisc > 0 && (
+                  <div className="flex justify-between text-xs text-rose-600">
+                    <span>Document Discount ({headerDisc}%):</span>
+                    <span className="font-semibold font-mono">
+                      - {discountAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between text-xs text-gray-600">
+                  <span>Total Tax:</span>
+                  <span className="font-semibold text-gray-800 font-mono">
+                    {Number(invoice.TaxTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                  </span>
+                </div>
+                {Number(invoice.Freight || 0) > 0 && (
+                  <div className="flex justify-between text-xs text-gray-600">
+                    <span>Freight / Shipping:</span>
+                    <span className="font-semibold text-gray-800 font-mono">
+                      {Number(invoice.Freight).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                    </span>
+                  </div>
+                )}
+                {invoice.Rounding === 'Y' && Number(invoice.RoundingAmnt || 0) !== 0 && (
+                  <div className="flex justify-between text-xs text-gray-600">
+                    <span>Rounding:</span>
+                    <span className="font-semibold text-gray-800 font-mono">
+                      {Number(invoice.RoundingAmnt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                    </span>
+                  </div>
+                )}
+                <div className="border-t border-gray-300 pt-3 flex justify-between items-center text-sm font-black text-gray-900">
+                  <span>Grand Total:</span>
+                  <span className="text-lg font-mono text-teal-700">
+                    {Number(invoice.DocTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Attachments Section */}
             {invoice.attachments && invoice.attachments.length > 0 && (
-              <div className="text-xs space-y-2">
-                <span className="font-bold text-gray-900 flex items-center gap-1.5">
-                  <Paperclip className="h-3.5 w-3.5 text-teal-600" />
-                  Attached Documentation ({invoice.attachments.length}):
-                </span>
+              <div className="space-y-3 border-t border-gray-200 pt-4 avoid-page-break">
+                <div className="flex items-center gap-2 text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  <Paperclip className="h-4 w-4 text-teal-600" />
+                  <span>Attached Documentation ({invoice.attachments.length})</span>
+                </div>
                 <div className="flex flex-wrap gap-2">
-                  {invoice.attachments.map((att, index) => {
-                    const fileUrl = getAttachmentUrl(att.Attachment);
-                    const fileName = getFileName(att.Attachment) || `Attachment-${index + 1}`;
+                  {invoice.attachments.map((att, idx) => {
+                    const url = getAttachmentUrl(att.Attachment);
+                    const filename = getFileName(att.Attachment) || `Attachment-${idx + 1}`;
                     return (
                       <a
-                        key={index}
-                        href={fileUrl}
+                        key={att.ID || idx}
+                        href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold border border-slate-300"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold border border-slate-300 transition-colors"
                       >
                         <ExternalLink className="h-3 w-3" />
-                        {fileName}
+                        {filename}
                       </a>
                     );
                   })}
                 </div>
               </div>
             )}
-          </div>
 
-          <div className="sm:col-span-5">
-            <div className="space-y-2 text-xs text-gray-600 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-              <div className="flex justify-between">
-                <span>Subtotal (Exclusive):</span>
-                <span className="font-mono font-bold text-gray-900">
-                  {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
-                </span>
+            {/* Signatures & Footer */}
+            <div className="grid grid-cols-3 gap-6 pt-16 mt-8 border-t border-gray-200 text-center text-xs text-gray-500 avoid-page-break">
+              <div>
+                <div className="border-b border-gray-300 pb-8 mb-2"></div>
+                <p className="font-bold text-gray-800">Prepared By</p>
+                <p className="text-[10px] text-gray-400">{invoice.CreatedByName || 'Accounts Payable'}</p>
               </div>
-              {headerDisc > 0 && (
-                <div className="flex justify-between text-rose-600">
-                  <span>Document Discount ({headerDisc}%):</span>
-                  <span className="font-mono font-bold">
-                    - {discountAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span>Total Tax Amount:</span>
-                <span className="font-mono font-bold text-gray-900">
-                  {Number(invoice.TaxTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
-                </span>
+              <div>
+                <div className="border-b border-gray-300 pb-8 mb-2"></div>
+                <p className="font-bold text-gray-800">Checked & Verified</p>
+                <p className="text-[10px] text-gray-400">Finance Department</p>
               </div>
-              {Number(invoice.Freight || 0) > 0 && (
-                <div className="flex justify-between">
-                  <span>Freight / Shipping:</span>
-                  <span className="font-mono font-bold text-gray-900">
-                    {Number(invoice.Freight || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
-                  </span>
-                </div>
-              )}
-              <div className="border-t-2 border-gray-900 pt-2 mt-2 flex justify-between text-sm font-black text-gray-900">
-                <span>Grand Total:</span>
-                <span className="font-mono text-teal-600">
-                  {Number(invoice.DocTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
-                </span>
+              <div>
+                <div className="border-b border-gray-300 pb-8 mb-2"></div>
+                <p className="font-bold text-gray-800">Authorized Signatory</p>
+                <p className="text-[10px] text-gray-400">Chief Financial Officer</p>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Signatures & Footer */}
-        <div className="grid grid-cols-3 gap-6 pt-16 mt-8 border-t border-gray-200 text-center text-xs text-gray-500">
-          <div>
-            <div className="border-b border-gray-300 pb-8 mb-2"></div>
-            <p className="font-bold text-gray-800">Prepared By</p>
-            <p className="text-[10px] text-gray-400">{invoice.CreatedByName || 'Accounts Payable'}</p>
-          </div>
-          <div>
-            <div className="border-b border-gray-300 pb-8 mb-2"></div>
-            <p className="font-bold text-gray-800">Checked & Verified</p>
-            <p className="text-[10px] text-gray-400">Finance Department</p>
-          </div>
-          <div>
-            <div className="border-b border-gray-300 pb-8 mb-2"></div>
-            <p className="font-bold text-gray-800">Authorized Signatory</p>
-            <p className="text-[10px] text-gray-400">Chief Financial Officer</p>
           </div>
         </div>
       </div>

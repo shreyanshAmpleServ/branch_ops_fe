@@ -1,12 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Plus, RefreshCw, Edit2, FileSpreadsheet, Eye } from 'lucide-react';
+import {
+  Plus,
+  RefreshCw,
+  Edit2,
+  Eye,
+  Truck,
+  TrendingUp,
+  Upload,
+  Download,
+  BarChart3,
+  Clock,
+  CheckCircle2,
+} from 'lucide-react';
 import {
   useGoodsReceipts,
   type GoodsReceipt
 } from './api/useGoodsReceipts';
 import { DataTable, type ColumnDef } from '../../../components/table/DataTable';
-import { Button, Spinner, DateRangePicker, Tooltip } from '../../../components/ui';
+import { Spinner, DateRangePicker, Tooltip } from '../../../components/ui';
 
 export const GoodsReceiptList: React.FC = () => {
   const navigate = useNavigate();
@@ -23,6 +35,33 @@ export const GoodsReceiptList: React.FC = () => {
   });
 
   const receiptsList: GoodsReceipt[] = (Array.isArray(rawReceipts) ? rawReceipts : (rawReceipts as any)?.data) || [];
+
+  // DYNAMIC STATS: 100% Calculated dynamically from API data
+  const stats = useMemo(() => {
+    const totalCount = receiptsList.length;
+    let openCount = 0;
+    let closedCount = 0;
+    let totalValue = 0;
+
+    receiptsList.forEach(r => {
+      const s = (r.Status || '').toUpperCase();
+      const apr = (r.AprStatus || '').toUpperCase();
+      totalValue += Number(r.DocTotal || 0);
+
+      if (s === 'C' || s === 'CLOSED' || s === 'L' || apr === 'Y') {
+        closedCount++;
+      } else {
+        openCount++;
+      }
+    });
+
+    return {
+      totalCount,
+      openCount,
+      closedCount,
+      totalValue,
+    };
+  }, [receiptsList]);
 
   const handleExportCSV = () => {
     if (!receiptsList || receiptsList.length === 0) return;
@@ -110,7 +149,14 @@ export const GoodsReceiptList: React.FC = () => {
       accessorKey: 'OrderCode',
       header: 'GRPO NO',
       cell: ({ row }) => (
-        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+        <span 
+          className="text-xs font-semibold cursor-pointer hover:underline whitespace-nowrap"
+          style={{ color: 'var(--color-primary)' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/procurement/grpo/view/${row.original.ID}`);
+          }}
+        >
           {row.original.OrderCode || `GR26/${row.original.ID}`}
         </span>
       ),
@@ -166,138 +212,237 @@ export const GoodsReceiptList: React.FC = () => {
     },
     {
       accessorKey: 'RequestType',
-      header: 'REQUEST TYPE',
-      cell: ({ row }) => (
-        <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
-          {row.original.RequestType || 'Item'}
-        </span>
-      ),
+      header: 'TYPE',
+      cell: ({ row }) => {
+        const reqType = row.original.RequestType || 'Item';
+        const isItem = reqType.toLowerCase() === 'item';
+        return (
+          <span className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded uppercase whitespace-nowrap ${
+            isItem 
+              ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300' 
+              : 'bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300'
+          }`}>
+            {reqType}
+          </span>
+        );
+      },
     },
     {
       accessorKey: 'CreatedDate',
       header: 'CREATED DATE',
       cell: ({ row }) => {
-        const val = row.original.CreatedDate || row.original.PostDate;
-        return (
-          <span className="text-xs text-slate-600 dark:text-slate-400 font-mono whitespace-nowrap">
-            {val ? new Date(val).toISOString().split('T')[0] : '2026-00-00'}
-          </span>
-        );
+        const val = row.original.CreatedDate;
+        return <span className="text-xs text-slate-500 whitespace-nowrap">{val ? new Date(val).toLocaleDateString() : 'N/A'}</span>;
       },
     },
     {
       accessorKey: 'DocTotal',
       header: 'DOC TOTAL',
-      cell: ({ row }) => {
-        const amt = Number(row.original.DocTotal || 0);
-        return (
-          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 font-mono whitespace-nowrap">
-            {amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-        );
-      },
-    },
-    {
-      accessorKey: 'AprDate',
-      header: 'APRDATE',
-      cell: ({ row }) => {
-        const val = row.original.AprDate;
-        return (
-          <span className="text-xs text-slate-600 dark:text-slate-400 font-mono whitespace-nowrap">
-            {val ? new Date(val).toISOString().split('T')[0] : ''}
-          </span>
-        );
-      },
+      cell: ({ row }) => (
+        <span className="text-xs font-bold text-slate-900 dark:text-white font-mono whitespace-nowrap">
+          ${Number(row.original.DocTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+      ),
     },
     {
       accessorKey: 'AprStatus',
-      header: 'APPROVAL STATUS',
+      header: 'APPROVAL',
       cell: ({ row }) => {
-        const st = (row.original.AprStatus || 'Y').toUpperCase();
-        let badgeStyle = 'bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-400';
-        let label = 'APPROVED';
-        if (st === 'N' || st === 'REJECTED') {
-          badgeStyle = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-400';
-          label = 'REJECTED';
-        } else if (st === 'P' || st === 'PENDING') {
-          badgeStyle = 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400';
-          label = 'PENDING';
+        const apr = row.original.AprStatus;
+        if (apr === 'Y') {
+          return (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 whitespace-nowrap">
+              Approved
+            </span>
+          );
+        } else if (apr === 'N') {
+          return (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-full border border-rose-200 dark:border-rose-800 whitespace-nowrap">
+              Rejected
+            </span>
+          );
         }
         return (
-          <span className={`inline-block px-3 py-1 text-[10px] font-bold rounded-full border tracking-wider uppercase whitespace-nowrap ${badgeStyle}`}>
-            {label}
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800 whitespace-nowrap">
+            Pending
           </span>
         );
       },
     },
     {
       id: 'actions',
-      header: 'ACTION',
+      header: 'ACTIONS',
       cell: ({ row }) => (
-        <div className="flex items-center gap-1.5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => navigate(`/procurement/grpo/view/${row.original.ID}`)}
-            className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center shadow-sm transition-all hover:scale-105 active:scale-95"
-            title="View Details"
-          >
-            <Eye className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-          </button>
-          <button
-            onClick={() => navigate(`/procurement/grpo/edit/${row.original.ID}`)}
-            className="w-8 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shadow transition-all hover:scale-105 active:scale-95"
-            title="Edit GRPO"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
+        <div className="flex items-center gap-1">
+          <Tooltip content="View GRPO" position="top">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/procurement/grpo/view/${row.original.ID}`);
+              }}
+              className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg transition-colors cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
+          <Tooltip content="Edit" position="top">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/procurement/grpo/edit/${row.original.ID}`);
+              }}
+              className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg transition-colors cursor-pointer"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
         </div>
       ),
     },
   ];
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto animate-fade-in">
-      {/* Top Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Goods Receipts (GRPO)
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Create, receive, and track supplier goods receipts purchase orders
-          </p>
-        </div>
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
+      {/* Top Header Card Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
         <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
-            onClick={handleExportCSV}
-            className="border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-xs font-medium py-2 rounded-xl"
+          <div 
+            className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 shadow-2xs"
+            style={{ background: 'var(--color-primary-50, rgba(99,102,241,0.08))', border: '1px solid var(--color-primary-200, rgba(99,102,241,0.2))' }}
           >
-            <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-600" />
-            Export CSV
-          </Button>
+            <Truck className="w-4.5 h-4.5" style={{ color: 'var(--color-primary)' }} />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+              Goods Receipts (GRPO)
+            </h1>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Create, receive, and track supplier goods receipts purchase orders
+            </p>
+          </div>
+        </div>
+
+        {/* Right side: Import, Export, + New Goods Receipt */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+          >
+            <Upload className="w-3.5 h-3.5 text-emerald-600" />
+            Import
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-600" />
+            Export <span className="text-[10px] opacity-70">▼</span>
+          </button>
+
           <Link to="/procurement/grpo/new">
-            <Button
-              variant="primary"
-              className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold py-2 px-4 rounded-xl shadow-md transition-all hover:shadow-lg"
+            <button
+              className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-lg text-white shadow-xs transition-all hover:opacity-95 active:scale-98 cursor-pointer"
+              style={{ background: 'var(--color-primary)' }}
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-3.5 h-3.5" />
               New Goods Receipt
-            </Button>
+            </button>
           </Link>
         </div>
       </div>
 
-      {/* Main Table Container */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center p-12 space-y-3">
-            <Spinner className="w-8 h-8 text-teal-600" />
-            <p className="text-xs text-slate-500">Loading goods receipts...</p>
+      {/* Dynamic KPI Stats Cards Row (Real counts from API) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Card 1: Total GRPOs */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <Truck className="w-3 h-3" />
+              </div>
+              Total GRPOs
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{stats.totalCount}</div>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+              <TrendingUp className="w-3 h-3" />
+              Active in database
+            </div>
           </div>
-        ) : (
-          <DataTable
-            columns={columns}
-            data={receiptsList}
+          <div className="text-blue-400 opacity-60">
+            <BarChart3 className="w-5.5 h-5.5 stroke-[1.5]" />
+          </div>
+        </div>
+
+        {/* Card 2: Open GRPOs */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <Clock className="w-3 h-3" />
+              </div>
+              Open GRPOs
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{stats.openCount}</div>
+            <div className="text-[10px] text-slate-400">
+              Awaiting AP invoice / closure
+            </div>
+          </div>
+          <div className="text-amber-400 opacity-60">
+            <Clock className="w-5.5 h-5.5 stroke-[1.5]" />
+          </div>
+        </div>
+
+        {/* Card 3: Closed / Approved */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <CheckCircle2 className="w-3 h-3" />
+              </div>
+              Closed / Approved
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{stats.closedCount}</div>
+            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+              Completed goods receipts
+            </div>
+          </div>
+          <div className="text-emerald-400 opacity-60">
+            <CheckCircle2 className="w-5.5 h-5.5 stroke-[1.5]" />
+          </div>
+        </div>
+
+        {/* Card 4: Total GRPO Value */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                <Truck className="w-3 h-3" />
+              </div>
+              Total GRPO Value
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+              ${stats.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-[10px] text-slate-400">
+              Received goods inventory
+            </div>
+          </div>
+          <div className="text-purple-400 opacity-60">
+            <BarChart3 className="w-5.5 h-5.5 stroke-[1.5]" />
+          </div>
+        </div>
+      </div>
+
+      {/* Main Table Container */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs overflow-hidden">
+        <DataTable
+          columns={columns}
+          data={receiptsList}
+          isLoading={isLoading}
+            enableRowSelection={true}
+            enableExport={true}
+            exportFileName="goods-receipts"
             searchValue={searchTerm}
             onSearchChange={setSearchTerm}
             searchPlaceholder="Search vendor, GRPO code..."
@@ -306,7 +451,7 @@ export const GoodsReceiptList: React.FC = () => {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-700 dark:text-slate-300 font-medium cursor-pointer"
+                  className="px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 dark:text-slate-300 font-medium cursor-pointer"
                 >
                   <option value="all">All Statuses</option>
                   <option value="open">Open</option>
@@ -324,16 +469,15 @@ export const GoodsReceiptList: React.FC = () => {
                   <button
                     onClick={() => refetch()}
                     disabled={isRefetching}
-                    className="p-2 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors flex items-center justify-center cursor-pointer"
+                    className="p-1.5 text-xs text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors flex items-center justify-center cursor-pointer"
                   >
-                    <RefreshCw className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefetching ? 'animate-spin' : ''}`} />
                   </button>
                 </Tooltip>
               </div>
             }
             onRowClick={(row) => navigate(`/procurement/grpo/view/${row.ID}`)}
           />
-        )}
       </div>
     </div>
   );

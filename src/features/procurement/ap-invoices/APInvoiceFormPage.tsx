@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
+  Check,
+  Info,
   Trash2,
   UploadCloud,
   Package,
@@ -27,18 +29,43 @@ import {
 } from './api/useApInvoices';
 import { usePurchaseOrders, type PurchaseOrder } from '../purchase-orders/api/usePurchaseOrders';
 import { useGoodsReceipts, type GoodsReceipt } from '../goods-receipts/api/useGoodsReceipts';
-import api from '../../../lib/api';
+import api, { getAttachmentUrl, getFileName } from '../../../lib/api';
 import { useRetailers } from '../../customers/api/useRetailers';
-import { useProjects, useWarehouses, useCostCentersMain, useBranches } from '../../users/api/useMasterData';
+import {
+  PAYMENT_TERMS_OPTIONS,
+  TAX_CODE_OPTIONS,
+  formatItemCatalogOption,
+  renderItemOption,
+  formatVendorOption,
+  renderVendorOption,
+  validateDiscountPercent,
+} from '../procurementConstants';
 import { useItems } from '../../items/api/useItems';
-import { Button, Spinner, SearchableSelect, type SearchableSelectOption } from '../../../components/ui';
+import { useProjects, useWarehouses, useCostCentersMain, useBranches, useAccounts } from '../../users/api/useMasterData';
+import {
+  Button,
+  Spinner,
+  SearchableSelect,
+  VendorSelect,
+  WarehouseSelect,
+  ProjectSelect,
+  TaxSelect,
+  GLAccountSelect,
+  PaymentTermsSelect,
+  StageSelect,
+  CostCenterSelect,
+  BranchSelect,
+  type SearchableSelectOption,
+} from '../../../components/ui';
 
 interface APInvoiceFormPageProps {
   mode: 'add' | 'edit' | 'view';
 }
 
 const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <label className="text-[10px] font-bold uppercase tracking-widest mb-1 block text-slate-500 dark:text-slate-400">
+  <label
+    className="text-[10px] font-bold uppercase tracking-widest mb-1 block text-slate-500 dark:text-slate-400"
+  >
     {children}
   </label>
 );
@@ -56,9 +83,11 @@ const SectionHeader: React.FC<{ icon: React.ReactNode; title: string; right?: Re
   title,
   right
 }) => (
-  <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80">
+  <div
+    className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80"
+  >
     <div className="flex items-center gap-2.5">
-      <span className="text-teal-600">{icon}</span>
+      <span className="text-teal-600 dark:text-teal-400">{icon}</span>
       <span className="text-[11px] font-bold uppercase tracking-widest text-slate-800 dark:text-slate-200">
         {title}
       </span>
@@ -78,6 +107,7 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
   const { data: warehousesResponse } = useWarehouses();
   const { data: costCentersResponse } = useCostCentersMain();
   const { data: branchesResponse } = useBranches();
+  const { data: accountsResponse } = useAccounts();
   const { data: itemsCatalogResponse } = useItems({ limit: 500 });
 
   // PO & GRPO lists for Copy functionality
@@ -85,11 +115,31 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
   const { data: rawGoodsReceipts } = useGoodsReceipts({});
 
   const suppliersList = Array.isArray(suppliersResponse) ? suppliersResponse : (suppliersResponse as any)?.data || [];
+  const accountsList = accountsResponse?.data || [];
   const projectsList = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse as any)?.data || [];
   const warehousesList = Array.isArray(warehousesResponse) ? warehousesResponse : (warehousesResponse as any)?.data || [];
   const costCentersList = Array.isArray(costCentersResponse) ? costCentersResponse : (costCentersResponse as any)?.data || [];
   const branchesList = Array.isArray(branchesResponse) ? branchesResponse : (branchesResponse as any)?.data || [];
-  const catalogItemsList = Array.isArray(itemsCatalogResponse) ? itemsCatalogResponse : (itemsCatalogResponse as any)?.data || [];
+  const catalogItemsList = (itemsCatalogResponse as any)?.items || (Array.isArray(itemsCatalogResponse) ? itemsCatalogResponse : (itemsCatalogResponse as any)?.data) || [];
+  const itemCatalogOptions: SearchableSelectOption[] = useMemo(() => {
+    return catalogItemsList.map(formatItemCatalogOption);
+  }, [catalogItemsList]);
+
+  const projectStagesList = useMemo(() => {
+    return costCentersList.filter((cc: any) => cc.dimCode === 1);
+  }, [costCentersList]);
+
+  const projectSubStagesList = useMemo(() => {
+    return costCentersList.filter((cc: any) => cc.dimCode === 2);
+  }, [costCentersList]);
+
+  const detailSubStagesList = useMemo(() => {
+    return costCentersList.filter((cc: any) => cc.dimCode === 3);
+  }, [costCentersList]);
+
+  const moreDetailSubStagesList = useMemo(() => {
+    return costCentersList.filter((cc: any) => cc.dimCode === 4);
+  }, [costCentersList]);
 
   const purchaseOrdersList: PurchaseOrder[] = useMemo(() => {
     return Array.isArray(rawPurchaseOrders) ? rawPurchaseOrders : (rawPurchaseOrders as any)?.data || [];
@@ -98,6 +148,30 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
   const goodsReceiptsList: GoodsReceipt[] = useMemo(() => {
     return Array.isArray(rawGoodsReceipts) ? rawGoodsReceipts : (rawGoodsReceipts as any)?.data || [];
   }, [rawGoodsReceipts]);
+
+  const currencyOptions: SearchableSelectOption[] = [
+    { value: 'TZS', label: 'TZS - Tanzanian Shilling', badge: 'TZS' },
+    { value: 'USD', label: 'USD - US Dollar', badge: 'USD' },
+    { value: 'EUR', label: 'EUR - Euro', badge: 'EUR' },
+    { value: 'KES', label: 'KES - Kenyan Shilling', badge: 'KES' },
+  ];
+
+  const requestTypeOptions: SearchableSelectOption[] = [
+    { value: 'Direct', label: 'Direct' },
+    { value: 'Base Document', label: 'Base Document' },
+  ];
+
+  const typeRequestOptions: SearchableSelectOption[] = [
+    { value: 'Item', label: 'Item (Products/Materials)', badge: 'Item' },
+    { value: 'Service', label: 'Service (Service Lines)', badge: 'Service' },
+  ];
+
+  const typePaymentOptions: SearchableSelectOption[] = [
+    { value: 'Cash', label: 'Cash Payment' },
+    { value: 'Credit', label: 'Credit' },
+    { value: 'Bank Transfer', label: 'Bank Wire Transfer' },
+    { value: 'Cheque', label: 'Cheque' },
+  ];
 
   // Modals state
   const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
@@ -149,18 +223,7 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
   const [attachments, setAttachments] = useState<{ id?: number; LineNum: number; Attachment: string }[]>([]);
 
   const supplierOptions: SearchableSelectOption[] = useMemo(() => {
-    return suppliersList.map((supp: any) => {
-      const code = supp.Code || supp.code || supp.cardCode || supp.CardCode;
-      const name = supp.Name || supp.name || supp.cardName || supp.CardName || 'Unnamed Vendor';
-      const tin = supp.TIN || supp.tin;
-      const address = supp.Address || supp.address;
-      return {
-        value: code,
-        label: `${name} (${code})`,
-        subtext: [tin ? `TIN: ${tin}` : '', address].filter(Boolean).join(' • '),
-        raw: supp
-      };
-    });
+    return suppliersList.map(formatVendorOption);
   }, [suppliersList]);
 
   // Populate data in edit/view mode
@@ -265,13 +328,17 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
   const handleUpdateItemRow = (index: number, field: keyof ApInvoiceItem, value: any) => {
     setItems(prev => {
       const updated = [...prev];
-      const item = { ...updated[index], [field]: value };
+      let processedValue = value;
+      if (field === 'DiscPrcnt' || (field as any) === 'Discount') {
+        processedValue = validateDiscountPercent(Number(value));
+      }
+      const item = { ...updated[index], [field]: processedValue };
 
       const qty = Number(item.Quantity || 0);
-      const delQty = Number(field === 'DeliveredQty' ? value : item.DeliveredQty !== undefined ? item.DeliveredQty : qty);
-      const price = Number(field === 'UnitPrice' ? value : item.UnitPrice || 0);
-      const disc = Number(field === 'DiscPrcnt' ? value : item.DiscPrcnt || 0);
-      const vatPer = Number(field === 'VATPer' ? value : item.VATPer || 0);
+      const delQty = Number(field === 'DeliveredQty' ? processedValue : item.DeliveredQty !== undefined ? item.DeliveredQty : qty);
+      const price = Number(field === 'UnitPrice' ? processedValue : item.UnitPrice || 0);
+      const disc = Number((field === 'DiscPrcnt' || (field as any) === 'Discount') ? processedValue : item.DiscPrcnt || 0);
+      const vatPer = Number(field === 'VATPer' ? processedValue : item.VATPer || 0);
 
       const lineTotalBefDisc = delQty * price;
       const lineTotalAfterDisc = lineTotalBefDisc * (1 - disc / 100);
@@ -304,6 +371,11 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
       Remarks: '',
       UoM: 'svc',
       vendor: custCode || '',
+      VendorCode: custCode || '',
+      VendorName: custName || '',
+      TaxCode: 'VAT_18',
+      PaymentTerms: 'Net 30 Days',
+      po_id: 'Net 30 Days',
     };
     setItems(prev => [...prev, newItem]);
   };
@@ -598,8 +670,10 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
   };
 
   // Form Submit
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
 
     if (!custCode) {
       alert('Please select a Supplier/Vendor');
@@ -666,7 +740,9 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
         DIM5: item.DIM5 || undefined,
         Remarks: item.Remarks || undefined,
         UoM: item.UoM || (typeRequest === 'Service' ? 'svc' : 'pcs'),
-        vendor: item.vendor || undefined,
+        vendor: item.vendor || item.VendorCode || custCode || undefined,
+        vendorRef: item.GLCode || item.vendorRef || undefined,
+        po_id: item.PaymentTerms || item.po_id || undefined,
         Location: item.Location || undefined,
         SourceDocId: item.SourceDocId || undefined,
         SourceLineNum: item.SourceLineNum ? Number(item.SourceLineNum) : undefined,
@@ -701,268 +777,262 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
+  const inputCls = `w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-xs`;
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={() => navigate('/procurement/ap-invoice')}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-teal-600" />
-              {mode === 'add'
-                ? 'Create New AP Invoice'
-                : mode === 'edit'
-                ? `Edit AP Invoice #${existingInvoice?.OrderCode || numericId}`
-                : `AP Invoice #${existingInvoice?.OrderCode || numericId}`}
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
+      {/* Top Header Card */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+            <Link to="/dashboard" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors font-medium">Home</Link>
+            <span className="opacity-40">/</span>
+            <Link to="/procurement/ap-invoice" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors font-medium">A/P Invoices</Link>
+            <span className="opacity-40">/</span>
+            <span className="text-teal-600 dark:text-teal-400 font-bold">{mode === 'edit' ? 'Edit' : 'New'}</span>
+          </div>
+          <div className="flex items-center gap-3 mt-1">
+            <h1 className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
+              {mode === 'edit'
+                ? `Modify AP Invoice #${existingInvoice?.OrderCode || numericId}`
+                : 'Create New AP Invoice'}
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Accounts Payable vendor invoice voucher with PO & Goods Receipt (GRPO) imports
-            </p>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border border-teal-200 dark:border-teal-800">
+              {mode === 'edit' ? (existingInvoice?.Status || 'DRAFT') : 'DRAFT'}
+            </span>
+          </div>
+          <p className="text-xs mt-0.5 text-slate-500 dark:text-slate-400">
+            Accounts Payable vendor invoice voucher with PO &amp; Goods Receipt (GRPO) imports
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate('/procurement/ap-invoice')}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all hover:scale-95 active:scale-90"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
+          </button>
+            {mode !== 'view' && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleOpenCopyPoModal}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-all shadow-xs"
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copy From PO
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenCopyGrpoModal}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-all shadow-xs"
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copy From GRPO
+                </button>
+                <button
+                  type="submit"
+                  form="ap-invoice-form"
+                  onClick={() => handleSubmit()}
+                  disabled={isPending}
+                  className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:scale-95 active:scale-90 disabled:opacity-60 shadow-md shadow-emerald-500/20"
+                  style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
+                >
+                  {isPending ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <><Check className="h-3.5 w-3.5" /> {mode === 'edit' ? 'Update Invoice' : 'Save Invoice'}</>
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
-        {mode !== 'view' && (
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/procurement/ap-invoice')}
-              className="text-xs rounded-xl"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              form="ap-invoice-form"
-              disabled={isPending}
-              className="text-xs bg-teal-600 hover:bg-teal-700 text-white rounded-xl shadow-sm"
-            >
-              {isPending ? (
-                <div className="flex items-center gap-1.5">
-                  <Spinner className="w-3.5 h-3.5" /> Saving...
+        <form id="ap-invoice-form" onSubmit={handleSubmit} className="space-y-6">
+          {/* Header Information Card */}
+          <SectionCard>
+            <SectionHeader icon={<Info className="w-4 h-4" />} title="Header & Supplier Information" />
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <FieldLabel>Vendor / Supplier *</FieldLabel>
+                    {mode !== 'view' && (
+                      <button
+                        type="button"
+                        onClick={() => setIsVendorModalOpen(true)}
+                        className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold hover:underline flex items-center gap-1"
+                      >
+                        <Search className="w-2.5 h-2.5" /> Advanced Search
+                      </button>
+                    )}
+                  </div>
+                  <VendorSelect
+                    value={custCode}
+                    data={suppliersList}
+                    onChange={(val, supp) => {
+                      setCustCode(val);
+                      if (supp) {
+                        setCustName(supp.Name || supp.name || supp.cardName || supp.CardName || '');
+                      }
+                    }}
+                    disabled={mode === 'view'}
+                  />
                 </div>
-              ) : mode === 'edit' ? (
-                'Update AP Invoice'
-              ) : (
-                'Create AP Invoice'
-              )}
-            </Button>
-          </div>
-        )}
-      </div>
 
-      <form id="ap-invoice-form" onSubmit={handleSubmit} className="space-y-6">
-        {/* Header Information Card */}
-        <SectionCard>
-          <SectionHeader icon={<Building2 className="w-4 h-4" />} title="Header & Supplier Information" />
-          <div className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {/* Vendor / Supplier */}
-            <div className="lg:col-span-2">
-              <div className="flex items-center justify-between mb-1">
-                <FieldLabel>Vendor / Supplier *</FieldLabel>
-                {mode !== 'view' && (
-                  <button
-                    type="button"
-                    onClick={() => setIsVendorModalOpen(true)}
-                    className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold hover:underline flex items-center gap-1"
-                  >
-                    <Search className="w-2.5 h-2.5" /> Advanced Search
-                  </button>
-                )}
+                <div>
+                  <FieldLabel>Invoice No / Order Code</FieldLabel>
+                  <input
+                    type="text"
+                    value={orderCode}
+                    onChange={e => setOrderCode(e.target.value)}
+                    disabled={mode === 'view'}
+                    placeholder="Auto-generated if empty"
+                    className={inputCls}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Posting Date *</FieldLabel>
+                  <input
+                    type="date"
+                    value={postDate}
+                    onChange={e => setPostDate(e.target.value)}
+                    disabled={mode === 'view'}
+                    required
+                    className={inputCls}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Due Date *</FieldLabel>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={e => setDueDate(e.target.value)}
+                    disabled={mode === 'view'}
+                    required
+                    className={inputCls}
+                  />
+                </div>
               </div>
-              <SearchableSelect
-                value={custCode}
-                onChange={val => {
-                  setCustCode(val);
-                  const selected = suppliersList.find(
-                    (s: any) => (s.Code || s.code || s.cardCode || s.CardCode) === val
-                  );
-                  if (selected) {
-                    setCustName(selected.Name || selected.name || selected.cardName || selected.CardName || '');
-                  }
-                }}
-                options={supplierOptions}
-                placeholder="Search vendor by name or code..."
-                disabled={mode === 'view'}
-              />
-            </div>
 
-            {/* Invoice Number / OrderCode */}
-            <div>
-              <FieldLabel>Invoice No / Order Code</FieldLabel>
-              <input
-                type="text"
-                value={orderCode}
-                onChange={e => setOrderCode(e.target.value)}
-                disabled={mode === 'view'}
-                placeholder="Auto-generated if empty"
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              />
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <BranchSelect
+                    label="Branch Location"
+                    value={branchId}
+                    data={branchesList}
+                    onChange={val => setBranchId(val ? Number(val) : '')}
+                    disabled={mode === 'view'}
+                    placeholder="Select Branch..."
+                  />
+                </div>
 
-            {/* Posting Date */}
-            <div>
-              <FieldLabel>Posting Date *</FieldLabel>
-              <input
-                type="date"
-                value={postDate}
-                onChange={e => setPostDate(e.target.value)}
-                disabled={mode === 'view'}
-                required
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              />
-            </div>
+                <div>
+                  <FieldLabel>Base Doc Reference</FieldLabel>
+                  <input
+                    type="text"
+                    value={purchaseOrder || requestedNo || relationFrom}
+                    onChange={e => setPurchaseOrder(e.target.value)}
+                    disabled={mode === 'view'}
+                    placeholder="e.g. PO26/104 or GR26/89"
+                    className={inputCls}
+                  />
+                </div>
 
-            {/* Due Date */}
-            <div>
-              <FieldLabel>Due Date *</FieldLabel>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={e => setDueDate(e.target.value)}
-                disabled={mode === 'view'}
-                required
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              />
-            </div>
+                <div>
+                  <FieldLabel>Document Date</FieldLabel>
+                  <input
+                    type="date"
+                    value={poDate}
+                    onChange={e => setPoDate(e.target.value)}
+                    disabled={mode === 'view'}
+                    className={inputCls}
+                  />
+                </div>
 
-            {/* Document Date (PODate) */}
-            <div>
-              <FieldLabel>Document Date</FieldLabel>
-              <input
-                type="date"
-                value={poDate}
-                onChange={e => setPoDate(e.target.value)}
-                disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              />
-            </div>
+                <div>
+                  <SearchableSelect
+                    label="Currency"
+                    value={currency}
+                    options={currencyOptions}
+                    onChange={val => setCurrency(String(val || 'TZS'))}
+                    disabled={mode === 'view'}
+                    clearable={false}
+                  />
+                </div>
+              </div>
 
-            {/* Base Ref / PO / GRPO No */}
-            <div>
-              <FieldLabel>Base Doc Reference</FieldLabel>
-              <input
-                type="text"
-                value={purchaseOrder || requestedNo || relationFrom}
-                onChange={e => setPurchaseOrder(e.target.value)}
-                disabled={mode === 'view'}
-                placeholder="e.g. PO26/104 or GR26/89"
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              />
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <SearchableSelect
+                    label="Request Type"
+                    value={requestType}
+                    options={requestTypeOptions}
+                    onChange={val => setRequestType(String(val || 'Direct'))}
+                    disabled={mode === 'view'}
+                    clearable={false}
+                  />
+                </div>
 
-            {/* Currency */}
-            <div>
-              <FieldLabel>Currency</FieldLabel>
-              <select
-                value={currency}
-                onChange={e => setCurrency(e.target.value)}
-                disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              >
-                <option value="TZS">TZS - Tanzanian Shilling</option>
-                <option value="USD">USD - US Dollar</option>
-                <option value="EUR">EUR - Euro</option>
-                <option value="KES">KES - Kenyan Shilling</option>
-              </select>
-            </div>
+                <div>
+                  <SearchableSelect
+                    label="Type Request *"
+                    value={typeRequest}
+                    options={typeRequestOptions}
+                    onChange={val => {
+                      const strVal = String(val || 'Item');
+                      setTypeRequest(strVal);
+                      if (strVal === 'Service' && items.length === 0) {
+                        handleAddServiceLine();
+                      }
+                    }}
+                    disabled={mode === 'view'}
+                    clearable={false}
+                  />
+                </div>
 
-            {/* Branch */}
-            <div>
-              <FieldLabel>Branch</FieldLabel>
-              <select
-                value={branchId}
-                onChange={e => setBranchId(e.target.value ? Number(e.target.value) : '')}
-                disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              >
-                <option value="">Select Branch</option>
-                {branchesList.map((b: any) => (
-                  <option key={b.id || b.ID} value={b.id || b.ID}>
-                    {b.name || b.Name || `Branch #${b.id || b.ID}`}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <div>
+                  <SearchableSelect
+                    label="Payment Terms / Type"
+                    value={typePayment}
+                    options={typePaymentOptions}
+                    onChange={val => setTypePayment(String(val || 'Cash'))}
+                    disabled={mode === 'view'}
+                    clearable={false}
+                  />
+                </div>
 
-            {/* Request Type (Direct vs Base Document) */}
-            <div>
-              <FieldLabel>Request Type</FieldLabel>
-              <select
-                value={requestType}
-                onChange={e => setRequestType(e.target.value)}
-                disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              >
-                <option value="Direct">Direct</option>
-                <option value="Base Document">Base Document</option>
-              </select>
-            </div>
+                <div>
+                  <FieldLabel>Department</FieldLabel>
+                  <input
+                    type="text"
+                    value={department}
+                    onChange={e => setDepartment(e.target.value)}
+                    disabled={mode === 'view'}
+                    placeholder="e.g. Accounts, Finance"
+                    className={inputCls}
+                  />
+                </div>
+              </div>
 
-            {/* Type Request (Item vs Service) */}
-            <div>
-              <FieldLabel>Type Request *</FieldLabel>
-              <select
-                value={typeRequest}
-                onChange={e => setTypeRequest(e.target.value)}
-                disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-teal-700 dark:text-teal-300"
-              >
-                <option value="Item">Item</option>
-                <option value="Service">Service</option>
-              </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <FieldLabel>Expense Type</FieldLabel>
+                  <input
+                    type="text"
+                    value={expenseType}
+                    onChange={e => setExpenseType(e.target.value)}
+                    disabled={mode === 'view'}
+                    placeholder="e.g. Operating Expense"
+                    className={inputCls}
+                  />
+                </div>
+              </div>
             </div>
-
-            {/* Payment Type */}
-            <div>
-              <FieldLabel>Payment Type</FieldLabel>
-              <select
-                value={typePayment}
-                onChange={e => setTypePayment(e.target.value)}
-                disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              >
-                <option value="Cash">Cash</option>
-                <option value="Credit">Credit</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Cheque">Cheque</option>
-              </select>
-            </div>
-
-            {/* Department */}
-            <div>
-              <FieldLabel>Department</FieldLabel>
-              <input
-                type="text"
-                value={department}
-                onChange={e => setDepartment(e.target.value)}
-                disabled={mode === 'view'}
-                placeholder="e.g. Accounts, Finance"
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              />
-            </div>
-
-            {/* Expense Type */}
-            <div>
-              <FieldLabel>Expense Type</FieldLabel>
-              <input
-                type="text"
-                value={expenseType}
-                onChange={e => setExpenseType(e.target.value)}
-                disabled={mode === 'view'}
-                placeholder="e.g. Operating Expense"
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              />
-            </div>
-          </div>
-        </SectionCard>
+          </SectionCard>
 
         {/* Items / Service Lines Section */}
         <SectionCard>
@@ -1025,301 +1095,351 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
             }
           />
 
-          <div className="overflow-x-auto">
-            {typeRequest === 'Service' ? (
-              /* ─── SERVICE INVOICE TABLE ─── */
-              <table className="w-full text-left text-xs border-collapse min-w-[1500px]">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    <th className="p-3 w-10 text-center">#</th>
-                    <th className="p-3 min-w-[300px]">Service Description *</th>
-                    <th className="p-3 w-36">Amount / Fee ({currency})</th>
-                    <th className="p-3 w-36">Tax Code</th>
-                    <th className="p-3 w-24">Disc %</th>
-                    <th className="p-3 w-32">Tax Amount</th>
-                    <th className="p-3 w-36">Total With Tax</th>
-                    <th className="p-3 w-40">Project</th>
-                    <th className="p-3 w-40">Cost Center</th>
-                    <th className="p-3 w-36">Location</th>
-                    <th className="p-3 w-36">Asset</th>
-                    <th className="p-3 min-w-[180px]">Remarks</th>
-                    {mode !== 'view' && <th className="p-3 w-12 text-center">Action</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                  {items.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={13}
-                        className="p-10 text-center text-xs text-slate-400 dark:text-slate-500 bg-slate-50/30 dark:bg-slate-800/30"
+          <div className="p-4">
+            {items.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-14 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl gap-3 bg-slate-50/40 dark:bg-slate-900/20">
+                <div className="w-12 h-12 rounded-full bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-teal-600 dark:text-teal-400">
+                  <Package className="h-6 w-6" />
+                </div>
+                <div className="text-center max-w-sm">
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                    {typeRequest === 'Service' ? 'No service lines added' : 'No items added'}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {typeRequest === 'Service'
+                      ? 'Click "Add Service Line" to describe services/fees, or use "Copy From PO" / "Copy From GRPO" to import lines.'
+                      : 'Click "Copy From PO" or "Copy From GRPO" to import items, or click "Add Item Line" to add items directly.'}
+                  </p>
+                </div>
+                {mode !== 'view' && (
+                  <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+                    <Button
+                      type="button"
+                      onClick={handleOpenCopyPoModal}
+                      className="text-xs h-8 px-3.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold shadow-sm flex items-center gap-1.5"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      Copy From PO
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleOpenCopyGrpoModal}
+                      className="text-xs h-8 px-3.5 rounded-xl font-semibold shadow-sm flex items-center gap-1.5 border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      Copy From GRPO
+                    </Button>
+                    {typeRequest === 'Service' ? (
+                      <Button
+                        type="button"
+                        onClick={handleAddServiceLine}
+                        className="text-xs h-8 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow-sm flex items-center gap-1.5"
                       >
-                        <div className="flex flex-col items-center justify-center space-y-2 max-w-sm mx-auto">
-                          <AlertCircle className="w-7 h-7 text-indigo-600/70" />
-                          <p className="font-semibold text-slate-700 dark:text-slate-300">No service lines added</p>
-                          <p className="text-[11px] text-slate-400">
-                            Click &quot;Add Service Line&quot; to enter fees/services, or use &quot;Copy From PO&quot; / &quot;Copy From GRPO&quot; to import service lines.
-                          </p>
-                          {mode !== 'view' && (
-                            <div className="pt-2 flex items-center gap-2">
-                              <Button
-                                type="button"
-                                onClick={handleAddServiceLine}
-                                className="text-xs h-8 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow-sm"
-                              >
-                                <Plus className="w-3.5 h-3.5 mr-1.5" />
-                                Add Service Line
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={handleOpenCopyPoModal}
-                                className="text-xs h-8 px-3.5 rounded-xl font-semibold shadow-sm"
-                              >
-                                <Copy className="w-3.5 h-3.5 mr-1.5" />
-                                Copy From PO
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    items.map((line, idx) => {
-                      const amountBeforeTax = Number(line.UnitPrice || 0) * (1 - Number(line.DiscPrcnt || 0) / 100);
-                      return (
-                        <tr
-                          key={idx}
-                          className="hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors duration-150"
+                        <Plus className="w-3.5 h-3.5" />
+                        Add Service Line
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          type="button"
+                          onClick={handleAddItemLine}
+                          className="text-xs h-8 px-3.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold shadow-sm flex items-center gap-1.5"
                         >
-                          <td className="p-3 text-center text-slate-400 font-mono text-[11px]">
-                            {idx + 1}
-                          </td>
-
-                          {/* SERVICE DESCRIPTION */}
-                          <td className="p-2.5 min-w-[300px]">
-                            <input
-                              type="text"
-                              placeholder="Describe service / fee / contract details..."
-                              className="w-full px-2.5 py-1.5 text-xs font-semibold rounded-lg border bg-slate-50 dark:bg-slate-900/40 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              value={line.ItemName || line.Remarks || ''}
-                              onChange={e => handleUpdateItemRow(idx, 'ItemName', e.target.value)}
-                              disabled={mode === 'view'}
-                            />
-                          </td>
-
-                          {/* AMOUNT / FEE */}
-                          <td className="p-2.5 w-36">
-                            <input
-                              type="number"
-                              step="any"
-                              min="0"
-                              placeholder="0.00"
-                              className="w-full px-2.5 py-1.5 text-right text-xs font-bold bg-slate-50 dark:bg-slate-900/40 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              value={line.UnitPrice || ''}
-                              onChange={e => {
-                                const price = Number(e.target.value) || 0;
-                                handleUpdateItemRow(idx, 'UnitPrice', price);
-                                handleUpdateItemRow(idx, 'Quantity', 1);
-                                handleUpdateItemRow(idx, 'DeliveredQty', 1);
-                              }}
-                              disabled={mode === 'view'}
-                            />
-                          </td>
-
-                          {/* TAX CODE */}
-                          <td className="p-2.5 w-36">
-                            <select
-                              className="w-full px-2 py-1.5 text-xs font-semibold bg-slate-50 dark:bg-slate-900/40 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              value={line.VATCode || 'VAT_18'}
-                              onChange={e => {
-                                const code = e.target.value;
-                                const rate = code === 'VAT_18' ? 18 : code === 'VAT_10' ? 10 : 0;
-                                handleUpdateItemRow(idx, 'VATCode', code);
-                                handleUpdateItemRow(idx, 'VATPer', rate);
-                              }}
-                              disabled={mode === 'view'}
-                            >
-                              <option value="VAT_18">Input VAT 18%</option>
-                              <option value="VAT_10">Input VAT 10%</option>
-                              <option value="VAT_0">Zero Rated 0%</option>
-                              <option value="VAT_EXEMPT">Exempt 0%</option>
-                            </select>
-                          </td>
-
-                          {/* DISCOUNT % */}
-                          <td className="p-2.5 w-24">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="any"
-                              className="w-full px-2 py-1.5 text-right text-xs font-bold bg-slate-50 dark:bg-slate-900/40 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              value={line.DiscPrcnt || 0}
-                              onChange={e => handleUpdateItemRow(idx, 'DiscPrcnt', Math.min(100, Math.max(0, Number(e.target.value))))}
-                              disabled={mode === 'view'}
-                            />
-                          </td>
-
-                          {/* TAX AMOUNT */}
-                          <td className="p-2.5 w-32 text-right font-mono text-xs text-slate-600 dark:text-slate-300">
-                            {Number(line.LineTax || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </td>
-
-                          {/* TOTAL WITH TAX */}
-                          <td className="p-2.5 w-36 text-right font-mono text-xs font-bold text-teal-600 dark:text-teal-400">
-                            {Number(line.LineTotalLC || amountBeforeTax).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </td>
-
-                          {/* PROJECT */}
-                          <td className="p-2.5 w-40">
-                            <select
-                              className="w-full px-2 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/40 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              value={line.project || ''}
-                              onChange={e => handleUpdateItemRow(idx, 'project', e.target.value)}
-                              disabled={mode === 'view'}
-                            >
-                              <option value="">Select Project…</option>
-                              {projectsList.map((p: any) => (
-                                <option key={p.id || p.PrjCode} value={p.PrjCode || p.name || p.id}>
-                                  {p.PrjName || p.name || p.PrjCode}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-
-                          {/* COST CENTER */}
-                          <td className="p-2.5 w-40">
-                            <select
-                              className="w-full px-2 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/40 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              value={line.cost_center || ''}
-                              onChange={e => handleUpdateItemRow(idx, 'cost_center', e.target.value ? Number(e.target.value) : undefined)}
-                              disabled={mode === 'view'}
-                            >
-                              <option value="">Select Cost Center…</option>
-                              {costCentersList.map((cc: any) => (
-                                <option key={cc.id || cc.PrcCode} value={cc.id || cc.PrcCode}>
-                                  {cc.name || cc.PrcName || cc.PrcCode}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-
-                          {/* LOCATION */}
-                          <td className="p-2.5 w-36">
-                            <input
-                              type="text"
-                              placeholder="Location…"
-                              className="w-full px-2 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/40 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              value={line.DIM3 || line.Location || ''}
-                              onChange={e => {
-                                handleUpdateItemRow(idx, 'DIM3', e.target.value);
-                                handleUpdateItemRow(idx, 'Location', e.target.value);
-                              }}
-                              disabled={mode === 'view'}
-                            />
-                          </td>
-
-                          {/* ASSET */}
-                          <td className="p-2.5 w-36">
-                            <input
-                              type="text"
-                              placeholder="Asset tag / ID…"
-                              className="w-full px-2 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/40 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              value={line.DIM4 || ''}
-                              onChange={e => handleUpdateItemRow(idx, 'DIM4', e.target.value)}
-                              disabled={mode === 'view'}
-                            />
-                          </td>
-
-                          {/* REMARKS */}
-                          <td className="p-2.5 min-w-[180px]">
-                            <input
-                              type="text"
-                              placeholder="Notes…"
-                              className="w-full px-2 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/40 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              value={line.Remarks || ''}
-                              onChange={e => handleUpdateItemRow(idx, 'Remarks', e.target.value)}
-                              disabled={mode === 'view'}
-                            />
-                          </td>
-
-                          {/* ACTION */}
-                          {mode !== 'view' && (
-                            <td className="p-2.5 text-center">
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveItem(idx)}
-                                className="p-1 rounded-md text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Item Line
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsItemModalOpen(true)}
+                          className="text-xs h-8 px-3.5 rounded-xl font-semibold shadow-sm flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600"
+                        >
+                          <Search className="w-3.5 h-3.5" />
+                          Catalog Search
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : typeRequest === 'Service' ? (
+              /* ─── SERVICE INVOICE TABLE ─── */
+              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm animate-fade-in">
+                <table className="w-full text-left border-collapse min-w-[2200px]">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold uppercase text-[9px] tracking-widest border-b border-slate-200 dark:border-slate-700">
+                      {[
+                        '#', 'VENDOR', 'DESCRIPTION *', 'GL CODE', 'TOTAL (EXCLUSIVE)',
+                        'TAX CODE', 'DISCOUNT', 'TAX AMOUNT', 'TOTAL (INCLUSIVE)', 'PAYMENT TERMS',
+                        'PROJECT', 'PROJECT STAGE', 'PROJECT SUB STAGE',
+                        'DETAIL SUB STAGE', 'MORE DETAIL SUB STAGE', ...(mode !== 'view' ? ['ACTION'] : [])
+                      ].map((h, i) => (
+                        <th
+                          key={i}
+                          className="py-3 px-3 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap text-slate-600 dark:text-slate-300"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-800/40">
+                    {items.map((line, idx) => {
+                        const amountBeforeTax = Number(line.UnitPrice || 0) * (1 - Number(line.DiscPrcnt || 0) / 100);
+                        return (
+                          <tr
+                            key={idx}
+                            className="border-b transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-700/30"
+                          >
+                            {/* # */}
+                            <td className="py-2.5 px-3 w-[45px] text-center font-bold text-slate-500 font-mono text-[11px]">
+                              {idx + 1}
                             </td>
-                          )}
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+
+                            {/* VENDOR */}
+                            <td className="py-2.5 px-2 min-w-[210px]">
+                              <VendorSelect
+                                size="sm"
+                                data={suppliersList}
+                                value={line.vendor || line.VendorCode || ''}
+                                onChange={(selectedVendorCode, supp) => {
+                                  handleUpdateItemRow(idx, 'vendor', selectedVendorCode);
+                                  handleUpdateItemRow(idx, 'VendorCode' as any, selectedVendorCode);
+                                  if (supp) {
+                                    handleUpdateItemRow(idx, 'VendorName' as any, supp.Name || supp.name);
+                                    if (supp.PaymentTerms && !line.PaymentTerms) {
+                                      handleUpdateItemRow(idx, 'PaymentTerms' as any, supp.PaymentTerms);
+                                      handleUpdateItemRow(idx, 'po_id', supp.PaymentTerms);
+                                    }
+                                  }
+                                }}
+                                disabled={mode === 'view'}
+                              />
+                            </td>
+
+                            {/* SERVICE DESCRIPTION */}
+                            <td className="py-2.5 px-2 min-w-[260px]">
+                              <input
+                                type="text"
+                                placeholder="Describe service / fee / contract details..."
+                                className="w-full text-xs font-semibold py-2 px-3 rounded-lg border outline-none bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-600 shadow-sm focus:ring-2 focus:ring-teal-500"
+                                value={line.ItemName || line.Remarks || ''}
+                                onChange={e => {
+                                  handleUpdateItemRow(idx, 'ItemName', e.target.value);
+                                  handleUpdateItemRow(idx, 'Remarks', e.target.value);
+                                }}
+                                disabled={mode === 'view'}
+                              />
+                            </td>
+
+                            {/* GL CODE */}
+                            <td className="py-2.5 px-2 min-w-[220px]">
+                              <GLAccountSelect
+                                size="sm"
+                                data={accountsList}
+                                value={line.GLCode || line.vendorRef || ''}
+                                onChange={(val, acct) => {
+                                  handleUpdateItemRow(idx, 'GLCode' as any, val);
+                                  handleUpdateItemRow(idx, 'vendorRef', val);
+                                  if (acct) {
+                                    handleUpdateItemRow(idx, 'GLName' as any, acct.acctName || acct.name);
+                                  }
+                                }}
+                                disabled={mode === 'view'}
+                              />
+                            </td>
+
+                            {/* AMOUNT / FEE */}
+                            <td className="py-2.5 px-2 w-[150px]">
+                              <input
+                                type="number"
+                                step="any"
+                                min="0"
+                                placeholder="0.00"
+                                className="w-full text-right py-2 px-2.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                value={line.UnitPrice || ''}
+                                onChange={e => {
+                                  const price = Number(e.target.value) || 0;
+                                  handleUpdateItemRow(idx, 'UnitPrice', price);
+                                  handleUpdateItemRow(idx, 'TotalExclusive' as any, price);
+                                  handleUpdateItemRow(idx, 'Quantity', 1);
+                                  handleUpdateItemRow(idx, 'DeliveredQty', 1);
+                                }}
+                                disabled={mode === 'view'}
+                              />
+                            </td>
+
+                            {/* TAX CODE */}
+                            <td className="py-2.5 px-2 w-[160px]">
+                              <TaxSelect
+                                size="sm"
+                                value={line.VATCode || 'VAT_18'}
+                                onChange={code => {
+                                  const rate = code === 'VAT_18' ? 18 : code === 'VAT_10' ? 10 : 0;
+                                  handleUpdateItemRow(idx, 'VATCode', code);
+                                  handleUpdateItemRow(idx, 'TaxCode' as any, code);
+                                  handleUpdateItemRow(idx, 'VATPer', rate);
+                                }}
+                                disabled={mode === 'view'}
+                              />
+                            </td>
+
+                            {/* DISCOUNT % */}
+                            <td className="py-2.5 px-2 w-[90px]">
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="any"
+                                placeholder="0"
+                                className="w-full text-right py-2 px-2.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                value={line.DiscPrcnt || 0}
+                                onChange={e => {
+                                  const disc = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                                  handleUpdateItemRow(idx, 'DiscPrcnt', disc);
+                                  handleUpdateItemRow(idx, 'Discount' as any, disc);
+                                }}
+                                disabled={mode === 'view'}
+                              />
+                            </td>
+
+                            {/* TAX AMOUNT */}
+                            <td className="py-2.5 px-2 w-[130px]">
+                              <input
+                                type="text"
+                                className="w-full text-right py-2 px-2.5 text-xs font-mono font-bold bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600 rounded-lg opacity-80 cursor-not-allowed"
+                                value={Number(line.LineTax || 0).toFixed(2)}
+                                disabled
+                              />
+                            </td>
+
+                            {/* TOTAL WITH TAX */}
+                            <td className="py-2.5 px-3 w-[150px] text-right font-extrabold font-mono text-xs text-teal-600 dark:text-teal-400">
+                              {Number(line.LineTotalLC || amountBeforeTax).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </td>
+
+                            {/* PAYMENT TERMS */}
+                            <td className="py-2.5 px-2 min-w-[170px]">
+                              <PaymentTermsSelect
+                                size="sm"
+                                value={line.PaymentTerms || line.po_id || 'Net 30 Days'}
+                                onChange={val => {
+                                  handleUpdateItemRow(idx, 'PaymentTerms' as any, val);
+                                  handleUpdateItemRow(idx, 'po_id', val);
+                                }}
+                                disabled={mode === 'view'}
+                              />
+                            </td>
+
+                            {/* PROJECT */}
+                            <td className="py-2.5 px-2 min-w-[170px]">
+                              <ProjectSelect
+                                size="sm"
+                                data={projectsList}
+                                value={line.project || ''}
+                                onChange={val => handleUpdateItemRow(idx, 'project', val)}
+                                disabled={mode === 'view'}
+                              />
+                            </td>
+
+                            {/* PROJECT STAGE */}
+                            <td className="py-2.5 px-2 min-w-[170px]">
+                              <StageSelect
+                                size="sm"
+                                dimCode={1}
+                                data={costCentersList}
+                                value={line.DIM1 || ''}
+                                onChange={val => handleUpdateItemRow(idx, 'DIM1', val)}
+                                disabled={mode === 'view'}
+                              />
+                            </td>
+
+                            {/* PROJECT SUB STAGE */}
+                            <td className="py-2.5 px-2 min-w-[170px]">
+                              <StageSelect
+                                size="sm"
+                                dimCode={2}
+                                data={costCentersList}
+                                value={line.DIM2 || ''}
+                                onChange={val => handleUpdateItemRow(idx, 'DIM2', val)}
+                                disabled={mode === 'view'}
+                              />
+                            </td>
+
+                            {/* DETAIL SUB STAGE */}
+                            <td className="py-2.5 px-2 min-w-[170px]">
+                              <StageSelect
+                                size="sm"
+                                dimCode={3}
+                                data={costCentersList}
+                                value={line.DIM3 || line.Location || ''}
+                                onChange={val => {
+                                  handleUpdateItemRow(idx, 'DIM3', val);
+                                  handleUpdateItemRow(idx, 'Location', val);
+                                }}
+                                disabled={mode === 'view'}
+                              />
+                            </td>
+
+                            {/* MORE DETAIL SUB STAGE */}
+                            <td className="py-2.5 px-2 min-w-[170px]">
+                              <StageSelect
+                                size="sm"
+                                dimCode={4}
+                                data={costCentersList}
+                                value={line.DIM4 || ''}
+                                onChange={val => handleUpdateItemRow(idx, 'DIM4', val)}
+                                disabled={mode === 'view'}
+                              />
+                            </td>
+
+                            {/* ACTION */}
+                            <td className="py-2.5 px-2 text-center w-[55px]">
+                              {mode !== 'view' && (
+                                <button
+                                  type="button"
+                                  className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                  onClick={() => handleRemoveItem(idx)}
+                                  title="Delete service line"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               /* ─── PHYSICAL INVENTORY ITEMS TABLE ─── */
-              <table className="w-full text-left text-xs border-collapse min-w-[1300px]">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    <th className="p-3 w-10 text-center">#</th>
-                    <th className="p-3 min-w-[220px]">Item Code & Description</th>
-                    <th className="p-3 w-28">Invoiced Qty</th>
-                    <th className="p-3 w-24">UoM</th>
-                    <th className="p-3 w-28">Unit Price</th>
-                    <th className="p-3 w-20">Disc %</th>
-                    <th className="p-3 w-24">VAT %</th>
-                    <th className="p-3 w-28">Tax Total</th>
-                    <th className="p-3 w-32">Line Total</th>
-                    <th className="p-3 w-36">Warehouse</th>
-                    <th className="p-3 w-32">Cost Center</th>
-                    <th className="p-3 w-32">Project</th>
-                    {mode !== 'view' && <th className="p-3 w-12 text-center">Action</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                  {items.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={13}
-                        className="p-10 text-center text-xs text-slate-400 dark:text-slate-500 bg-slate-50/30 dark:bg-slate-800/30"
-                      >
-                        <div className="flex flex-col items-center justify-center space-y-2 max-w-sm mx-auto">
-                          <AlertCircle className="w-7 h-7 text-teal-600/70" />
-                          <p className="font-semibold text-slate-700 dark:text-slate-300">No items in this AP Invoice</p>
-                          <p className="text-[11px] text-slate-400">
-                            Click &quot;Copy From PO&quot; or &quot;Copy From GRPO&quot; to import items, or add items directly.
-                          </p>
-                          {mode !== 'view' && (
-                            <div className="pt-2 flex items-center gap-2">
-                              <Button
-                                type="button"
-                                onClick={handleOpenCopyPoModal}
-                                className="text-xs h-8 px-3.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold shadow-sm"
-                              >
-                                <Copy className="w-3.5 h-3.5 mr-1.5" />
-                                Copy From PO
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={handleOpenCopyGrpoModal}
-                                className="text-xs h-8 px-3.5 rounded-xl font-semibold shadow-sm"
-                              >
-                                <Copy className="w-3.5 h-3.5 mr-1.5" />
-                                Copy From GRPO
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
+              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm animate-fade-in">
+                <table className="w-full text-left text-xs border-collapse min-w-[1900px]">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                      <th className="p-3 w-10 text-center">#</th>
+                      <th className="p-3 min-w-[280px]">Item Code & Description</th>
+                      <th className="p-3 w-28">Invoiced Qty</th>
+                      <th className="p-3 w-24">UoM</th>
+                      <th className="p-3 w-28">Unit Price</th>
+                      <th className="p-3 w-20">Disc %</th>
+                      <th className="p-3 w-24">VAT %</th>
+                      <th className="p-3 w-28">Tax Total</th>
+                      <th className="p-3 w-32">Line Total</th>
+                      <th className="p-3 w-36">Warehouse</th>
+                      <th className="p-3 w-32">Cost Center</th>
+                      <th className="p-3 w-32">Project</th>
+                      <th className="p-3 min-w-[170px]">PROJECT STAGE</th>
+                      <th className="p-3 min-w-[170px]">PROJECT SUB STAGE</th>
+                      <th className="p-3 min-w-[170px]">DETAIL SUB STAGE</th>
+                      <th className="p-3 min-w-[170px]">MORE DETAIL SUB STAGE</th>
+                      {mode !== 'view' && <th className="p-3 w-12 text-center">Action</th>}
                     </tr>
-                  ) : (
-                    items.map((item, index) => (
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 bg-white dark:bg-slate-800/40">
+                    {items.map((item, index) => (
                       <tr
                         key={index}
                         className="hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors duration-150"
@@ -1329,27 +1449,42 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
                         </td>
 
                         {/* Item Code & Description */}
-                        <td className="p-2.5">
-                          <div className="space-y-1">
-                            <input
-                              type="text"
-                              placeholder="Item description..."
-                              value={item.ItemName || ''}
-                              onChange={e => handleUpdateItemRow(index, 'ItemName', e.target.value)}
-                              disabled={mode === 'view'}
-                              className="w-full px-2 py-1 text-xs font-semibold bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                            />
-                            <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                              <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                                {item.ItemCode || `ID-${item.ItemID}`}
+                        <td className="p-2.5 min-w-[280px]">
+                          <SearchableSelect
+                            value={item.ItemCode || (item.ItemID ? String(item.ItemID) : '')}
+                            onChange={(val, opt) => {
+                              if (!val) {
+                                handleUpdateItemRow(index, 'ItemID', 0);
+                                handleUpdateItemRow(index, 'ItemCode', '');
+                                handleUpdateItemRow(index, 'ItemName', '');
+                                return;
+                              }
+                              const rawItem = opt?.raw;
+                              if (rawItem) {
+                                const itemCode = rawItem.itemCode || rawItem.ItemCode || rawItem.code || `ITM-${rawItem.id || rawItem.ID}`;
+                                const itemName = rawItem.itemName || rawItem.ItemName || rawItem.name || 'Unnamed Item';
+                                const unitPrice = Number(rawItem.lastPurPrc || rawItem.price || rawItem.UnitPrice || 0);
+                                const uom = rawItem.uom || rawItem.UoM || 'pcs';
+                                handleUpdateItemRow(index, 'ItemID', Number(rawItem.id || rawItem.ID || 0));
+                                handleUpdateItemRow(index, 'ItemCode', itemCode);
+                                handleUpdateItemRow(index, 'ItemName', itemName);
+                                handleUpdateItemRow(index, 'UnitPrice', unitPrice);
+                                handleUpdateItemRow(index, 'UoM', uom);
+                              }
+                            }}
+                            options={itemCatalogOptions}
+                            placeholder="Search item code or name..."
+                            disabled={mode === 'view'}
+                            size="sm"
+                            renderOption={renderItemOption}
+                          />
+                          {item.SourceDocType && (
+                            <div className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-500">
+                              <span className="text-teal-600 dark:text-teal-400 font-semibold">
+                                {item.SourceDocType} #{item.SourceDocId}
                               </span>
-                              {item.SourceDocType && (
-                                <span className="text-teal-600 dark:text-teal-400 font-semibold">
-                                  {item.SourceDocType} #{item.SourceDocId}
-                                </span>
-                              )}
                             </div>
-                          </div>
+                          )}
                         </td>
 
                         {/* Invoiced Qty */}
@@ -1404,17 +1539,17 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
                         </td>
 
                         {/* VAT % */}
-                        <td className="p-2.5">
-                          <select
-                            value={item.VATPer ?? 18}
-                            onChange={e => handleUpdateItemRow(index, 'VATPer', parseFloat(e.target.value) || 0)}
+                        <td className="p-2.5 min-w-[140px]">
+                          <TaxSelect
+                            size="sm"
+                            value={item.VATCode || (item.VATPer === 18 ? 'VAT_18' : item.VATPer === 10 ? 'VAT_10' : item.VATPer === 0 ? 'VAT_0' : 'VAT_18')}
+                            onChange={code => {
+                              const rate = code === 'VAT_18' ? 18 : (code === 'VAT_10' || code === 'VAT_9') ? 10 : 0;
+                              handleUpdateItemRow(index, 'VATCode', code);
+                              handleUpdateItemRow(index, 'VATPer', rate);
+                            }}
                             disabled={mode === 'view'}
-                            className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                          >
-                            <option value="18">18% (Standard)</option>
-                            <option value="10">10%</option>
-                            <option value="0">0% (Exempt)</option>
-                          </select>
+                          />
                         </td>
 
                         {/* Tax Total */}
@@ -1428,54 +1563,87 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
                         </td>
 
                         {/* Warehouse */}
-                        <td className="p-2.5">
-                          <select
+                        <td className="p-2.5 min-w-[180px]">
+                          <WarehouseSelect
+                            size="sm"
+                            data={warehousesList}
                             value={item.WhsCode || ''}
-                            onChange={e => handleUpdateItemRow(index, 'WhsCode', e.target.value ? Number(e.target.value) : undefined)}
+                            onChange={val => handleUpdateItemRow(index, 'WhsCode', val ? Number(val) : undefined)}
                             disabled={mode === 'view'}
-                            className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                          >
-                            <option value="">Select Warehouse</option>
-                            {warehousesList.map((wh: any) => (
-                              <option key={wh.id || wh.WhsCode} value={wh.id || wh.WhsCode}>
-                                {wh.name || wh.WhsName || wh.WhsCode}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </td>
 
                         {/* Cost Center */}
-                        <td className="p-2.5">
-                          <select
+                        <td className="p-2.5 min-w-[180px]">
+                          <CostCenterSelect
+                            size="sm"
+                            data={costCentersList}
                             value={item.cost_center || ''}
-                            onChange={e => handleUpdateItemRow(index, 'cost_center', e.target.value ? Number(e.target.value) : undefined)}
+                            onChange={val => handleUpdateItemRow(index, 'cost_center', val ? Number(val) : undefined)}
                             disabled={mode === 'view'}
-                            className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                          >
-                            <option value="">Cost Center</option>
-                            {costCentersList.map((cc: any) => (
-                              <option key={cc.id || cc.PrcCode} value={cc.id || cc.PrcCode}>
-                                {cc.name || cc.PrcName || cc.PrcCode}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </td>
 
                         {/* Project */}
-                        <td className="p-2.5">
-                          <select
+                        <td className="p-2.5 min-w-[180px]">
+                          <ProjectSelect
+                            size="sm"
+                            data={projectsList}
                             value={item.project || ''}
-                            onChange={e => handleUpdateItemRow(index, 'project', e.target.value)}
+                            onChange={val => handleUpdateItemRow(index, 'project', val)}
                             disabled={mode === 'view'}
-                            className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                          >
-                            <option value="">Select Project</option>
-                            {projectsList.map((p: any) => (
-                              <option key={p.id || p.PrjCode} value={p.PrjCode || p.name || p.id}>
-                                {p.PrjName || p.name || p.PrjCode}
-                              </option>
-                            ))}
-                          </select>
+                          />
+                        </td>
+
+                        {/* PROJECT STAGE */}
+                        <td className="p-2.5 min-w-[170px]">
+                          <StageSelect
+                            size="sm"
+                            dimCode={1}
+                            data={costCentersList}
+                            value={item.DIM1 || ''}
+                            onChange={val => handleUpdateItemRow(index, 'DIM1', val)}
+                            disabled={mode === 'view'}
+                          />
+                        </td>
+
+                        {/* PROJECT SUB STAGE */}
+                        <td className="p-2.5 min-w-[170px]">
+                          <StageSelect
+                            size="sm"
+                            dimCode={2}
+                            data={costCentersList}
+                            value={item.DIM2 || ''}
+                            onChange={val => handleUpdateItemRow(index, 'DIM2', val)}
+                            disabled={mode === 'view'}
+                          />
+                        </td>
+
+                        {/* DETAIL SUB STAGE */}
+                        <td className="p-2.5 min-w-[170px]">
+                          <StageSelect
+                            size="sm"
+                            dimCode={3}
+                            data={costCentersList}
+                            value={item.DIM3 || item.Location || ''}
+                            onChange={val => {
+                              handleUpdateItemRow(index, 'DIM3', val);
+                              handleUpdateItemRow(index, 'Location', val);
+                            }}
+                            disabled={mode === 'view'}
+                          />
+                        </td>
+
+                        {/* MORE DETAIL SUB STAGE */}
+                        <td className="p-2.5 min-w-[170px]">
+                          <StageSelect
+                            size="sm"
+                            dimCode={4}
+                            data={costCentersList}
+                            value={item.DIM4 || ''}
+                            onChange={val => handleUpdateItemRow(index, 'DIM4', val)}
+                            disabled={mode === 'view'}
+                          />
                         </td>
 
                         {/* Remove Action */}
@@ -1491,10 +1659,10 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
                           </td>
                         )}
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </SectionCard>
@@ -1540,38 +1708,42 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
 
                 {attachments.length > 0 && (
                   <div className="space-y-2">
-                    {attachments.map((att, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 text-xs"
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <FileText className="w-4 h-4 text-teal-600 shrink-0" />
-                          <span className="truncate font-medium text-slate-800 dark:text-slate-200">
-                            {att.Attachment.split('/').pop() || `Attachment ${idx + 1}`}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <a
-                            href={att.Attachment}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[11px] font-semibold text-teal-600 hover:underline"
-                          >
-                            View
-                          </a>
-                          {mode !== 'view' && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveAttachment(idx)}
-                              className="text-rose-500 hover:text-rose-700 p-1"
+                    {attachments.map((att, idx) => {
+                      const fileUrl = getAttachmentUrl(att.Attachment);
+                      const fileName = getFileName(att.Attachment) || `Attachment ${idx + 1}`;
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 text-xs"
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <FileText className="w-4 h-4 text-teal-600 shrink-0" />
+                            <span className="truncate font-medium text-slate-800 dark:text-slate-200" title={fileName}>
+                              {fileName}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] font-semibold text-teal-600 hover:underline"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                              View
+                            </a>
+                            {mode !== 'view' && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAttachment(idx)}
+                                className="text-rose-500 hover:text-rose-700 p-1"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1600,7 +1772,7 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
                       max="100"
                       step="any"
                       value={discPrcnt}
-                      onChange={e => setDiscPrcnt(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                      onChange={e => setDiscPrcnt(validateDiscountPercent(parseFloat(e.target.value) || 0))}
                       disabled={mode === 'view'}
                       className="w-full px-2 py-1 text-right text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                     />
@@ -2123,13 +2295,24 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
                       <span className="font-bold text-slate-900 dark:text-white block">
                         {itm.Name || itm.name}
                       </span>
-                      <span className="text-[10px] text-slate-500 font-mono">
-                        Code: {itm.Code || itm.code} | UoM: {itm.UoM || 'pcs'}
-                      </span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          Code: {itm.Code || itm.code}
+                        </span>
+                        <span className="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded font-medium">
+                          Category: {itm.categoryName || itm.CategoryName || itm.category || 'General'}
+                        </span>
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${Number(itm.onHand || itm.OnHand || 0) > 0 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400'}`}>
+                          In Stock: {Number(itm.onHand || itm.OnHand || 0)} {itm.UoM || itm.uom || 'pcs'}
+                        </span>
+                      </div>
                     </div>
-                    <span className="font-mono font-bold text-teal-600">
-                      {Number(itm.LastPurPrc || itm.price || 0).toLocaleString()} {currency}
-                    </span>
+                    <div className="text-right">
+                      <span className="font-mono font-bold text-teal-600 dark:text-teal-400 block text-xs">
+                        {Number(itm.LastPurPrc || itm.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
+                      </span>
+                      <span className="text-[10px] text-slate-400">Price</span>
+                    </div>
                   </div>
                 ))}
             </div>

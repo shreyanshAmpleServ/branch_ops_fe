@@ -23,7 +23,7 @@ export const GeneralSettings: React.FC = () => {
 
   // Appearance
   const { mode, setMode, fontSize, setFontSize, primaryColor, setPrimaryColor, backgroundImage, setBackgroundImage, backgroundColor, setBackgroundColor, sidebarStyle, setSidebarStyle } = useThemeStore();
-  const { activeDesign, setActiveDesign, tableDesign, setTableDesign, tableLibrary, setTableLibrary } = useDesignStore();
+  const { activeDesign, setActiveDesign, tableDesign, setTableDesign } = useDesignStore();
 
   // Locale
   const { language, setLanguage, currency, setCurrency, timezone, setTimezone, dateFormat, setDateFormat } = useLocaleStore();
@@ -255,20 +255,7 @@ export const GeneralSettings: React.FC = () => {
             </div>
           </Card>
 
-          <Card>
-            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--color-text)' }}>
-              <Table className="h-4 w-4" style={{ color: 'var(--color-primary)' }} /> Table Library (Experimental)
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-              {tableLibraries.map(tl => (
-                <button key={tl.id} onClick={() => setTableLibrary(tl.id)}
-                  className="py-2.5 rounded-lg text-sm font-medium transition-all"
-                  style={{ background: tableLibrary === tl.id ? 'var(--color-primary)' : 'var(--color-surface-hover)', color: tableLibrary === tl.id ? 'white' : 'var(--color-text)' }}>
-                  {tl.label}
-                </button>
-              ))}
-            </div>
-          </Card>
+
 
           <Card>
             <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--color-text)' }}>{t('settings.sidebarStyle')}</h3>

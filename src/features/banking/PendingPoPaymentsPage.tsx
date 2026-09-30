@@ -274,141 +274,138 @@ export const PendingPoPaymentsPage: React.FC = () => {
   ], [navigate]);
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto min-h-screen">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-tr from-rose-600 to-rose-400 text-white rounded-xl shadow-lg shadow-rose-500/20">
-              <Clock className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
-                Pending PO & Advance Payments
-              </h1>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Track supplier advance requests, purchase order payment commitments, and cash obligations
-              </p>
-            </div>
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
+      {/* Top Header Card */}
+      <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 flex items-center justify-center shrink-0">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+              Pending PO & Advance Payments
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Track supplier advance requests, purchase order payment commitments, and cash obligations
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
+        <div className="flex items-center gap-2 shrink-0">
+          <button
             onClick={handleExportCSV}
             disabled={!filteredList.length}
-            className="flex items-center gap-2"
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer disabled:opacity-50"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5 text-emerald-600" />
             Export CSV
-          </Button>
-
-          <Button
-            variant="primary"
+          </button>
+          <button
             onClick={() => navigate('/banking/outgoing')}
-            className="flex items-center gap-2 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white border-0 shadow-md shadow-rose-600/20"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition-colors cursor-pointer"
           >
-            <ArrowUpRight className="w-4 h-4" />
+            <ArrowUpRight className="w-3.5 h-3.5" />
             Process Outgoing Payment
-          </Button>
+          </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 relative overflow-hidden bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                Total Pending PO Liability
-              </p>
-              <h3 className="text-2xl font-bold text-rose-600 dark:text-rose-400 font-mono">
-                TZS {metrics.totalLiability.toLocaleString()}
-              </h3>
+      {/* KPI Stats Cards Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Card 1: Total Pending PO Liability */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                <Clock className="w-3 h-3" />
+              </div>
+              Total PO Liability
             </div>
-            <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-lg">
-              <Clock className="w-5 h-5" />
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight font-mono">
+              TZS {metrics.totalLiability.toLocaleString()}
+            </div>
+            <div className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold">
+              {metrics.count} outstanding commitments
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-neutral-500 border-t border-neutral-100 dark:border-neutral-800 pt-2">
-            <span>Outstanding balance</span>
-            <span className="font-semibold text-rose-600">{metrics.count} commit(s)</span>
+          <div className="text-rose-400 opacity-60">
+            <Clock className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 relative overflow-hidden bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                Total Advance Demands
-              </p>
-              <h3 className="text-2xl font-bold text-amber-600 dark:text-amber-400 font-mono">
-                TZS {metrics.totalAdvances.toLocaleString()}
-              </h3>
+        {/* Card 2: Total Advance Demands */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <AlertTriangle className="w-3 h-3" />
+              </div>
+              Advance Demands
             </div>
-            <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-lg">
-              <AlertTriangle className="w-5 h-5" />
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight font-mono">
+              TZS {metrics.totalAdvances.toLocaleString()}
+            </div>
+            <div className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+              Requested down-payments
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-neutral-500 border-t border-neutral-100 dark:border-neutral-800 pt-2">
-            <span>Requested down-payments</span>
-            <span className="font-semibold text-amber-600">Pending settlement</span>
+          <div className="text-amber-400 opacity-60">
+            <AlertTriangle className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 relative overflow-hidden bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                High Priority Requests
-              </p>
-              <h3 className="text-2xl font-bold text-red-600 dark:text-red-400 font-mono">
-                {metrics.highPriorityCount}
-              </h3>
+        {/* Card 3: High Priority */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center">
+                <AlertTriangle className="w-3 h-3" />
+              </div>
+              High Priority
             </div>
-            <div className="p-2.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-lg">
-              <AlertTriangle className="w-5 h-5" />
+            <div className="text-lg font-bold text-red-600 dark:text-red-400 leading-tight font-mono">
+              {metrics.highPriorityCount}
+            </div>
+            <div className="text-[10px] text-red-600 dark:text-red-400 font-semibold">
+              Urgent vendor commitments
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-neutral-500 border-t border-neutral-100 dark:border-neutral-800 pt-2">
-            <span>Urgent vendor commitments</span>
-            <span className="font-semibold text-red-600">Requires swift action</span>
+          <div className="text-red-400 opacity-60">
+            <AlertTriangle className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 relative overflow-hidden bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                Procurement Pipeline
-              </p>
-              <h3 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-                100%
-              </h3>
+        {/* Card 4: ERP Synced */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <Building className="w-3 h-3" />
+              </div>
+              Procurement Sync
             </div>
-            <div className="p-2.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 rounded-lg">
-              <Building className="w-5 h-5" />
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight font-mono">
+              100%
+            </div>
+            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+              Live SAP POs connected
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-neutral-500 border-t border-neutral-100 dark:border-neutral-800 pt-2">
-            <span>ERP Synced with SAP POs</span>
-            <span className="font-semibold text-emerald-600">Live</span>
+          <div className="text-emerald-400 opacity-60">
+            <Building className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Main Table Container */}
-      <Card className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center p-12 space-y-3">
-            <Spinner className="w-8 h-8 text-rose-600" />
-            <p className="text-xs text-neutral-500">Loading pending PO payments...</p>
-          </div>
-        ) : (
-          <DataTable
-            columns={columns}
-            data={filteredList}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs overflow-hidden">
+        <DataTable
+          columns={columns}
+          data={filteredList}
+          isLoading={isLoading}
+            enableRowSelection={true}
+            enableExport={true}
+            exportFileName="pending-po-payments"
             searchValue={searchTerm}
             onSearchChange={setSearchTerm}
             searchPlaceholder="Search by Request #, PO #, or justification..."
@@ -528,8 +525,7 @@ export const PendingPoPaymentsPage: React.FC = () => {
             }}
             emptyMessage="No pending PO payments found matching your criteria."
           />
-        )}
-      </Card>
+      </div>
 
       {/* Detail Modal */}
       {selectedRequest && (

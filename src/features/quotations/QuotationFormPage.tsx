@@ -20,7 +20,7 @@ import {
 import { useRetailers } from '../customers/api/useRetailers';
 import { useItems } from '../items/api/useItems';
 import { useWarehouses } from '../warehouse/api/useWarehouse';
-import { Button, Input, Spinner } from '../../components/ui';
+import { Button, Input, Spinner, CustomerSelect, ItemSelect, WarehouseSelect } from '../../components/ui';
 
 interface FormRow {
   ItemID: number;
@@ -109,20 +109,20 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
     }
   };
 
-  const handleItemSelect = (index: number, itemId: number) => {
-    const found = productsList.find(p => p.id === itemId);
+  const handleItemSelect = (index: number, val: any, itm?: any) => {
+    const found = itm || productsList.find(p => p.id === Number(val) || p.code === val);
     if (!found) return;
 
     setRows(prev => {
       const updated = [...prev];
       updated[index] = {
         ...updated[index],
-        ItemID: found.id,
-        ItemCode: found.code || '',
-        ItemName: found.name,
-        UnitPrice: Number(found.lastPurPrc || 0),
-        UoM: found.uom || 'Pcs',
-        WhsCode: found.dfltWhsId || 1,
+        ItemID: found.id || found.ID || Number(val),
+        ItemCode: found.code || found.Code || '',
+        ItemName: found.name || found.Name || '',
+        UnitPrice: Number(found.price || found.lastPurPrc || 0),
+        UoM: found.uom || found.UoM || 'Pcs',
+        WhsCode: found.dfltWhsId || found.WhsCode || 1,
       };
       return updated;
     });
@@ -230,18 +230,18 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-6 space-y-6 max-w-[1600px] mx-auto animate-fade-in pb-20">
+    <form onSubmit={handleSubmit} className="p-4 space-y-4 w-full max-w-full animate-fade-in pb-20">
       {/* Top Header */}
-      <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs">
+        <div className="flex items-center gap-3">
           <Link
             to="/quotations"
-            className="p-2 text-slate-500 hover:text-teal-600 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl transition-colors"
+            className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
               {mode === 'edit' ? `Edit Quotation #${existingQuotation?.QuotCode || id}` : 'New Sales Quotation'}
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -272,30 +272,21 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
       </div>
 
       {/* Header Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Customer Information Card */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+        <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs space-y-3">
           <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <User className="w-4 h-4 text-teal-600" /> Customer Information
           </h2>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-              Select Customer *
-            </label>
-            <select
+            <CustomerSelect
+              label="Select Customer *"
               value={custCode}
-              onChange={(e) => handleCustomerSelect(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 dark:text-slate-200"
-              required
-            >
-              <option value="">-- Choose Customer --</option>
-              {customersList.map(c => (
-                <option key={c.Code} value={c.Code}>
-                  {c.Name} ({c.Code})
-                </option>
-              ))}
-            </select>
+              data={customersList}
+              onChange={(val) => handleCustomerSelect(String(val || ''))}
+              placeholder="Search & select customer..."
+            />
           </div>
 
           <div>
@@ -322,7 +313,7 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
         </div>
 
         {/* Dates & Reference Card */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+        <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs space-y-3">
           <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Calendar className="w-4 h-4 text-teal-600" /> Quotation Dates & Reference
           </h2>
@@ -362,7 +353,7 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
         </div>
 
         {/* Financial Summary Preview */}
-        <div className="bg-gradient-to-br from-teal-500/10 via-emerald-500/5 to-transparent p-6 rounded-2xl border border-teal-500/20 shadow-sm flex flex-col justify-between">
+        <div className="bg-gradient-to-br from-teal-500/10 via-emerald-500/5 to-transparent p-4 rounded-xl border border-teal-500/20 shadow-xs flex flex-col justify-between">
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
               <Calculator className="w-4 h-4 text-teal-600" /> Quotation Total
@@ -400,17 +391,17 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
       </div>
 
       {/* Items Table Card */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm p-6 space-y-4">
+      <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Quotation Line Items</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Quotation Line Items</h2>
             <p className="text-xs text-slate-500 mt-0.5">Add items, select warehouse, set quantities and pricing</p>
           </div>
           <Button
             type="button"
             variant="secondary"
             onClick={addRow}
-            className="border-teal-500/30 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 text-xs py-1.5 px-3 rounded-xl flex items-center gap-1.5"
+            className="border-teal-500/30 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4" /> Add Item Row
           </Button>
@@ -438,35 +429,25 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
                   <td className="py-2 px-3 font-medium text-slate-400">{idx + 1}</td>
 
                   {/* Item Picker */}
-                  <td className="py-2 px-3">
-                    <select
-                      value={row.ItemID}
-                      onChange={(e) => handleItemSelect(idx, Number(e.target.value))}
-                      className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-500"
-                      required
-                    >
-                      <option value={0}>-- Select Product / Item --</option>
-                      {productsList.map(item => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} {item.code ? `(${item.code})` : ''} — Stock: {item.onHand || 0}
-                        </option>
-                      ))}
-                    </select>
+                  <td className="py-2 px-3 min-w-[200px]">
+                    <ItemSelect
+                      size="sm"
+                      value={row.ItemCode || row.ItemID}
+                      data={productsList}
+                      onChange={(val, itm) => handleItemSelect(idx, val, itm)}
+                      placeholder="Select Product..."
+                    />
                   </td>
 
                   {/* Warehouse Picker */}
-                  <td className="py-2 px-3">
-                    <select
+                  <td className="py-2 px-3 min-w-[150px]">
+                    <WarehouseSelect
+                      size="sm"
                       value={row.WhsCode}
-                      onChange={(e) => handleRowChange(idx, 'WhsCode', Number(e.target.value))}
-                      className="w-full px-2 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
-                    >
-                      {warehousesList.map((wh: any) => (
-                        <option key={wh.ID} value={wh.ID}>
-                          {wh.Name || wh.Code}
-                        </option>
-                      ))}
-                    </select>
+                      data={warehousesList}
+                      onChange={(val) => handleRowChange(idx, 'WhsCode', val ? Number(val) : 1)}
+                      placeholder="Select Whs..."
+                    />
                   </td>
 
                   {/* Quantity */}
@@ -553,7 +534,7 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
       </div>
 
       {/* Remarks Section */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm p-6">
+      <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs p-4">
         <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
           Special Terms, Conditions & Remarks
         </label>

@@ -36,8 +36,32 @@ import {
 import api, { getAttachmentUrl, getFileName } from '../../../lib/api';
 import { useRetailers } from '../../customers/api/useRetailers';
 import { useItems } from '../../items/api/useItems';
-import { useExpenses, useProjects, useWarehouses, useCostCentersMain } from '../../users/api/useMasterData';
-import { Button, Spinner, Badge, SearchableSelect, type SearchableSelectOption } from '../../../components/ui';
+import { useExpenses, useProjects, useWarehouses, useCostCentersMain, useAccounts } from '../../users/api/useMasterData';
+import {
+  PAYMENT_TERMS_OPTIONS,
+  TAX_CODE_OPTIONS,
+  formatItemCatalogOption,
+  renderItemOption,
+  formatVendorOption,
+  renderVendorOption,
+  validateDiscountPercent,
+} from '../procurementConstants';
+import {
+  Button,
+  Spinner,
+  Badge,
+  SearchableSelect,
+  VendorSelect,
+  WarehouseSelect,
+  ProjectSelect,
+  TaxSelect,
+  GLAccountSelect,
+  PaymentTermsSelect,
+  StageSelect,
+  type SearchableSelectOption,
+  toast,
+  Modal,
+} from '../../../components/ui';
 import { PurchaseRequestReceiptView } from './components/PurchaseRequestReceiptView';
 
 interface PurchaseRequestFormPageProps {
@@ -118,55 +142,70 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
   const { data: projectsResponse } = useProjects();
   const { data: warehousesResponse } = useWarehouses();
   const { data: costCentersMainResponse } = useCostCentersMain();
+  const { data: accountsResponse } = useAccounts();
 
   const suppliersList = (Array.isArray(suppliersResponse) ? suppliersResponse : (suppliersResponse as any)?.data) || [];
+  const accountsList = accountsResponse?.data || [];
   const supplierOptions: SearchableSelectOption[] = React.useMemo(() => {
-    return suppliersList.map((supp: any) => {
-      const code = supp.Code || supp.code || supp.cardCode || supp.CardCode;
-      const name = supp.Name || supp.name || supp.cardName || supp.CardName || 'Unnamed Vendor';
-      const tin = supp.TIN || supp.tin;
-      const address = supp.Address || supp.address;
-      return {
-        value: code,
-        label: `${name} (${code})`,
-        subtext: [tin ? `TIN: ${tin}` : '', address].filter(Boolean).join(' • '),
-        raw: supp,
-      };
-    });
+    return suppliersList.map(formatVendorOption);
   }, [suppliersList]);
 
   const itemsList = itemsResponse?.items || (Array.isArray(itemsResponse) ? itemsResponse : (itemsResponse as any)?.data) || [];
   const itemCatalogOptions: SearchableSelectOption[] = React.useMemo(() => {
-    return itemsList.map((itm: any) => {
-      const code = itm.itemCode || itm.ItemCode || itm.code || `ITM-${itm.id || itm.ID}`;
-      const name = itm.itemName || itm.ItemName || itm.name || 'Unnamed Item';
-      const price = Number(itm.lastPurPrc || itm.price || itm.UnitPrice || 0);
-      return {
-        value: code,
-        label: `${code} — ${name}`,
-        subtext: `Price: ${price.toLocaleString(undefined, { minimumFractionDigits: 2 })} TZS`,
-        extra: `${price.toLocaleString(undefined, { minimumFractionDigits: 2 })} TZS`,
-        raw: itm,
-      };
-    });
+    return itemsList.map(formatItemCatalogOption);
   }, [itemsList]);
 
   const expenses = expensesResponse?.data || [];
   const projectsList = projectsResponse?.data || [];
   const warehousesList = warehousesResponse?.data || [];
+
+  const typeRequestOptions: SearchableSelectOption[] = [
+    { value: 'Item', label: 'Item (Material / Physical Goods)', badge: 'Material' },
+    { value: 'Service', label: 'Service (Non-Inventory / Services / Contracts)', badge: 'Service' },
+  ];
+
+  const requestTermsOptions: SearchableSelectOption[] = [
+    { value: 'cash', label: 'Cash Payment' },
+    { value: 'net30', label: 'Net 30 Days' },
+    { value: 'net60', label: 'Net 60 Days' },
+    { value: 'cod', label: 'Cash on Delivery' },
+  ];
+
+  const expenseClassificationOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return expenses.map(e => ({
+      value: e.type,
+      label: `${e.type} — ${e.description}`,
+      badge: e.type,
+    }));
+  }, [expenses]);
+
+  const paymentMethodOptions: SearchableSelectOption[] = [
+    { value: 'Bank Transfer', label: 'Bank Wire Transfer' },
+    { value: 'Cash', label: 'Petty Cash' },
+    { value: 'Mobile Money', label: 'Mobile Money (M-Pesa)' },
+    { value: 'Cheque', label: 'Cheque Payment' },
+  ];
   const costCentersList = costCentersMainResponse?.data || [];
 
-  const productsList = React.useMemo(() => {
+  const projectStagesList = React.useMemo(() => {
     return costCentersList.filter(cc => cc.dimCode === 1);
   }, [costCentersList]);
 
-  const locationsList = React.useMemo(() => {
+  const projectSubStagesList = React.useMemo(() => {
+    return costCentersList.filter(cc => cc.dimCode === 2);
+  }, [costCentersList]);
+
+  const detailSubStagesList = React.useMemo(() => {
     return costCentersList.filter(cc => cc.dimCode === 3);
   }, [costCentersList]);
 
-  const assetsList = React.useMemo(() => {
+  const moreDetailSubStagesList = React.useMemo(() => {
     return costCentersList.filter(cc => cc.dimCode === 4);
   }, [costCentersList]);
+
+  const productsList = projectStagesList;
+  const locationsList = detailSubStagesList;
+  const assetsList = moreDetailSubStagesList;
 
   const createMutation = useCreatePurchaseRequest();
   const updateMutation = useUpdatePurchaseRequest();
@@ -201,6 +240,8 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
   const [items, setItems] = useState<PurchaseRequestItem[]>([]);
   const [attachments, setAttachments] = useState<PurchaseRequestAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isTypeChangeConfirmOpen, setIsTypeChangeConfirmOpen] = useState(false);
+  const [pendingTypeRequest, setPendingTypeRequest] = useState<string>('Item');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -234,6 +275,9 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
           UnitPrice: Number(item.UnitPrice),
           DiscPrcnt: Number(item.DiscPrcnt || 0),
           VATPer: Number(item.VATPer || 0),
+          GLCode: item.GLCode || item.vendorRef || '',
+          PaymentTerms: item.PaymentTerms || item.po_id || 'Net 30 Days',
+          VendorCode: item.VendorCode || item.vendor || '',
         })));
       }
       if (existingRequest.attachments) {
@@ -257,13 +301,12 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
 
 
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const processFiles = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
-
     setIsUploading(true);
     try {
       const newAttachments: PurchaseRequestAttachment[] = [...attachments];
+      let uploadCount = 0;
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const formData = new FormData();
@@ -276,6 +319,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
         );
 
         if (response.data?.data?.path) {
+          uploadCount++;
           newAttachments.push({
             LineNum: newAttachments.length + 1,
             Attachment: response.data.data.path,
@@ -283,27 +327,41 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
         }
       }
       setAttachments(newAttachments);
+      if (uploadCount > 0) {
+        toast.success(
+          'Upload Successful',
+          `${uploadCount} attachment file${uploadCount > 1 ? 's' : ''} added.`
+        );
+      }
     } catch (err) {
       console.error('File upload failed:', err);
-      alert('Failed to upload file. Please try again.');
+      toast.error('Upload Failed', 'Failed to upload attachment file. Please try again.');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const handleRemoveAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, idx) => idx !== index).map((att, idx) => ({ ...att, LineNum: idx + 1 })));
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) await processFiles(files);
   };
 
-  const handleSupplierChange = (code: string) => {
-    const supplier = suppliersResponse.find(s => s.Code === code);
-    if (supplier) {
-      setCustCode(code);
-      setCustName(supplier.Name);
-      setAddress(supplier.Address || '');
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isView || isUploading) return;
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      await processFiles(files);
     }
   };
+
+  const handleRemoveAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, idx) => idx !== index).map((att, idx) => ({ ...att, LineNum: idx + 1 })));
+    toast.info('Attachment Removed', 'The file has been removed from this request.');
+  };
+
 
   const handleAddItem = (selectedItem: any) => {
     const itemCode = selectedItem.itemCode || selectedItem.ItemCode || selectedItem.code || `ITM-${selectedItem.id || selectedItem.ID}`;
@@ -366,6 +424,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
       LineStatus: 'O', Quantity: 1, UnitPrice: 0,
       DiscPrcnt: 0, VATCode: 'VAT_18', VATPer: 18,
       LineTax: 0, LineTotalLC: 0, Remarks: '',
+      UoM: 'pcs',
       vendor: custCode || '',
       DIM1: '',
       DIM2: '',
@@ -379,6 +438,117 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
       WhsCode: undefined,
       project: '',
     }]);
+  };
+
+  const handleAddServiceLine = () => {
+    setItems(prev => [...prev, {
+      LineNum: prev.length + 1,
+      ItemID: 0,
+      ItemCode: 'SERVICE',
+      ItemName: '',
+      LineStatus: 'O',
+      Quantity: 1,
+      UnitPrice: 0,
+      DiscPrcnt: 0,
+      VATCode: 'VAT_18',
+      VATPer: 18,
+      LineTax: 0,
+      LineTotalLC: 0,
+      Remarks: '',
+      UoM: 'svc',
+      vendor: custCode || '',
+      VendorCode: custCode || '',
+      VendorName: custName || '',
+      GLCode: '',
+      GLName: '',
+      PaymentTerms: 'Net 30 Days',
+      TotalExclusive: 0,
+      TotalInclusive: 0,
+      TaxCode: 'VAT_18',
+      TaxAmount: 0,
+      Discount: 0,
+      DIM1: '',
+      DIM2: '',
+      DIM3: '',
+      DIM4: '',
+      DIM5: '',
+      ferightType: '',
+      vendorRef: '',
+      po_id: 'Net 30 Days',
+      Location: '',
+      WhsCode: undefined,
+      project: '',
+    }]);
+  };
+
+  const applyTypeRequestChange = (newType: string) => {
+    setTypeRequest(newType);
+    setRequestType(newType);
+    if (newType === 'Service') {
+      setItems([{
+        LineNum: 1,
+        ItemID: 0,
+        ItemCode: 'SERVICE',
+        ItemName: '',
+        LineStatus: 'O',
+        Quantity: 1,
+        UnitPrice: 0,
+        DiscPrcnt: 0,
+        VATCode: 'VAT_18',
+        VATPer: 18,
+        LineTax: 0,
+        LineTotalLC: 0,
+        Remarks: '',
+        UoM: 'svc',
+        vendor: custCode || '',
+        VendorCode: custCode || '',
+        VendorName: custName || '',
+        GLCode: '',
+        GLName: '',
+        PaymentTerms: 'Net 30 Days',
+        TotalExclusive: 0,
+        TotalInclusive: 0,
+        TaxCode: 'VAT_18',
+        TaxAmount: 0,
+        Discount: 0,
+        DIM1: '', DIM2: '', DIM3: '', DIM4: '', DIM5: '',
+        ferightType: '', vendorRef: '', po_id: 'Net 30 Days', Location: '',
+        WhsCode: undefined, project: '',
+      }]);
+    } else {
+      setItems([{
+        LineNum: 1,
+        ItemID: 0,
+        ItemCode: '',
+        ItemName: '',
+        LineStatus: 'O',
+        Quantity: 1,
+        UnitPrice: 0,
+        DiscPrcnt: 0,
+        VATCode: 'VAT_18',
+        VATPer: 18,
+        LineTax: 0,
+        LineTotalLC: 0,
+        Remarks: '',
+        UoM: 'pcs',
+        vendor: custCode || '',
+        DIM1: '', DIM2: '', DIM3: '', DIM4: '', DIM5: '',
+        ferightType: '', vendorRef: '', po_id: '', Location: '',
+        WhsCode: undefined, project: '',
+      }]);
+    }
+    toast.info('Procurement Type Updated', `Switched to ${newType === 'Service' ? 'Service Procurement' : 'Material Items'}.`);
+  };
+
+  const handleTypeRequestChange = (newType: string) => {
+    if (newType === typeRequest) return;
+    const hasData = items.some(i => i.ItemID || (i.ItemName && i.ItemName.trim()) || Number(i.UnitPrice || 0) > 0);
+    if (hasData) {
+      setPendingTypeRequest(newType);
+      setIsTypeChangeConfirmOpen(true);
+      return;
+    }
+    applyTypeRequestChange(newType);
   };
 
   const handleRemoveItemLine = (index: number) => {
@@ -407,6 +577,10 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
       } else if (field === 'DIM3') {
         line.DIM3 = value;
         line.Location = value;
+      } else if (field === 'DiscPrcnt' || field === ('Discount' as any)) {
+        const validated = validateDiscountPercent(Number(value));
+        line.DiscPrcnt = validated;
+        (line as any).Discount = validated;
       } else {
         (line as any)[field] = value;
       }
@@ -443,36 +617,63 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!custCode) { alert('Please select a vendor/supplier'); return; }
-    if (items.length === 0) { alert('Please add at least one item line'); return; }
-    if (items.some(item => !item.ItemID)) { alert('Please select a valid item for all lines'); return; }
+    if (!custCode) {
+      toast.error('Validation Error', 'Please select a vendor / supplier.');
+      return;
+    }
+    if (items.length === 0) {
+      toast.error(
+        'Validation Error',
+        typeRequest === 'Service'
+          ? 'Please add at least one service line.'
+          : 'Please add at least one item line.'
+      );
+      return;
+    }
+    if (typeRequest === 'Service') {
+      if (items.some(item => !item.ItemName?.trim() && !item.Remarks?.trim())) {
+        toast.error('Validation Error', 'Please enter a description for all service lines.');
+        return;
+      }
+    } else {
+      if (items.some(item => !item.ItemID && !item.ItemCode)) {
+        toast.error('Validation Error', 'Please select a valid material item for all lines.');
+        return;
+      }
+    }
     const payload: PurchaseRequestInput = {
       CustCode: custCode, CustName: custName, Address: address, CustRefNo: custRefNo,
       Currency: currency, CurRate: curRate, PostDate: postDate, DueDate: dueDate || null,
       TypeRequest: typeRequest, RequestedByDate: requestedByDate || null, Remarks: remarks,
-      Branch_id: branchId ? Number(branchId) : undefined, RequestType: requestType,
+      Branch_id: branchId ? Number(branchId) : undefined, RequestType: typeRequest || requestType,
       Expense_type: expenseType || undefined, memo_text: memoText || undefined,
       Department: department || undefined,
       items: items.map((item, idx) => ({
-        LineNum: idx + 1, LineStatus: item.LineStatus || 'O', ItemID: item.ItemID,
-        ItemCode: item.ItemCode || undefined, ItemName: item.ItemName || undefined,
-        Quantity: Number(item.Quantity), UnitPrice: Number(item.UnitPrice),
-        DiscPrcnt: Number(item.DiscPrcnt || 0), VATCode: item.VATCode || undefined,
+        LineNum: idx + 1,
+        LineStatus: item.LineStatus || 'O',
+        ItemID: item.ItemID || 0,
+        ItemCode: item.ItemCode || (typeRequest === 'Service' ? 'SERVICE' : undefined),
+        ItemName: item.ItemName || (typeRequest === 'Service' ? item.Remarks || 'Service Line' : undefined),
+        Quantity: typeRequest === 'Service' ? 1 : Number(item.Quantity || 1),
+        UnitPrice: Number(item.UnitPrice || 0),
+        DiscPrcnt: Number(item.DiscPrcnt || 0),
+        VATCode: item.VATCode || undefined,
         VATPer: Number(item.VATPer || 0),
         WhsCode: item.WhsCode ? Number(item.WhsCode) : undefined,
         cost_center: item.cost_center ? Number(item.cost_center) : undefined,
-        project: item.project || undefined, Remarks: item.Remarks || undefined,
-        UoM: item.UoM || undefined,
-        vendor: item.vendor || undefined,
+        project: item.project || undefined,
+        Remarks: item.Remarks || undefined,
+        UoM: item.UoM || (typeRequest === 'Service' ? 'svc' : undefined),
+        vendor: item.vendor || item.VendorCode || undefined,
         DIM1: item.DIM1 || undefined,
         DIM2: item.DIM2 || undefined,
         DIM3: item.DIM3 || undefined,
         DIM4: item.DIM4 || undefined,
         DIM5: item.DIM5 || undefined,
         ferightType: item.ferightType || undefined,
-        vendorRef: item.vendorRef || undefined,
-        po_id: item.po_id || undefined,
-        Location: item.Location || undefined,
+        vendorRef: item.GLCode || item.vendorRef || undefined,
+        po_id: item.PaymentTerms || item.po_id || undefined,
+        Location: item.Location || item.DIM3 || undefined,
       })),
       attachments: attachments.map((att, idx) => ({
         LineNum: idx + 1,
@@ -482,13 +683,18 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
     try {
       if (mode === 'edit' && numericId) {
         await updateMutation.mutateAsync({ id: numericId, payload });
+        toast.success('Purchase Request Updated', 'The purchase request has been saved successfully.');
       } else {
         await createMutation.mutateAsync(payload);
+        toast.success('Purchase Request Created', 'New purchase request has been created successfully.');
       }
       navigate('/procurement/request');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to save purchase request');
+      toast.error(
+        'Submission Failed',
+        err?.response?.data?.message || err?.message || 'Failed to save purchase request. Please review the details and try again.'
+      );
     }
   };
 
@@ -523,8 +729,8 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
   };
 
   return (
-    <div className="min-h-screen w-full animate-fade-in" style={{ background: 'var(--color-bg)' }}>
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 space-y-5">
+    <div className="w-full min-h-screen animate-fade-in" style={{ background: 'var(--color-bg)' }}>
+      <div className="w-full max-w-full p-4 space-y-4 pb-16">
 
         {/* ══════════════════════ PAGE HEADER ══════════════════════ */}
         <div className="rounded-2xl border px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
@@ -599,12 +805,12 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
 
               {basicDetailsOpen && (
                 <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <SearchableSelect
+                  <VendorSelect
                     label="Vendor / Supplier"
                     value={custCode}
-                    onChange={(val, opt) => {
+                    data={suppliersList}
+                    onChange={(val, supp) => {
                       const code = String(val || '');
-                      const supp = opt?.raw || suppliersList.find((s: any) => (s.Code || s.code || s.cardCode || s.CardCode) === code);
                       if (supp) {
                         setCustCode(code);
                         setCustName(supp.Name || supp.name || supp.cardName || supp.CardName || '');
@@ -614,8 +820,6 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                         setCustName('');
                       }
                     }}
-                    options={supplierOptions}
-                    placeholder="Search & select vendor..."
                     disabled={isView}
                   />
                   <div>
@@ -629,17 +833,14 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                     />
                   </div>
                   <div>
-                    <FieldLabel>Request Type *</FieldLabel>
-                    <select
-                      className={inputCls}
-                      style={inputStyle}
+                    <SearchableSelect
+                      label="Request Type *"
                       value={typeRequest}
-                      onChange={e => setTypeRequest(e.target.value)}
+                      options={typeRequestOptions}
+                      onChange={val => handleTypeRequestChange(String(val || 'Item'))}
                       disabled={isView}
-                    >
-                      <option value="Item">Item (Material / Physical Goods)</option>
-                      <option value="Service">Service (Non-Inventory / Services / Contracts)</option>
-                    </select>
+                      clearable={false}
+                    />
                   </div>
                   <div>
                     <FieldLabel>Address</FieldLabel>
@@ -712,51 +913,37 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                   </div>
                 </div>
                 <div>
-                  <FieldLabel>Request Terms</FieldLabel>
-                  <select
-                    className={inputCls}
-                    style={inputStyle}
+                  <SearchableSelect
+                    label="Request Terms"
                     value={requestTerms}
-                    onChange={e => setRequestTerms(e.target.value)}
+                    options={requestTermsOptions}
+                    placeholder="Select Terms…"
+                    onChange={val => setRequestTerms(String(val || ''))}
                     disabled={isView}
-                  >
-                    <option value="">Select Terms…</option>
-                    <option value="cash">Cash Payment</option>
-                    <option value="net30">Net 30 Days</option>
-                    <option value="net60">Net 60 Days</option>
-                    <option value="cod">Cash on Delivery</option>
-                  </select>
+                    clearable
+                  />
                 </div>
                 <div>
-                  <FieldLabel>Expense Classification</FieldLabel>
-                  <select
-                    className={inputCls}
-                    style={inputStyle}
+                  <SearchableSelect
+                    label="Expense Classification"
                     value={expenseType}
-                    onChange={e => setExpenseType(e.target.value)}
+                    options={expenseClassificationOptions}
+                    placeholder="Select Classification…"
+                    onChange={val => setExpenseType(String(val || ''))}
                     disabled={isView}
-                  >
-                    <option value="">Select Classification…</option>
-                    {expenses.map(e => (
-                      <option key={e.type} value={e.type}>{e.type} — {e.description}</option>
-                    ))}
-                  </select>
+                    clearable
+                  />
                 </div>
                 <div>
-                  <FieldLabel>Payment Method</FieldLabel>
-                  <select
-                    className={inputCls}
-                    style={inputStyle}
+                  <SearchableSelect
+                    label="Payment Method"
                     value={paymentMethod}
-                    onChange={e => setPaymentMethod(e.target.value)}
+                    options={paymentMethodOptions}
+                    placeholder="Select Method…"
+                    onChange={val => setPaymentMethod(String(val || ''))}
                     disabled={isView}
-                  >
-                    <option value="">Select Method…</option>
-                    <option value="Bank Transfer">Bank Wire Transfer</option>
-                    <option value="Cash">Petty Cash</option>
-                    <option value="Mobile Money">Mobile Money (M-Pesa)</option>
-                    <option value="Cheque">Cheque Payment</option>
-                  </select>
+                    clearable
+                  />
                 </div>
               </div>
             </SectionCard>
@@ -900,7 +1087,14 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                   )
                 }
               />
-              <div className="p-5 space-y-4">
+              <div 
+                className="p-5"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={handleDrop}
+              >
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -910,17 +1104,18 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                   accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
                 />
 
-                {!isView && (
+                {/* If no attachments: show dashed dropzone box */}
+                {!isView && attachments.length === 0 && (
                   <div
                     onClick={() => !isUploading && fileInputRef.current?.click()}
-                    className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                    className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all h-[155px] flex flex-col items-center justify-center ${
                       isUploading
                         ? 'opacity-60 cursor-not-allowed border-gray-300'
                         : 'cursor-pointer hover:border-primary hover:bg-primary/[0.02]'
                     }`}
                     style={{ borderColor: 'var(--color-border)' }}
                   >
-                    <div className="w-10 h-10 rounded-full bg-primary/10 transition-colors flex items-center justify-center mx-auto mb-2">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 transition-colors flex items-center justify-center mx-auto mb-2 shrink-0">
                       {isUploading ? (
                         <Spinner size="sm" />
                       ) : (
@@ -936,9 +1131,9 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                   </div>
                 )}
 
-                {/* Attachments List */}
+                {/* Attachments List: When items exist, upper section is removed and height matches container */}
                 {attachments.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="h-[155px] overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 gap-2.5 auto-rows-max">
                     {attachments.map((att, idx) => {
                       const fileUrl = getAttachmentUrl(att.Attachment);
                       const fileName = getFileName(att.Attachment);
@@ -948,11 +1143,11 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                       return (
                         <div
                           key={idx}
-                          className="flex items-center justify-between p-3 rounded-xl border transition-all hover:shadow-sm"
+                          className="flex items-center justify-between p-2.5 rounded-xl border transition-all hover:shadow-sm"
                           style={{ background: 'var(--color-surface-hover)', borderColor: 'var(--color-border)' }}
                         >
-                          <div className="flex items-center gap-3 overflow-hidden">
-                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <div className="flex items-center gap-2.5 overflow-hidden min-w-0">
+                            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                               {isImg ? (
                                 <ImageIcon className="h-4 w-4 text-emerald-500" />
                               ) : isPdf ? (
@@ -980,7 +1175,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                             <button
                               type="button"
                               onClick={() => handleRemoveAttachment(idx)}
-                              className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all shrink-0 ml-2"
+                              className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all shrink-0 ml-1.5"
                               title="Delete attachment"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -992,9 +1187,11 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                   </div>
                 ) : (
                   isView && (
-                    <p className="text-xs italic text-center py-2" style={{ color: 'var(--color-text-secondary)' }}>
-                      No attachments attached to this purchase request.
-                    </p>
+                    <div className="h-[155px] flex items-center justify-center">
+                      <p className="text-xs italic text-center py-2" style={{ color: 'var(--color-text-secondary)' }}>
+                        No attachments attached to this purchase request.
+                      </p>
+                    </div>
                   )
                 )}
               </div>
@@ -1012,7 +1209,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={handleAddItemLine}
+                    onClick={typeRequest === 'Service' ? handleAddServiceLine : handleAddItemLine}
                     className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white transition-all hover:scale-95 active:scale-90 shadow-sm"
                     style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}
                   >
@@ -1055,13 +1252,14 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
             ) : typeRequest === 'Service' ? (
               /* ─── SERVICE TABLE ─── */
               <div className="overflow-x-auto rounded-xl border animate-fade-in" style={{ borderColor: 'var(--color-border)' }}>
-                <table className="w-full text-left border-collapse min-w-[1600px]">
+                <table className="w-full text-left border-collapse min-w-[2200px]">
                   <thead>
                     <tr style={{ background: 'var(--color-surface-hover)', borderBottom: '1px solid var(--color-border)' }}>
                       {[
-                        '#', 'SERVICE DESCRIPTION *', 'AMOUNT / FEE (TZS)', 'TAX CODE', 'DISC %',
-                        'TAX AMOUNT', 'TOTAL WITH TAX', 'PROJECT', 'PRODUCT / DIM1',
-                        'LOCATION', 'ASSET', 'REMARKS', 'ACTION'
+                        '#', 'VENDOR', 'DESCRIPTION *', 'GL CODE', 'TOTAL (EXCLUSIVE)',
+                        'TAX CODE', 'DISCOUNT', 'TAX AMOUNT', 'TOTAL (INCLUSIVE)', 'PAYMENT TERMS',
+                        'PROJECT', 'PROJECT STAGE', 'PROJECT SUB STAGE',
+                        'DETAIL SUB STAGE', 'MORE DETAIL SUB STAGE', 'ACTION'
                       ].map((h, i) => (
                         <th
                           key={i}
@@ -1082,15 +1280,36 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                           className="border-b transition-colors hover:bg-primary/[0.03]"
                           style={{ borderColor: 'var(--color-border)' }}
                         >
-                          {/* Line number */}
-                          <td className="py-2.5 px-3 w-[50px]">
+                          {/* # Line number */}
+                          <td className="py-2.5 px-3 w-[45px]">
                             <span className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold" style={{ background: 'var(--color-surface-hover)', color: 'var(--color-text-secondary)' }}>
                               {idx + 1}
                             </span>
                           </td>
 
-                          {/* SERVICE DESCRIPTION */}
-                          <td className="py-2.5 px-2 min-w-[320px]">
+                          {/* VENDOR */}
+                          <td className="py-2.5 px-2 min-w-[210px]">
+                            <VendorSelect
+                              size="sm"
+                              data={suppliersList}
+                              value={line.vendor || line.VendorCode || ''}
+                              onChange={(selectedVendorCode, supp) => {
+                                handleItemLineChange(idx, 'vendor', selectedVendorCode);
+                                handleItemLineChange(idx, 'VendorCode' as any, selectedVendorCode);
+                                if (supp) {
+                                  handleItemLineChange(idx, 'VendorName' as any, supp.Name || supp.name || supp.cardName);
+                                  if (supp.PaymentTerms && !line.PaymentTerms) {
+                                    handleItemLineChange(idx, 'PaymentTerms' as any, supp.PaymentTerms);
+                                    handleItemLineChange(idx, 'po_id', supp.PaymentTerms);
+                                  }
+                                }
+                              }}
+                              disabled={isView}
+                            />
+                          </td>
+
+                          {/* DESCRIPTION */}
+                          <td className="py-2.5 px-2 min-w-[260px]">
                             <input
                               type="text"
                               placeholder="Describe service / fee / contract details..."
@@ -1099,13 +1318,31 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                               value={line.ItemName || line.Remarks || ''}
                               onChange={e => {
                                 handleItemLineChange(idx, 'ItemName', e.target.value);
+                                handleItemLineChange(idx, 'Remarks', e.target.value);
                               }}
                               disabled={isView}
                             />
                           </td>
 
-                          {/* AMOUNT / FEE */}
-                          <td className="py-2.5 px-2 w-[160px]">
+                          {/* GL CODE */}
+                          <td className="py-2.5 px-2 min-w-[220px]">
+                            <GLAccountSelect
+                              size="sm"
+                              data={accountsList}
+                              value={line.GLCode || line.vendorRef || ''}
+                              onChange={(val, acct) => {
+                                handleItemLineChange(idx, 'GLCode' as any, val);
+                                handleItemLineChange(idx, 'vendorRef', val);
+                                if (acct) {
+                                  handleItemLineChange(idx, 'GLName' as any, acct.acctName || acct.name);
+                                }
+                              }}
+                              disabled={isView}
+                            />
+                          </td>
+
+                          {/* TOTAL (EXCLUSIVE) */}
+                          <td className="py-2.5 px-2 w-[150px]">
                             <input
                               type="number" step="any" min="0"
                               placeholder="0.00"
@@ -1115,6 +1352,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                               onChange={e => {
                                 const price = Number(e.target.value) || 0;
                                 handleItemLineChange(idx, 'UnitPrice', price);
+                                handleItemLineChange(idx, 'TotalExclusive' as any, price);
                                 handleItemLineChange(idx, 'Quantity', 1);
                               }}
                               disabled={isView}
@@ -1122,29 +1360,31 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                           </td>
 
                           {/* TAX CODE */}
-                          <td className="py-2.5 px-2 min-w-[150px]">
-                            <select
-                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
+                          <td className="py-2.5 px-2 w-[160px]">
+                            <TaxSelect
+                              size="sm"
                               value={line.VATCode || 'VAT_18'}
-                              onChange={e => handleItemLineChange(idx, 'VATCode', e.target.value)}
+                              onChange={code => {
+                                handleItemLineChange(idx, 'VATCode', code);
+                                handleItemLineChange(idx, 'TaxCode' as any, code);
+                              }}
                               disabled={isView}
-                            >
-                              <option value="VAT_18">Input VAT 18%</option>
-                              <option value="VAT_10">Input VAT 10%</option>
-                              <option value="VAT_0">Zero Rated 0%</option>
-                              <option value="VAT_EXEMPT">Exempt 0%</option>
-                            </select>
+                            />
                           </td>
 
-                          {/* DISCOUNT % */}
+                          {/* DISCOUNT */}
                           <td className="py-2.5 px-2 w-[90px]">
                             <input
                               type="number" min="0" max="100" step="any"
+                              placeholder="0"
                               className="w-full text-xs font-bold font-mono py-1.5 px-2 rounded-lg text-center border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                               style={inputStyle}
                               value={line.DiscPrcnt || 0}
-                              onChange={e => handleItemLineChange(idx, 'DiscPrcnt', Number(e.target.value))}
+                              onChange={e => {
+                                const disc = Number(e.target.value) || 0;
+                                handleItemLineChange(idx, 'DiscPrcnt', disc);
+                                handleItemLineChange(idx, 'Discount' as any, disc);
+                              }}
                               disabled={isView}
                             />
                           </td>
@@ -1160,90 +1400,88 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                             />
                           </td>
 
-                          {/* TOTAL WITH TAX */}
-                          <td className="py-2.5 px-3 w-[140px] text-right font-extrabold font-mono text-xs text-primary">
+                          {/* TOTAL (INCLUSIVE) */}
+                          <td className="py-2.5 px-3 w-[150px] text-right font-extrabold font-mono text-xs text-primary">
                             {Number(line.LineTotalLC || amountBeforeTax).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                           </td>
 
+                          {/* PAYMENT TERMS */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <PaymentTermsSelect
+                              size="sm"
+                              value={line.PaymentTerms || line.po_id || 'Net 30 Days'}
+                              onChange={val => {
+                                handleItemLineChange(idx, 'PaymentTerms' as any, val);
+                                handleItemLineChange(idx, 'po_id', val);
+                              }}
+                              disabled={isView}
+                            />
+                          </td>
+
                           {/* PROJECT */}
-                          <td className="py-2.5 px-2 min-w-[160px]">
-                            <select
-                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <ProjectSelect
+                              size="sm"
+                              data={projectsList}
                               value={line.project || ''}
-                              onChange={e => handleItemLineChange(idx, 'project', e.target.value)}
+                              onChange={val => handleItemLineChange(idx, 'project', val)}
                               disabled={isView}
-                            >
-                              <option value="">Select Project…</option>
-                              {projectsList.map(p => (
-                                <option key={p.code} value={p.code}>{p.code} — {p.name}</option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
-                          {/* PRODUCT / DIM1 */}
-                          <td className="py-2.5 px-2 min-w-[160px]">
-                            <select
-                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
+                          {/* PROJECT STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={1}
+                              data={costCentersList}
                               value={line.DIM1 || ''}
-                              onChange={e => handleItemLineChange(idx, 'DIM1', e.target.value)}
+                              onChange={val => handleItemLineChange(idx, 'DIM1', val)}
                               disabled={isView}
-                            >
-                              <option value="">Select Product / CC…</option>
-                              {productsList.map(p => (
-                                <option key={p.code} value={p.code}>{p.code} — {p.name}</option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
-                          {/* LOCATION */}
-                          <td className="py-2.5 px-2 min-w-[150px]">
-                            <select
-                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
+                          {/* PROJECT SUB STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={2}
+                              data={costCentersList}
+                              value={line.DIM2 || ''}
+                              onChange={val => handleItemLineChange(idx, 'DIM2', val)}
+                              disabled={isView}
+                            />
+                          </td>
+
+                          {/* DETAIL SUB STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={3}
+                              data={costCentersList}
                               value={line.DIM3 || ''}
-                              onChange={e => handleItemLineChange(idx, 'DIM3', e.target.value)}
+                              onChange={val => {
+                                handleItemLineChange(idx, 'DIM3', val);
+                                handleItemLineChange(idx, 'Location', val);
+                              }}
                               disabled={isView}
-                            >
-                              <option value="">Select Location…</option>
-                              {locationsList.map(l => (
-                                <option key={l.code} value={l.code}>{l.code} — {l.name}</option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
-                          {/* ASSET */}
-                          <td className="py-2.5 px-2 min-w-[150px]">
-                            <select
-                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
+                          {/* MORE DETAIL SUB STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={4}
+                              data={costCentersList}
                               value={line.DIM4 || ''}
-                              onChange={e => handleItemLineChange(idx, 'DIM4', e.target.value)}
-                              disabled={isView}
-                            >
-                              <option value="">Select Asset…</option>
-                              {assetsList.map(a => (
-                                <option key={a.code} value={a.code}>{a.code} — {a.name}</option>
-                              ))}
-                            </select>
-                          </td>
-
-                          {/* REMARKS */}
-                          <td className="py-2.5 px-2 min-w-[180px]">
-                            <input
-                              type="text"
-                              placeholder="Notes…"
-                              className="w-full text-xs py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
-                              value={line.Remarks || ''}
-                              onChange={e => handleItemLineChange(idx, 'Remarks', e.target.value)}
+                              onChange={val => handleItemLineChange(idx, 'DIM4', val)}
                               disabled={isView}
                             />
                           </td>
 
                           {/* ACTION */}
-                          <td className="py-2.5 px-2 text-center w-[50px]">
+                          <td className="py-2.5 px-2 text-center w-[55px]">
                             {!isView && (
                               <button
                                 type="button"
@@ -1267,10 +1505,10 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                   <thead>
                     <tr style={{ background: 'var(--color-surface-hover)', borderBottom: '1px solid var(--color-border)' }}>
                       {[
-                        '#', 'VENDOR', 'RECEIPT QTY', 'CODE', 'ITEM', 'UOM', 'UNIT PRICE',
+                        '#', 'RECEIPT QTY', 'CODE', 'ITEM', 'UOM', 'UNIT PRICE',
                         'TAX CODE', 'DISCOUNT', 'TAX AMOUNT', 'LINE TOTAL', 'TOTAL WITH TAX',
                         'PROJECT', 'WAREHOUSE', 'FOB', 'COC', 'FREIGHTCHARGES', 'OPEN QTY.',
-                        'REFRENCE', 'PRODUCT', 'LOCATION', 'ASSET', 'ACTION'
+                        'REFRENCE', 'PROJECT STAGE', 'PROJECT SUB STAGE', 'DETAIL SUB STAGE', 'MORE DETAIL SUB STAGE', 'ACTION'
                       ].map((h, i) => (
                         <th
                           key={i}
@@ -1296,18 +1534,6 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                             <span className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold" style={{ background: 'var(--color-surface-hover)', color: 'var(--color-text-secondary)' }}>
                               {idx + 1}
                             </span>
-                          </td>
-                          
-                          {/* VENDOR */}
-                          <td className="py-2.5 px-2 min-w-[210px]">
-                            <SearchableSelect
-                              value={line.vendor || ''}
-                              onChange={(val) => handleItemLineChange(idx, 'vendor', String(val || ''))}
-                              options={supplierOptions}
-                              placeholder="Search & select vendor..."
-                              disabled={isView}
-                              size="sm"
-                            />
                           </td>
 
                           {/* RECEIPT QTY */}
@@ -1374,6 +1600,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                               placeholder="Search item code or name..."
                               disabled={isView}
                               size="sm"
+                              renderOption={renderItemOption}
                             />
                           </td>
 
@@ -1397,19 +1624,13 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                           </td>
 
                           {/* TAX CODE */}
-                          <td className="py-2.5 px-2 min-w-[150px]">
-                            <select
-                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
+                          <td className="py-2.5 px-2 min-w-[160px]">
+                            <TaxSelect
+                              size="sm"
                               value={line.VATCode || 'VAT_18'}
-                              onChange={e => handleItemLineChange(idx, 'VATCode', e.target.value)}
+                              onChange={code => handleItemLineChange(idx, 'VATCode', code)}
                               disabled={isView}
-                            >
-                              <option value="VAT_18">Input VAT 18%</option>
-                              <option value="VAT_10">Input VAT 10%</option>
-                              <option value="VAT_0">Zero Rated 0%</option>
-                              <option value="VAT_EXEMPT">Exempt 0%</option>
-                            </select>
+                            />
                           </td>
 
                           {/* DISCOUNT */}
@@ -1446,35 +1667,25 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                           </td>
 
                           {/* PROJECT */}
-                          <td className="py-2.5 px-2 min-w-[150px]">
-                            <select
-                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
+                          <td className="py-2.5 px-2 min-w-[160px]">
+                            <ProjectSelect
+                              size="sm"
+                              data={projectsList}
                               value={line.project || ''}
-                              onChange={e => handleItemLineChange(idx, 'project', e.target.value)}
+                              onChange={val => handleItemLineChange(idx, 'project', val)}
                               disabled={isView}
-                            >
-                              <option value="">Search Project…</option>
-                              {projectsList.map(p => (
-                                <option key={p.code} value={p.code}>{p.code} — {p.name}</option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
                           {/* WAREHOUSE */}
-                          <td className="py-2.5 px-2 min-w-[180px]">
-                            <select
-                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <WarehouseSelect
+                              size="sm"
+                              data={warehousesList}
                               value={line.WhsCode || ''}
-                              onChange={e => handleItemLineChange(idx, 'WhsCode', Number(e.target.value) || undefined)}
+                              onChange={val => handleItemLineChange(idx, 'WhsCode', Number(val) || undefined)}
                               disabled={isView}
-                            >
-                              <option value="">Search Warehouse…</option>
-                              {warehousesList.map(w => (
-                                <option key={w.id} value={w.id}>{w.name}</option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
                           {/* FOB */}
@@ -1534,52 +1745,55 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                             />
                           </td>
 
-                          {/* PRODUCT */}
-                          <td className="py-2.5 px-2 min-w-[180px]">
-                            <select
-                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
+                          {/* PROJECT STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={1}
+                              data={costCentersList}
                               value={line.DIM1 || ''}
-                              onChange={e => handleItemLineChange(idx, 'DIM1', e.target.value)}
+                              onChange={val => handleItemLineChange(idx, 'DIM1', val)}
                               disabled={isView}
-                            >
-                              <option value="">Select Product…</option>
-                              {productsList.map(p => (
-                                <option key={p.code} value={p.code}>{p.code} — {p.name}</option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
-                          {/* LOCATION */}
-                          <td className="py-2.5 px-2 min-w-[180px]">
-                            <select
-                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
+                          {/* PROJECT SUB STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={2}
+                              data={costCentersList}
+                              value={line.DIM2 || ''}
+                              onChange={val => handleItemLineChange(idx, 'DIM2', val)}
+                              disabled={isView}
+                            />
+                          </td>
+
+                          {/* DETAIL SUB STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={3}
+                              data={costCentersList}
                               value={line.DIM3 || ''}
-                              onChange={e => handleItemLineChange(idx, 'DIM3', e.target.value)}
+                              onChange={val => {
+                                handleItemLineChange(idx, 'DIM3', val);
+                                handleItemLineChange(idx, 'Location', val);
+                              }}
                               disabled={isView}
-                            >
-                              <option value="">Select Location…</option>
-                              {locationsList.map(l => (
-                                <option key={l.code} value={l.code}>{l.code} — {l.name}</option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
-                          {/* ASSET */}
-                          <td className="py-2.5 px-2 min-w-[180px]">
-                            <select
-                              className="w-full text-xs font-semibold py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
+                          {/* MORE DETAIL SUB STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={4}
+                              data={costCentersList}
                               value={line.DIM4 || ''}
-                              onChange={e => handleItemLineChange(idx, 'DIM4', e.target.value)}
+                              onChange={val => handleItemLineChange(idx, 'DIM4', val)}
                               disabled={isView}
-                            >
-                              <option value="">Select Asset…</option>
-                              {assetsList.map(a => (
-                                <option key={a.code} value={a.code}>{a.code} — {a.name}</option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
                           {/* ACTION */}
@@ -1663,16 +1877,16 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                   </div>
                   <div>
                     <FieldLabel>Series</FieldLabel>
-                    <select
-                      className={inputCls}
-                      style={inputStyle}
+                    <SearchableSelect
+                      options={[
+                        { value: 'Primary', label: 'Primary' },
+                        { value: 'Secondary', label: 'Secondary' },
+                      ]}
                       value={existingRequest?.series || 'Primary'}
                       onChange={() => { }}
                       disabled={isView}
-                    >
-                      <option value="Primary">Primary</option>
-                      <option value="Secondary">Secondary</option>
-                    </select>
+                      placeholder="Select Series"
+                    />
                   </div>
                 </div>
               )}
@@ -1714,7 +1928,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                     className="w-20 text-right text-xs font-bold font-mono py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all"
                     style={inputStyle}
                     value={discountPercent}
-                    onChange={e => setDiscountPercent(Math.min(100, Math.max(0, Number(e.target.value))))}
+                    onChange={e => setDiscountPercent(validateDiscountPercent(Number(e.target.value)))}
                     disabled={isView}
                   />
                 </div>
@@ -1943,6 +2157,40 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
           </div>
         </div>
       )}
+
+      {/* Modal: Confirm Request Type Switch */}
+      <Modal
+        isOpen={isTypeChangeConfirmOpen}
+        onClose={() => setIsTypeChangeConfirmOpen(false)}
+        title="Switch Request Type?"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            Switching request type to <strong className="text-primary font-bold">{pendingTypeRequest === 'Service' ? 'Service (Non-Inventory)' : 'Material Item'}</strong> will reset existing line items as they use different field structures.
+          </p>
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+            <button
+              type="button"
+              onClick={() => setIsTypeChangeConfirmOpen(false)}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                applyTypeRequestChange(pendingTypeRequest);
+                setIsTypeChangeConfirmOpen(false);
+              }}
+              className="px-4 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm transition-all hover:brightness-110 active:scale-95"
+              style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}
+            >
+              Confirm & Switch
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -22,7 +22,14 @@ import { useQuotations, useQuotation } from '../quotations/api/useQuotations';
 import { useRetailers } from '../customers/api/useRetailers';
 import { useItems } from '../items/api/useItems';
 import { useWarehouses } from '../warehouse/api/useWarehouse';
-import { Button, Spinner } from '../../components/ui';
+import {
+  Button,
+  Spinner,
+  CustomerSelect,
+  ItemSelect,
+  WarehouseSelect,
+  SearchableSelect,
+} from '../../components/ui';
 
 interface FormRow {
   ItemID: number;
@@ -154,7 +161,7 @@ export const SalesOrderFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode =
 
   const handleCopyFromQuotationSelect = (qId: number) => {
     if (!qId) return;
-    navigate(`/deals/new?copyFromQuotation=${qId}`);
+    navigate(`/orders/new?copyFromQuotation=${qId}`);
   };
 
   const handleItemSelect = (index: number, itemId: number) => {
@@ -263,10 +270,10 @@ export const SalesOrderFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode =
 
     if (mode === 'edit' && id) {
       await updateMutation.mutateAsync({ id: Number(id), payload });
-      navigate(`/deals/view/${id}`);
+      navigate(`/orders/view/${id}`);
     } else {
       const created = await createMutation.mutateAsync(payload);
-      navigate(`/deals/view/${created.ID}`);
+      navigate(`/orders/view/${created.ID}`);
     }
   };
 
@@ -280,18 +287,18 @@ export const SalesOrderFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode =
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-6 space-y-6 max-w-[1600px] mx-auto animate-fade-in pb-20">
+    <form onSubmit={handleSubmit} className="p-4 space-y-4 w-full max-w-full animate-fade-in pb-20">
       {/* Top Header */}
-      <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs">
+        <div className="flex items-center gap-3">
           <Link
-            to="/deals"
-            className="p-2 text-slate-500 hover:text-teal-600 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl transition-colors"
+            to="/orders"
+            className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
               {mode === 'edit' ? `Edit Sales Order #${existingOrder?.OrderCode || id}` : 'New Sales Order'}
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -300,32 +307,35 @@ export const SalesOrderFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode =
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {mode === 'add' && (
-            <div className="flex items-center gap-2 mr-2">
+            <div className="flex items-center gap-1.5 mr-2">
               <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
                 <Copy className="w-3.5 h-3.5 text-teal-600" /> Copy From Quote:
               </span>
-              <select
-                onChange={(e) => handleCopyFromQuotationSelect(Number(e.target.value))}
-                value={quotationId || ''}
-                className="px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300"
-              >
-                <option value="">-- Select Quotation --</option>
-                {(openQuotations || []).map(q => (
-                  <option key={q.ID} value={q.ID}>
-                    {q.QuotCode || `QT/${q.ID}`} - {q.CustName} (${q.DocTotal})
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                size="sm"
+                options={[
+                  { value: '', label: '-- Select Quotation --' },
+                  ...(openQuotations || []).map(q => ({
+                    value: String(q.ID),
+                    label: `${q.QuotCode || `QT/${q.ID}`} - ${q.CustName} ($${q.DocTotal})`,
+                    badge: 'Quote',
+                  })),
+                ]}
+                value={quotationId ? String(quotationId) : ''}
+                onChange={(val) => handleCopyFromQuotationSelect(Number(val))}
+                placeholder="-- Select Quotation --"
+                className="w-56"
+              />
             </div>
           )}
 
           <Button
             type="button"
             variant="secondary"
-            onClick={() => navigate('/deals')}
-            className="border-slate-200 dark:border-slate-700 text-xs py-2 px-4 rounded-xl"
+            onClick={() => navigate('/orders')}
+            className="border-slate-200 dark:border-slate-700 text-xs py-1.5 px-3 rounded-lg"
           >
             Cancel
           </Button>
@@ -333,18 +343,19 @@ export const SalesOrderFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode =
             type="submit"
             variant="primary"
             disabled={createMutation.isPending || updateMutation.isPending}
-            className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold py-2 px-5 rounded-xl shadow-md flex items-center gap-2"
+            className="text-white text-xs font-semibold py-1.5 px-3.5 rounded-lg shadow-xs flex items-center gap-1.5"
+            style={{ background: 'var(--color-primary)' }}
           >
-            <Save className="w-4 h-4" />
+            <Save className="w-3.5 h-3.5" />
             {createMutation.isPending || updateMutation.isPending ? 'Saving...' : 'Save Order'}
           </Button>
         </div>
       </div>
 
       {/* Header Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Customer Information Card */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+        <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs space-y-3">
           <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <User className="w-4 h-4 text-teal-600" /> Customer Information
           </h2>
@@ -353,19 +364,13 @@ export const SalesOrderFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode =
             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
               Select Customer *
             </label>
-            <select
+            <CustomerSelect
+              data={customersList}
               value={custCode}
-              onChange={(e) => handleCustomerSelect(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200"
+              onChange={(val) => handleCustomerSelect(val)}
+              placeholder="-- Choose Customer --"
               required
-            >
-              <option value="">-- Choose Customer --</option>
-              {customersList.map(c => (
-                <option key={c.Code} value={c.Code}>
-                  {c.Name} ({c.Code})
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div>
@@ -392,7 +397,7 @@ export const SalesOrderFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode =
         </div>
 
         {/* Dates & Logistics Card */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+        <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs space-y-3">
           <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Calendar className="w-4 h-4 text-teal-600" /> Dates & Logistics
           </h2>
@@ -456,7 +461,7 @@ export const SalesOrderFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode =
         </div>
 
         {/* Financial Summary Preview */}
-        <div className="bg-gradient-to-br from-teal-500/10 via-emerald-500/5 to-transparent p-6 rounded-2xl border border-teal-500/20 shadow-sm flex flex-col justify-between">
+        <div className="bg-gradient-to-br from-teal-500/10 via-emerald-500/5 to-transparent p-4 rounded-xl border border-teal-500/20 shadow-xs flex flex-col justify-between">
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
               <Calculator className="w-4 h-4 text-teal-600" /> Order Financials
@@ -494,7 +499,7 @@ export const SalesOrderFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode =
       </div>
 
       {/* Items Table Card */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm p-6 space-y-4">
+      <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-white">Order Line Items</h2>
@@ -532,35 +537,25 @@ export const SalesOrderFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode =
                   <td className="py-2 px-3 font-medium text-slate-400">{idx + 1}</td>
 
                   {/* Item Picker */}
-                  <td className="py-2 px-3">
-                    <select
+                  <td className="py-2 px-3 min-w-[220px]">
+                    <ItemSelect
+                      size="sm"
+                      data={productsList}
                       value={row.ItemID}
-                      onChange={(e) => handleItemSelect(idx, Number(e.target.value))}
-                      className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
+                      onChange={(id) => handleItemSelect(idx, Number(id))}
+                      placeholder="Select Product / Item"
                       required
-                    >
-                      <option value={0}>-- Select Product / Item --</option>
-                      {productsList.map(item => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} {item.code ? `(${item.code})` : ''} — Stock: {item.onHand || 0}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </td>
 
                   {/* Warehouse Picker */}
-                  <td className="py-2 px-3">
-                    <select
+                  <td className="py-2 px-3 min-w-[160px]">
+                    <WarehouseSelect
+                      size="sm"
+                      data={warehousesList}
                       value={row.WhsCode}
-                      onChange={(e) => handleRowChange(idx, 'WhsCode', Number(e.target.value))}
-                      className="w-full px-2 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
-                    >
-                      {warehousesList.map((wh: any) => (
-                        <option key={wh.ID} value={wh.ID}>
-                          {wh.Name || wh.Code}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => handleRowChange(idx, 'WhsCode', Number(val))}
+                    />
                   </td>
 
                   {/* Quantity */}
@@ -647,7 +642,7 @@ export const SalesOrderFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode =
       </div>
 
       {/* Remarks Section */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm p-6">
+      <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs p-4">
         <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
           Delivery Notes & Order Remarks
         </label>

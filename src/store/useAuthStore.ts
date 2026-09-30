@@ -119,12 +119,24 @@ function mapBackendUser(
 /** Extract a human-readable message from an API error */
 function extractError(err: unknown): string {
   const e = err as any;
-  return (
-    e?.response?.data?.message ||
-    e?.response?.data?.error ||
-    e?.message ||
-    'Something went wrong. Please try again.'
-  );
+  if (e?.response?.data?.message) {
+    return e.response.data.message;
+  }
+  if (e?.response?.data?.error) {
+    return typeof e.response.data.error === 'string'
+      ? e.response.data.error
+      : e.response.data.error?.message || 'Authentication error';
+  }
+  if (e?.response?.status === 401) {
+    return 'Invalid email or password. Please try again.';
+  }
+  if (e?.response?.status === 403) {
+    return 'You do not have permission to perform this action.';
+  }
+  if (e?.message) {
+    return e.message;
+  }
+  return 'Something went wrong. Please try again.';
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -200,20 +212,24 @@ export const useAuthStore = create<AuthStore>()(
 
       // ── Logout ─────────────────────────────────────────────────────────────
       logout: async () => {
-        try {
-          await api.post('/auth/logout');
-        } catch {
-          // ignore — clear state regardless
-        }
+        // Immediately clear client session & storage
         clearRememberMe();
         set({
           user: null,
           tokens: null,
           isAuthenticated: false,
+          isLoading: false,
           error: null,
           isLogoutModalOpen: false,
           sessionOnly: false,
         });
+
+        // Inform backend asynchronously with short timeout so UI is never blocked
+        try {
+          await api.post('/auth/logout', {}, { timeout: 1500 });
+        } catch {
+          // ignore network failure on logout
+        }
       },
 
       // ── Refresh ────────────────────────────────────────────────────────────

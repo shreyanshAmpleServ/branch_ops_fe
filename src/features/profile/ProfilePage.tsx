@@ -236,7 +236,7 @@ export const ProfilePage: React.FC = () => {
     : { background: 'var(--color-surface)', border: '1px solid var(--color-border)' };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text)' }}>

@@ -21,14 +21,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUpDown, ArrowUp, ArrowDown, Search, Columns3, Download, ChevronDown, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, X, FileText, FileJson, Trash2, CheckSquare, LayoutGrid, List, MoreVertical, Check, Filter } from 'lucide-react';
 import { Dropdown } from '../ui/Dropdown';
 import { Tooltip } from '../ui/Tooltip';
-import { Table as AntTable } from 'antd';
-import { DataTable as PrimeDataTable } from 'primereact/datatable';
-import { Column as PrimeColumn } from 'primereact/column';
-import { Table as BootstrapTable } from 'react-bootstrap';
-import { DataGrid, type GridColDef } from '@mui/x-data-grid';
-import { AgGridReact } from 'ag-grid-react';
+import { TableSkeletonLoader } from '../ui/TableSkeletonLoader';
 import { useDesignStore } from '../../store/useDesignStore';
 import { useThemeStore } from '../../store/useThemeStore';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05, delayChildren: 0.02 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 24 } }
+};
 
 export interface RowAction<TData> {
   label: string;
@@ -107,11 +115,11 @@ export function DataTable<TData>({
   serverPagination,
 }: DataTableProps<TData>) {
   const { t } = useTranslation();
-  const { tableDesign, activeDesign, tableLibrary } = useDesignStore();
-  // const { backgroundImage, backgroundColor } = useThemeStore();
+  const { tableDesign, activeDesign } = useDesignStore();
+  const { backgroundImage, backgroundColor } = useThemeStore();
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  const resolvedGlass = activeDesign === 'design1';
+  const resolvedGlass = activeDesign === 'design1' || !!backgroundImage || !!backgroundColor;
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -261,10 +269,10 @@ export function DataTable<TData>({
   const designClasses = {
     modern: {
       wrapper: 'rounded-2xl relative',
-      header: resolvedGlass ? 'bg-white/10 dark:bg-black/20' : 'bg-surface',
-      headerCell: 'font-bold text-[11px] uppercase tracking-wider whitespace-nowrap text-slate-600 dark:text-slate-400',
+      header: resolvedGlass ? 'bg-slate-500/5 dark:bg-black/25 border-b border-slate-200/80 dark:border-white/10' : 'bg-surface',
+      headerCell: 'font-bold text-[11px] uppercase tracking-wider whitespace-nowrap text-slate-700 dark:text-slate-300',
       row: resolvedGlass
-        ? 'border-b border-border/30 hover:bg-white/5 dark:hover:bg-white/5 transition-colors'
+        ? 'border-b border-slate-200/60 dark:border-white/5 hover:bg-slate-500/5 dark:hover:bg-white/5 transition-colors'
         : 'border-b border-border/50 hover:bg-surface-hover/50 transition-colors',
       cell: 'py-2.5 px-3',
     },
@@ -335,7 +343,7 @@ export function DataTable<TData>({
     >
       {/* Toolbar */}
       {(enableSearch || (enableBulkActions && selectedCount > 0) || extraFilters || enableViewToggle || enableColumnVisibility || enableExport) && (
-      <div className="flex items-center justify-between gap-3 p-4 overflow-visible relative z-30" style={{ borderBottom: '1px solid var(--color-border)' }}>
+      <div className="flex items-center justify-between gap-3 p-3 px-4 overflow-visible relative z-30" style={{ borderBottom: '1px solid var(--color-border)' }}>
         <div className="flex items-center gap-2 shrink-0">
           {/* Search */}
           {enableSearch && (
@@ -351,7 +359,7 @@ export function DataTable<TData>({
                   }
                 }}
                 placeholder={searchPlaceholder || t('table.search')}
-                className="input-base pl-9 pr-8 h-9 py-1.5 text-xs rounded-xl w-full"
+                className="input-base pl-9 pr-8 h-9 py-1.5 text-xs rounded-xl w-full bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200/80 dark:border-white/10 focus:bg-white/90 dark:focus:bg-slate-900/90 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 shadow-2xs"
               />
               {(searchValue !== undefined ? searchValue : globalFilter) && (
                 <button onClick={() => {
@@ -401,17 +409,17 @@ export function DataTable<TData>({
             <div className="flex items-center gap-1.5 shrink-0">
               {/* View Toggle */}
               {enableViewToggle && (
-                <div className="flex items-center bg-slate-100 dark:bg-slate-900/60 rounded-xl p-0.5 border border-slate-200 dark:border-slate-700 h-9">
+                <div className="flex items-center bg-white/60 dark:bg-slate-900/60 backdrop-blur-md rounded-xl p-0.5 border border-slate-200/80 dark:border-white/10 h-9 shadow-2xs">
                   <button
                     onClick={() => setViewMode('table')}
-                    className={`p-1.5 rounded-lg transition-all ${viewMode === 'table' ? 'bg-white dark:bg-slate-800 shadow-sm text-teal-600 dark:text-teal-400' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                    className={`p-1.5 rounded-lg transition-all ${viewMode === 'table' ? 'bg-white dark:bg-slate-800 shadow-2xs text-teal-600 dark:text-teal-400 font-semibold' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                     title="Table View"
                   >
                     <List className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-800 shadow-sm text-teal-600 dark:text-teal-400' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                    className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-800 shadow-2xs text-teal-600 dark:text-teal-400 font-semibold' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                     title="Grid View"
                   >
                     <LayoutGrid className="h-4 w-4" />
@@ -425,7 +433,7 @@ export function DataTable<TData>({
                   <Tooltip content={t('table.columns') || 'Columns'} position="bottom" align="center">
                     <button
                       onClick={() => setShowColumnToggle(!showColumnToggle)}
-                      className="h-9 w-9 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors flex items-center justify-center cursor-pointer"
+                      className="h-9 w-9 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200/80 dark:border-white/10 rounded-xl transition-colors flex items-center justify-center cursor-pointer hover:bg-white/90 dark:hover:bg-slate-800/80 shadow-2xs"
                     >
                       <Columns3 className="h-4 w-4" />
                     </button>
@@ -436,8 +444,7 @@ export function DataTable<TData>({
                         initial={{ opacity: 0, y: -5 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -5 }}
-                        className="absolute right-0 top-full mt-2 z-50 min-w-[200px] rounded-xl p-3 shadow-xl"
-                        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                        className="absolute right-0 top-full mt-2 z-50 min-w-[200px] rounded-xl p-3 shadow-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-white/10"
                       >
                         {table.getAllLeafColumns().filter((c) => c.id !== 'select' && c.id !== 'expand').map((column) => (
                           <label key={column.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-surface-hover cursor-pointer">
@@ -447,7 +454,7 @@ export function DataTable<TData>({
                               onChange={column.getToggleVisibilityHandler()}
                               className="rounded accent-primary"
                             />
-                            <span className="text-sm capitalize">{column.id.replace(/([A-Z])/g, ' $1')}</span>
+                            <span className="text-sm capitalize text-slate-700 dark:text-slate-200">{column.id.replace(/([A-Z])/g, ' $1')}</span>
                           </label>
                         ))}
                       </motion.div>
@@ -461,7 +468,7 @@ export function DataTable<TData>({
                 <Tooltip content={showColumnFilters ? "Hide Column Filters" : "Column Filters"} position="bottom" align="center">
                   <button
                     onClick={() => setShowColumnFilters(!showColumnFilters)}
-                    className={`h-9 w-9 text-xs rounded-xl border transition-colors flex items-center justify-center cursor-pointer ${showColumnFilters ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-600 border-teal-300 dark:border-teal-700' : 'text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 hover:text-teal-600'}`}
+                    className={`h-9 w-9 text-xs rounded-xl border transition-colors flex items-center justify-center cursor-pointer shadow-2xs ${showColumnFilters ? 'bg-teal-500/20 text-teal-600 dark:text-teal-400 border-teal-500/40' : 'text-slate-600 dark:text-slate-300 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border-slate-200/80 dark:border-white/10 hover:text-teal-600 hover:bg-white/90 dark:hover:bg-slate-800/80'}`}
                   >
                     <Filter className="h-4 w-4" />
                   </button>
@@ -474,7 +481,7 @@ export function DataTable<TData>({
                   <Tooltip content={t('table.export') || 'Export'} position="bottom" align="right">
                     <button
                       onClick={() => setShowExportMenu(!showExportMenu)}
-                      className="h-9 w-9 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors flex items-center justify-center cursor-pointer"
+                      className="h-9 w-9 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200/80 dark:border-white/10 rounded-xl transition-colors flex items-center justify-center cursor-pointer hover:bg-white/90 dark:hover:bg-slate-800/80 shadow-2xs"
                     >
                       <Download className="h-4 w-4" />
                     </button>
@@ -485,13 +492,12 @@ export function DataTable<TData>({
                         initial={{ opacity: 0, y: -5 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -5 }}
-                        className="absolute right-0 top-full mt-2 z-50 min-w-[160px] rounded-xl py-1.5 shadow-xl"
-                        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                        className="absolute right-0 top-full mt-2 z-50 min-w-[160px] rounded-xl py-1.5 shadow-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-white/10"
                       >
-                        <button onClick={() => exportData('csv')} className="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-surface-hover">
+                        <button onClick={() => exportData('csv')} className="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-surface-hover text-slate-700 dark:text-slate-200">
                           <FileText className="h-4 w-4" /> {t('table.csv')}
                         </button>
-                        <button onClick={() => exportData('json')} className="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-surface-hover">
+                        <button onClick={() => exportData('json')} className="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-surface-hover text-slate-700 dark:text-slate-200">
                           <FileJson className="h-4 w-4" /> {t('table.json')}
                         </button>
                       </motion.div>
@@ -508,11 +514,10 @@ export function DataTable<TData>({
       {/* Table */}
       <div className="overflow-x-auto">
         {isLoading ? (
-          <div className="p-6 space-y-3">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="skeleton h-12 w-full rounded-lg" />
-            ))}
-          </div>
+          <TableSkeletonLoader
+            columnsCount={table.getVisibleFlatColumns().length || 6}
+            viewMode={viewMode}
+          />
         ) : table.getRowModel().rows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4">
             <CheckSquare className="h-12 w-12 mb-3" style={{ color: 'var(--color-text-secondary)', opacity: 0.3 }} />
@@ -520,12 +525,17 @@ export function DataTable<TData>({
             <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>{emptyMessage || t('table.noResultsDesc')}</p>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4" style={activeDesign === 'design1' ? { backgroundColor: 'transparent' } : { backgroundColor: 'var(--color-surface-hover)' }}>
+          <motion.div 
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4" 
+            style={activeDesign === 'design1' ? { backgroundColor: 'transparent' } : { backgroundColor: 'var(--color-surface-hover)' }}
+          >
             {table.getRowModel().rows.map((row) => (
               <motion.div
                 key={row.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
+                variants={itemVariants}
                 className={`${activeDesign === 'design1' ? 'glass-card' : 'bg-surface border border-border'} rounded-xl p-4 transition-all relative group ${row.getIsSelected() ? 'border-primary ring-1 ring-primary/20 bg-primary/5' : ''}`}
                 onClick={() => onRowClick?.(row.original)}
                 style={{ cursor: onRowClick ? 'pointer' : 'default' }}
@@ -584,155 +594,10 @@ export function DataTable<TData>({
                 )}
               </motion.div>
             ))}
-          </div>
+          </motion.div>
         ) : (
           <>
-            {tableLibrary === 'antd' && (
-              <AntTable
-                columns={table.getVisibleFlatColumns().map((col) => {
-                  const headerObj = table.getFlatHeaders().find(h => h.column.id === col.id);
-                  const isActionsCol = col.id === 'actions';
-                  const isIdCol = col.id === 'ID' || col.id === 'id';
-                  return {
-                    title: headerObj && !headerObj.isPlaceholder ? (
-                      <span className="font-bold uppercase tracking-wider" style={{ fontSize: '11px', letterSpacing: '0.05em' }}>
-                        {flexRender(col.columnDef.header, headerObj.getContext())}
-                      </span>
-                    ) : null,
-                    key: col.id,
-                    dataIndex: col.id,
-                    width: isActionsCol ? 100 : isIdCol ? 60 : undefined,
-                    ellipsis: !isActionsCol,
-                    render: (_: any, record: any, index: number) => {
-                      const row = table.getRowModel().rows[index];
-                      if (!row) return null;
-                      const cell = row.getVisibleCells().find(c => c.column.id === col.id);
-                      return cell ? flexRender(cell.column.columnDef.cell, cell.getContext()) : null;
-                    }
-                  };
-                })}
-                dataSource={table.getRowModel().rows.map(r => ({ ...r.original as object, key: r.id }))}
-                pagination={false}
-                bordered={false}
-                size="middle"
-                scroll={{ x: 'max-content' }}
-                rowClassName={(record, index) => {
-                  let cls = 'transition-colors duration-150 ';
-                  if (tableDesign === 'striped' && index % 2 === 1) cls += 'bg-surface-hover/30 ';
-                  const row = table.getRowModel().rows[index];
-                  if (row && row.getIsSelected()) cls += 'bg-primary/10 ';
-                  if (onRowClick) cls += 'cursor-pointer ';
-                  return cls.trim();
-                }}
-                onRow={(record, index) => ({
-                  onClick: () => {
-                    if (onRowClick && index !== undefined) {
-                      const row = table.getRowModel().rows[index];
-                      if (row) onRowClick(row.original);
-                    }
-                  }
-                })}
-              />
-            )}
-
-            {tableLibrary === 'primereact' && (
-              <PrimeDataTable
-                value={table.getRowModel().rows.map(r => ({ ...r.original as object, key: r.id }))}
-                emptyMessage={emptyMessage || t('table.noResultsDesc')}
-                showGridlines={tableDesign === 'card'}
-                stripedRows={tableDesign === 'striped'}
-                size="small"
-                tableStyle={{ minWidth: '50rem' }}
-                rowClassName={(data: any) => {
-                  const row = table.getRowModel().rowsById[data.key];
-                  return row && row.getIsSelected() ? 'bg-primary/10' : '';
-                }}
-              >
-                {table.getVisibleFlatColumns().map((col) => {
-                  const headerObj = table.getFlatHeaders().find(h => h.column.id === col.id);
-                  return (
-                    <PrimeColumn
-                      key={col.id}
-                      field={col.id}
-                      header={headerObj && !headerObj.isPlaceholder ? flexRender(col.columnDef.header, headerObj.getContext()) : null}
-                      body={(data: any) => {
-                        const row = table.getRowModel().rowsById[data.key];
-                        if (!row) return null;
-                        const cell = row.getVisibleCells().find(c => c.column.id === col.id);
-                        return cell ? flexRender(cell.column.columnDef.cell, cell.getContext()) : null;
-                      }}
-                    />
-                  );
-                })}
-              </PrimeDataTable>
-            )}
-
-            {tableLibrary === 'mui' && (
-              <div style={{ height: 500, width: '100%', border: 'none' }}>
-                <DataGrid
-                  rows={table.getRowModel().rows.map(r => ({ ...r.original as object, id: r.id, tanstackId: r.id }))}
-                  columns={table.getVisibleFlatColumns().map(col => {
-                    return {
-                      field: col.id,
-                      headerName: typeof col.columnDef.header === 'string' ? col.columnDef.header : col.id,
-                      renderCell: (params) => {
-                        const row = table.getRowModel().rows.find(r => r.id === String(params.row.tanstackId));
-                        if (!row) return null;
-                        const cell = row.getVisibleCells().find(c => c.column.id === col.id);
-                        return cell ? flexRender(cell.column.columnDef.cell, cell.getContext()) : null;
-                      },
-                      flex: 1,
-                      minWidth: 150
-                    } as GridColDef
-                  })}
-                  hideFooter={true}
-                  rowSelection={false}
-                  disableColumnMenu
-                  sx={{
-                    border: tableDesign === 'card' ? '1px solid var(--color-border)' : 'none',
-                    borderRadius: tableDesign === 'card' ? '16px' : '0',
-                    backgroundColor: tableDesign === 'striped' ? 'var(--color-surface-hover)' : 'transparent',
-                    '& .MuiDataGrid-cell': { borderBottom: '1px solid var(--color-border)', color: 'var(--color-text)' },
-                    '& .MuiDataGrid-columnHeaders': { backgroundColor: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', color: 'var(--color-text)' },
-                  }}
-                />
-              </div>
-            )}
-
-            {tableLibrary === 'aggrid' && (
-              <div className="ag-theme-quartz" style={{ height: 500, width: '100%' }}>
-                <AgGridReact
-                  rowData={table.getRowModel().rows.map(r => ({ ...r.original as object, id: r.id, tanstackId: r.id }))}
-                  columnDefs={table.getVisibleFlatColumns().map(col => {
-                    return {
-                      field: col.id,
-                      headerName: typeof col.columnDef.header === 'string' ? col.columnDef.header : col.id,
-                      cellRenderer: (params: any) => {
-                        const row = table.getRowModel().rows.find(r => r.id === String(params.data.tanstackId));
-                        if (!row) return null;
-                        const cell = row.getVisibleCells().find(c => c.column.id === col.id);
-                        return cell ? flexRender(cell.column.columnDef.cell, cell.getContext()) : null;
-                      },
-                      flex: 1,
-                      minWidth: 150
-                    } as any;
-                  })}
-                  rowSelection="multiple"
-                  suppressRowClickSelection={true}
-                  domLayout="normal"
-                  headerHeight={48}
-                  rowHeight={52}
-                />
-              </div>
-            )}
-
-            {(!tableLibrary || tableLibrary === 'bootstrap') && (
-              <BootstrapTable
-                striped={tableDesign === 'striped'}
-                bordered={tableDesign === 'card'}
-                hover
-                className="mb-0 w-full min-w-[1250px] align-middle"
-              >
+            <table className={`mb-0 w-full min-w-[1250px] align-middle ${tableDesign === 'card' ? 'border border-border' : ''}`}>
                 <thead className={dc.header}>
                   {table.getHeaderGroups().map((headerGroup) => (
                     <React.Fragment key={headerGroup.id}>
@@ -787,12 +652,15 @@ export function DataTable<TData>({
                     </React.Fragment>
                   ))}
                 </thead>
-                <tbody>
+                <motion.tbody
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="show"
+                >
                   {table.getRowModel().rows.map((row) => (
                     <React.Fragment key={row.id}>
                       <motion.tr
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
+                        variants={itemVariants}
                         className={`${dc.row} ${onRowClick ? 'cursor-pointer' : ''}`}
                         onClick={() => onRowClick?.(row.original)}
                       >
@@ -814,9 +682,8 @@ export function DataTable<TData>({
                       )}
                     </React.Fragment>
                   ))}
-                </tbody>
-              </BootstrapTable>
-            )}
+                </motion.tbody>
+              </table>
           </>
         )}
       </div>
@@ -824,7 +691,7 @@ export function DataTable<TData>({
       {/* Pagination */}
       {enablePagination && totalPages > 1 && (
         <div 
-          className="flex flex-col md:flex-row items-center justify-between gap-4 p-4" 
+          className="flex flex-col md:flex-row items-center justify-between gap-3 p-3 px-4" 
           style={{ borderTop: '1px solid var(--color-border)' }}
         >
           {/* Left side: Information about current page / entries */}

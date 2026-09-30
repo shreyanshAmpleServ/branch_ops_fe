@@ -126,6 +126,30 @@ export const ProjectManagement: React.FC = () => {
     }));
   }, [branches]);
 
+  const projectStatusOptions: SearchableSelectOption[] = [
+    { value: 'Pending', label: 'Pending', badge: 'Pending' },
+    { value: 'Planning', label: 'Planning', badge: 'Planning' },
+    { value: 'In Progress', label: 'In Progress', badge: 'Active' },
+    { value: 'On Hold', label: 'On Hold', badge: 'Paused' },
+    { value: 'Completed', label: 'Completed', badge: 'Done' },
+    { value: 'Cancelled', label: 'Cancelled', badge: 'Closed' },
+  ];
+
+  const projectStageOptions: SearchableSelectOption[] = [
+    { value: 'Planning', label: 'Planning', badge: 'Stage 1' },
+    { value: 'Procurement', label: 'Procurement', badge: 'Stage 2' },
+    { value: 'Execution', label: 'Execution', badge: 'Stage 3' },
+    { value: 'Inspection', label: 'Inspection', badge: 'Stage 4' },
+    { value: 'Handover', label: 'Handover', badge: 'Stage 5' },
+  ];
+
+  const projectPriorityOptions: SearchableSelectOption[] = [
+    { value: 'Low', label: 'Low Priority', badge: 'Low' },
+    { value: 'Medium', label: 'Medium Priority', badge: 'Medium' },
+    { value: 'High', label: 'High Priority', badge: 'High' },
+    { value: 'Critical', label: 'Critical Priority', badge: 'Critical' },
+  ];
+
   const createMutation = useCreateProject();
   const updateMutation = useUpdateProject();
   const deleteMutation = useDeleteProject();
@@ -459,7 +483,7 @@ export const ProjectManagement: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto animate-fade-in">
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
       {/* Top Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
         <div>
@@ -528,6 +552,10 @@ export const ProjectManagement: React.FC = () => {
           <DataTable
             columns={columns}
             data={projectsList}
+            isLoading={isLoading}
+            enableRowSelection={true}
+            enableExport={true}
+            exportFileName="projects"
             searchValue={searchTerm}
             onSearchChange={setSearchTerm}
             searchPlaceholder="Search project code, name, client, manager..."
@@ -855,18 +883,13 @@ export const ProjectManagement: React.FC = () => {
                     <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
                       PROJECT STATUS
                     </label>
-                    <select
+                    <SearchableSelect
+                      placeholder="Select status..."
                       value={formData.status || 'In Progress'}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                      className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 font-medium transition-all shadow-sm cursor-pointer"
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Planning">Planning</option>
-                      <option value="In Progress">In Progress</option>
-                      <option value="On Hold">On Hold</option>
-                      <option value="Completed">Completed</option>
-                      <option value="Cancelled">Cancelled</option>
-                    </select>
+                      options={projectStatusOptions}
+                      onChange={(val) => setFormData({ ...formData, status: val as any })}
+                      clearable={false}
+                    />
                   </div>
                 </div>
               </div>
@@ -925,33 +948,26 @@ export const ProjectManagement: React.FC = () => {
                     <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
                       TARGET MILESTONE / STAGE
                     </label>
-                    <select
+                    <SearchableSelect
+                      placeholder="Select stage..."
                       value={formData.stage || 'Planning'}
-                      onChange={(e) => setFormData({ ...formData, stage: e.target.value as any })}
-                      className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 font-medium transition-all shadow-sm cursor-pointer"
-                    >
-                      <option value="Planning">Planning</option>
-                      <option value="Procurement">Procurement</option>
-                      <option value="Execution">Execution</option>
-                      <option value="Inspection">Inspection</option>
-                      <option value="Handover">Handover</option>
-                    </select>
+                      options={projectStageOptions}
+                      onChange={(val) => setFormData({ ...formData, stage: val as any })}
+                      clearable={false}
+                    />
                   </div>
 
                   <div>
                     <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
                       PRIORITY
                     </label>
-                    <select
+                    <SearchableSelect
+                      placeholder="Select priority..."
                       value={formData.priority || 'Medium'}
-                      onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-                      className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 font-medium transition-all shadow-sm cursor-pointer"
-                    >
-                      <option value="Low">Low</option>
-                      <option value="Medium">Medium</option>
-                      <option value="High">High</option>
-                      <option value="Critical">Critical</option>
-                    </select>
+                      options={projectPriorityOptions}
+                      onChange={(val) => setFormData({ ...formData, priority: val as any })}
+                      clearable={false}
+                    />
                   </div>
 
                   <div>

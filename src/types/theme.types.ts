@@ -52,10 +52,11 @@ export const FONT_SIZE_MAP: Record<FontSize, { base: string; sm: string; lg: str
 };
 
 export const PRIMARY_COLORS = [
+  { id: 'burgundy', label: 'Crimson Burgundy', value: '#881337' },
+  { id: 'rose', label: 'Rose Red', value: '#be123c' },
   { id: 'blue', label: 'Ocean Blue', value: '#3b82f6' },
   { id: 'violet', label: 'Royal Violet', value: '#8b5cf6' },
   { id: 'emerald', label: 'Emerald', value: '#10b981' },
-  { id: 'rose', label: 'Rose', value: '#f43f5e' },
   { id: 'amber', label: 'Amber', value: '#f59e0b' },
   { id: 'cyan', label: 'Cyan', value: '#06b6d4' },
   { id: 'indigo', label: 'Indigo', value: '#6366f1' },

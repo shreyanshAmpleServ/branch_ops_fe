@@ -49,19 +49,19 @@ export const ARInvoiceViewPage: React.FC = () => {
   const isPaid = status === 'C' || status === 'CLOSED' || status === 'PAID';
 
   return (
-    <div className="p-6 space-y-6 max-w-[1400px] mx-auto animate-fade-in pb-20">
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in pb-20">
       {/* Top Action Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm print:hidden">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs print:hidden">
+        <div className="flex items-center gap-3">
           <Link
             to="/invoice"
-            className="p-2 text-slate-500 hover:text-teal-600 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl transition-colors"
+            className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
                 Tax Invoice #{invoice.InvoiceCode || `INV/${invoice.ID}`}
               </h1>
               <Badge variant={isPaid ? 'success' : 'warning'} dot>
@@ -74,26 +74,26 @@ export const ARInvoiceViewPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Button
             variant="secondary"
             onClick={handlePrint}
-            className="border-slate-200 dark:border-slate-700 text-xs py-2 px-4 rounded-xl flex items-center gap-2"
+            className="border-slate-200 dark:border-slate-700 text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5"
           >
-            <Printer className="w-4 h-4" /> Print / PDF
+            <Printer className="w-3.5 h-3.5" /> Print / PDF
           </Button>
           <Button
             variant="secondary"
             onClick={() => navigate(`/invoice/edit/${invoice.ID}`)}
-            className="border-slate-200 dark:border-slate-700 text-xs py-2 px-4 rounded-xl flex items-center gap-2"
+            className="border-slate-200 dark:border-slate-700 text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5"
           >
-            <Edit2 className="w-4 h-4 text-indigo-600" /> Edit
+            <Edit2 className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} /> Edit
           </Button>
         </div>
       </div>
 
       {/* Printable Invoice Card */}
-      <div ref={printRef} className="bg-white dark:bg-slate-800 p-8 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-8">
+      <div ref={printRef} className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-5 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs space-y-6">
         {/* Document Banner */}
         <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-slate-100 dark:border-slate-700/80 pb-6">
           <div>
@@ -149,7 +149,7 @@ export const ARInvoiceViewPage: React.FC = () => {
               <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
                 <span className="text-slate-400">Origin Sales Order: </span>
                 <Link
-                  to={`/deals/view/${invoice.order.ID}`}
+                  to={`/orders/view/${invoice.order.ID}`}
                   className="underline text-teal-600 font-semibold"
                 >
                   {invoice.order.OrderCode || `Order #${invoice.order.ID}`}

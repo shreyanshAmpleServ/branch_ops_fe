@@ -34,7 +34,7 @@ export const PurchaseQuotationViewPage: React.FC = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
       <PurchaseQuotationReceiptView
         quotation={quotation}
         onBack={() => navigate('/procurement/quotation')}

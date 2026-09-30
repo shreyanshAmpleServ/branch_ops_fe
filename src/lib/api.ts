@@ -77,8 +77,18 @@ api.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error) => {
     const originalRequest = error.config;
+    const url = originalRequest?.url || '';
 
-    if (error.response?.status !== 401 || originalRequest._retry) {
+    // Auth endpoints (/auth/login, /auth/register, /auth/refresh, /auth/logout)
+    // should NEVER attempt token refresh. A 401 here represents invalid credentials
+    // or an expired session that must immediately fail back to the caller.
+    const isAuthEndpoint =
+      url.includes('/auth/login') ||
+      url.includes('/auth/register') ||
+      url.includes('/auth/refresh') ||
+      url.includes('/auth/logout');
+
+    if (!originalRequest || error.response?.status !== 401 || originalRequest._retry || isAuthEndpoint) {
       return Promise.reject(error);
     }
 
@@ -98,12 +108,12 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      // Call the real refresh endpoint — the httpOnly refreshToken cookie is
-      // sent automatically thanks to `withCredentials: true`
-      const { data } = await api.post<{
+      // Call the refresh endpoint directly using raw axios to completely avoid
+      // re-entering this interceptor and causing deadlocks
+      const { data } = await axios.post<{
         status: string;
         data: { accessToken: string };
-      }>('/auth/refresh');
+      }>(`${API_BASE_URL}/auth/refresh`, {}, { withCredentials: true, timeout: 10000 });
 
       const newAccessToken = data.data.accessToken;
 
@@ -126,9 +136,12 @@ api.interceptors.response.use(
       return api(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError, null);
-      // Refresh failed — clear auth and go to login
+      // Refresh failed — clear auth state
       localStorage.removeItem('salesapp-auth');
-      window.location.href = '/login';
+      // Only redirect if user is not already on login page to preserve error state
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;

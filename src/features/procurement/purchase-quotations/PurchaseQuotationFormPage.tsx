@@ -35,8 +35,32 @@ import api, { getAttachmentUrl, getFileName } from '../../../lib/api';
 import { useRetailers } from '../../customers/api/useRetailers';
 import { usePurchaseRequests } from '../purchase-requests/api/usePurchaseRequests';
 import { useItems } from '../../items/api/useItems';
-import { useProjects, useWarehouses, useCostCentersMain, useBranches } from '../../users/api/useMasterData';
-import { Button, Spinner, SearchableSelect, type SearchableSelectOption } from '../../../components/ui';
+import { useProjects, useWarehouses, useCostCentersMain, useBranches, useAccounts } from '../../users/api/useMasterData';
+import {
+  PAYMENT_TERMS_OPTIONS,
+  TAX_CODE_OPTIONS,
+  formatItemCatalogOption,
+  renderItemOption,
+  formatVendorOption,
+  renderVendorOption,
+  validateDiscountPercent,
+} from '../procurementConstants';
+import {
+  Button,
+  Spinner,
+  SearchableSelect,
+  VendorSelect,
+  WarehouseSelect,
+  ProjectSelect,
+  TaxSelect,
+  GLAccountSelect,
+  PaymentTermsSelect,
+  StageSelect,
+  CostCenterSelect,
+  BranchSelect,
+  type SearchableSelectOption,
+  toast,
+} from '../../../components/ui';
 
 interface PurchaseQuotationFormPageProps {
   mode: 'add' | 'edit' | 'view';
@@ -105,47 +129,41 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
   const { data: warehousesResponse } = useWarehouses();
   const { data: costCentersMainResponse } = useCostCentersMain();
   const { data: branchesResponse } = useBranches();
+  const { data: accountsResponse } = useAccounts();
 
   const suppliersList = (Array.isArray(suppliersResponse) ? suppliersResponse : (suppliersResponse as any)?.data) || [];
+  const accountsList = accountsResponse?.data || [];
   const supplierOptions: SearchableSelectOption[] = React.useMemo(() => {
-    return suppliersList.map((s: any) => ({
-      value: s.Code || s.code,
-      label: `${s.Code || s.code} — ${s.Name || s.name}`,
-      subtext: [s.TIN || s.tin ? `TIN: ${s.TIN || s.tin}` : '', s.Address || s.address].filter(Boolean).join(' • '),
-      raw: s
-    }));
+    return suppliersList.map(formatVendorOption);
   }, [suppliersList]);
   const itemsList = itemsResponse?.items || (Array.isArray(itemsResponse) ? itemsResponse : (itemsResponse as any)?.data) || [];
   const itemCatalogOptions: SearchableSelectOption[] = React.useMemo(() => {
-    return itemsList.map((itm: any) => {
-      const code = itm.itemCode || itm.ItemCode || itm.code || `ITM-${itm.id || itm.ID}`;
-      const name = itm.itemName || itm.ItemName || itm.name || 'Unnamed Item';
-      const price = Number(itm.lastPurPrc || itm.price || itm.UnitPrice || 0);
-      return {
-        value: code,
-        label: `${code} — ${name}`,
-        subtext: `Price: ${price.toLocaleString(undefined, { minimumFractionDigits: 2 })} TZS`,
-        extra: `${price.toLocaleString(undefined, { minimumFractionDigits: 2 })} TZS`,
-        raw: itm,
-      };
-    });
+    return itemsList.map(formatItemCatalogOption);
   }, [itemsList]);
   const projectsList = projectsResponse?.data || [];
   const warehousesList = warehousesResponse?.data || [];
   const costCentersList = costCentersMainResponse?.data || [];
   const branchesList = (Array.isArray(branchesResponse) ? branchesResponse : (branchesResponse as any)?.data) || [];
 
-  const productsList = React.useMemo(() => {
+  const projectStagesList = React.useMemo(() => {
     return costCentersList.filter(cc => cc.dimCode === 1);
   }, [costCentersList]);
 
-  const locationsList = React.useMemo(() => {
+  const projectSubStagesList = React.useMemo(() => {
+    return costCentersList.filter(cc => cc.dimCode === 2);
+  }, [costCentersList]);
+
+  const detailSubStagesList = React.useMemo(() => {
     return costCentersList.filter(cc => cc.dimCode === 3);
   }, [costCentersList]);
 
-  const assetsList = React.useMemo(() => {
+  const moreDetailSubStagesList = React.useMemo(() => {
     return costCentersList.filter(cc => cc.dimCode === 4);
   }, [costCentersList]);
+
+  const productsList = projectStagesList;
+  const locationsList = detailSubStagesList;
+  const assetsList = moreDetailSubStagesList;
 
   const createMutation = useCreatePurchaseQuotation();
   const updateMutation = useUpdatePurchaseQuotation();
@@ -179,6 +197,26 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
   const requestsList = React.useMemo(() => {
     return Array.isArray(rawRequests) ? rawRequests : (rawRequests as any)?.data || [];
   }, [rawRequests]);
+
+  const requestOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return requestsList.map((req: any) => ({
+      value: req.ID,
+      label: `${req.RequestedNo || req.OrderCode || `PR #${req.ID}`} - ${req.CustName || 'Request'}`,
+      badge: 'PR',
+      subtext: req.DocDate ? `Date: ${new Date(req.DocDate).toLocaleDateString()}` : undefined,
+    }));
+  }, [requestsList]);
+
+  const currencyOptions: SearchableSelectOption[] = [
+    { value: 'TZS', label: 'TZS - Tanzanian Shilling', badge: 'TZS' },
+    { value: 'USD', label: 'USD - US Dollar', badge: 'USD' },
+    { value: 'EUR', label: 'EUR - Euro', badge: 'EUR' },
+  ];
+
+  const typeRequestOptions: SearchableSelectOption[] = [
+    { value: 'Item', label: 'Item (Material Inventory)', badge: 'Material' },
+    { value: 'Service', label: 'Service (Contract / Fees)', badge: 'Service' },
+  ];
 
   const handleOpenCopyPrModal = () => {
     setSelectedPrForCopy(null);
@@ -367,9 +405,10 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
         }
       }
       setAttachments(newAttachments);
+      toast.success('Upload Successful', `${files.length} attachment file${files.length > 1 ? 's' : ''} added.`);
     } catch (err) {
       console.error('File upload failed:', err);
-      alert('Failed to upload file. Please try again.');
+      toast.error('Upload Failed', 'Failed to upload file. Please try again.');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -378,6 +417,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
 
   const handleRemoveAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, idx) => idx !== index).map((att, idx) => ({ ...att, LineNum: idx + 1 })));
+    toast.info('Attachment Removed', 'The file has been removed.');
   };
 
   const handleSupplierChange = (code: string) => {
@@ -420,6 +460,28 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
         copy[activeRowIndexForModal] = line;
         return copy;
       });
+    } else if (items.length === 1 && !items[0].ItemID && !items[0].ItemCode) {
+      setItems(prev => {
+        const copy = [...prev];
+        const line = { ...copy[0] };
+        line.ItemID = itemId;
+        line.ItemCode = itemCode;
+        line.ItemName = itemName;
+        line.UnitPrice = unitPrice;
+        line.UoM = uom;
+
+        const qty = line.Quantity || 1;
+        const disc = line.DiscPrcnt || 0;
+        const vat = line.VATPer ?? 18;
+        const baseAmount = qty * unitPrice;
+        const afterDisc = baseAmount * (1 - disc / 100);
+        const tax = afterDisc * (vat / 100);
+        line.LineTax = tax;
+        line.LineTotalLC = afterDisc + tax;
+
+        copy[0] = line;
+        return copy;
+      });
     } else {
       const newItem: PurchaseQuotationItem = {
         LineNum: items.length + 1,
@@ -437,6 +499,8 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
         UoM: uom,
         vendor: custCode || '',
         DIM1: '', DIM2: '', DIM3: '', DIM4: '', DIM5: '',
+        WhsCode: undefined,
+        project: '',
       };
       setItems(prev => [...prev, newItem]);
     }
@@ -455,6 +519,8 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
       UoM: 'pcs',
       vendor: custCode || '',
       DIM1: '', DIM2: '', DIM3: '', DIM4: '', DIM5: '',
+      WhsCode: undefined,
+      project: '',
     }]);
   };
 
@@ -475,6 +541,18 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
       Remarks: '',
       UoM: 'svc',
       vendor: custCode || '',
+      VendorCode: custCode || '',
+      VendorName: custName || '',
+      GLCode: '',
+      GLName: '',
+      PaymentTerms: 'Net 30 Days',
+      po_id: 'Net 30 Days',
+      TotalExclusive: 0,
+      TotalInclusive: 0,
+      TaxCode: 'VAT_18',
+      TaxAmount: 0,
+      Discount: 0,
+      project: '',
       DIM1: '', DIM2: '', DIM3: '', DIM4: '', DIM5: '',
     }]);
   };
@@ -483,22 +561,52 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
     setItems(prev => prev.filter((_, idx) => idx !== index).map((item, idx) => ({ ...item, LineNum: idx + 1 })));
   };
 
-  const handleItemSelect = (index: number, itemId: number) => {
-    const selectedItem = itemsList.find((i: any) => Number(i.id || i.ID) === Number(itemId));
+  const handleItemSelect = (index: number, selectedItemOrId: any) => {
+    if (!selectedItemOrId) {
+      setItems(prev => {
+        const copy = [...prev];
+        if (!copy[index]) return prev;
+        const line = { ...copy[index] };
+        line.ItemID = 0;
+        line.ItemCode = '';
+        line.ItemName = '';
+        line.UnitPrice = 0;
+        line.LineTax = 0;
+        line.LineTotalLC = 0;
+        copy[index] = line;
+        return copy;
+      });
+      return;
+    }
+
+    let selectedItem: any = typeof selectedItemOrId === 'object' && selectedItemOrId !== null ? selectedItemOrId : null;
+    if (!selectedItem) {
+      selectedItem = itemsList.find((i: any) =>
+        Number(i.id || i.ID) === Number(selectedItemOrId) ||
+        (i.code || i.Code || i.itemCode || i.ItemCode) === String(selectedItemOrId)
+      );
+    }
+
+    const itemId = Number(selectedItem?.id || selectedItem?.ID || (typeof selectedItemOrId === 'number' ? selectedItemOrId : 0));
+    const itemCode = selectedItem?.code || selectedItem?.ItemCode || selectedItem?.itemCode || (itemId ? `ITM-${itemId}` : (typeof selectedItemOrId === 'string' ? selectedItemOrId : ''));
+    const itemName = selectedItem?.name || selectedItem?.ItemName || selectedItem?.itemName || (itemCode ? 'Unnamed Item' : '');
+    const unitPrice = Number(selectedItem?.lastPurPrc ?? selectedItem?.price ?? selectedItem?.UnitPrice ?? 0);
+    const uom = selectedItem?.uom || selectedItem?.UoM || 'pcs';
+
     setItems(prev => {
       const copy = [...prev];
+      if (!copy[index]) return prev;
       const line = { ...copy[index] };
-      line.ItemID = Number(selectedItem?.id || selectedItem?.ID || itemId);
-      line.ItemCode = selectedItem?.code || selectedItem?.ItemCode || selectedItem?.itemCode || '';
-      line.ItemName = selectedItem?.name || selectedItem?.ItemName || selectedItem?.itemName || '';
-      line.UnitPrice = Number(selectedItem?.lastPurPrc ?? selectedItem?.price ?? selectedItem?.UnitPrice ?? 0);
-      line.UoM = selectedItem?.uom || selectedItem?.UoM || 'pcs';
+      line.ItemID = itemId;
+      line.ItemCode = itemCode;
+      line.ItemName = itemName;
+      line.UnitPrice = unitPrice;
+      line.UoM = uom;
 
-      const qty = line.Quantity || 1;
-      const price = line.UnitPrice;
-      const disc = line.DiscPrcnt || 0;
-      const vat = line.VATPer ?? 18;
-      const baseAmount = qty * price;
+      const qty = Number(line.Quantity || 1);
+      const disc = Number(line.DiscPrcnt || 0);
+      const vat = Number(line.VATPer ?? 18);
+      const baseAmount = qty * unitPrice;
       const afterDisc = baseAmount * (1 - disc / 100);
       const tax = afterDisc * (vat / 100);
       line.LineTax = tax;
@@ -512,11 +620,15 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
   const handleItemLineChange = (index: number, field: keyof PurchaseQuotationItem, value: any) => {
     setItems(prev => {
       const copy = [...prev];
-      const line = { ...copy[index], [field]: value };
-      const qty = Number(field === 'Quantity' ? value : line.Quantity || 0);
-      const price = Number(field === 'UnitPrice' ? value : line.UnitPrice || 0);
-      const disc = Number(field === 'DiscPrcnt' ? value : line.DiscPrcnt || 0);
-      const vat = Number(field === 'VATPer' ? value : line.VATPer || 0);
+      let processedValue = value;
+      if (field === 'DiscPrcnt' || (field as any) === 'Discount') {
+        processedValue = validateDiscountPercent(Number(value));
+      }
+      const line = { ...copy[index], [field]: processedValue };
+      const qty = Number(field === 'Quantity' ? processedValue : line.Quantity || 0);
+      const price = Number(field === 'UnitPrice' ? processedValue : line.UnitPrice || 0);
+      const disc = Number((field === 'DiscPrcnt' || (field as any) === 'Discount') ? processedValue : line.DiscPrcnt || 0);
+      const vat = Number(field === 'VATPer' ? processedValue : line.VATPer || 0);
 
       const baseAmount = qty * price;
       const afterDisc = baseAmount * (1 - disc / 100);
@@ -542,19 +654,27 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!custCode) { alert('Please select a supplier'); return; }
+    if (!custCode) {
+      toast.error('Validation Error', 'Please select a supplier.');
+      return;
+    }
     if (items.length === 0) {
-      alert(typeRequest === 'Service' ? 'Please add at least one service line' : 'Please add at least one item line');
+      toast.error(
+        'Validation Error',
+        typeRequest === 'Service'
+          ? 'Please add at least one service line'
+          : 'Please add at least one item line'
+      );
       return;
     }
     if (typeRequest === 'Service') {
       if (items.some(item => !item.ItemName && !item.Remarks)) {
-        alert('Please enter a service description for all service lines');
+        toast.error('Validation Error', 'Please enter a service description for all service lines.');
         return;
       }
     } else {
-      if (items.some(item => !item.ItemID)) {
-        alert('Please select a valid item for all lines');
+      if (items.some(item => !item.ItemID && !item.ItemCode)) {
+        toast.error('Validation Error', 'Please select a valid item for all material lines.');
         return;
       }
     }
@@ -582,9 +702,12 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
         cost_center: item.cost_center ? Number(item.cost_center) : undefined,
         project: item.project || undefined, Remarks: item.Remarks || undefined,
         UoM: item.UoM || (typeRequest === 'Service' ? 'svc' : undefined),
+        vendor: item.vendor || item.VendorCode || undefined,
+        vendorRef: item.GLCode || item.vendorRef || undefined,
+        po_id: item.PaymentTerms || item.po_id || undefined,
         DIM1: item.DIM1 || undefined, DIM2: item.DIM2 || undefined,
         DIM3: item.DIM3 || undefined, DIM4: item.DIM4 || undefined, DIM5: item.DIM5 || undefined,
-        Location: item.Location || undefined,
+        Location: item.Location || item.DIM3 || undefined,
       })),
       attachments: attachments.map((att, idx) => ({
         LineNum: idx + 1,
@@ -594,13 +717,15 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
     try {
       if (mode === 'edit' && numericId) {
         await updateMutation.mutateAsync({ id: numericId, payload });
+        toast.success('Purchase Quotation Updated', 'The quotation has been saved successfully.');
       } else {
         await createMutation.mutateAsync(payload);
+        toast.success('Purchase Quotation Created', 'New purchase quotation has been created successfully.');
       }
       navigate('/procurement/quotation');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to save purchase quotation');
+      toast.error('Save Failed', err?.response?.data?.message || err?.message || 'Failed to save purchase quotation.');
     }
   };
 
@@ -625,7 +750,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
 
   return (
     <div className="min-h-screen w-full animate-fade-in" style={{ background: 'var(--color-bg)' }}>
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 space-y-5">
+      <div className="w-full max-w-full p-4 space-y-4">
 
         {/* PAGE HEADER */}
         <div className="rounded-2xl border px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
@@ -684,12 +809,12 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
           <SectionHeader icon={<Info className="h-3.5 w-3.5" />} title="Quotation Header & Supplier Information" />
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <SearchableSelect
+              <VendorSelect
                 label="Supplier / Vendor *"
                 value={custCode}
-                onChange={(val, opt) => {
+                data={suppliersList}
+                onChange={(val, supp) => {
                   const code = String(val);
-                  const supp = opt?.raw || suppliersList.find((s: any) => (s.Code || s.code) === code);
                   if (supp) {
                     setCustCode(code);
                     setCustName(supp.Name || supp.name || '');
@@ -698,8 +823,6 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                     setCustCode(code);
                   }
                 }}
-                options={supplierOptions}
-                placeholder="Select Supplier…"
                 disabled={isView}
               />
               <div>
@@ -737,28 +860,23 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <FieldLabel>Branch Location</FieldLabel>
-                <select
-                  className={inputCls}
+                <BranchSelect
+                  label="Branch Location"
                   value={branchId}
-                  onChange={e => setBranchId(e.target.value ? Number(e.target.value) : '')}
+                  data={branchesList}
+                  onChange={val => setBranchId(val ? Number(val) : '')}
                   disabled={isView}
-                >
-                  <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Branch…</option>
-                  {branchesList.map((b: any) => (
-                    <option key={b.id || b.Branch_id} value={b.id || b.Branch_id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
-                      {b.Branch_name || b.name || `Branch #${b.id}`}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select Branch..."
+                />
               </div>
               <div>
-                <FieldLabel>Linked Purchase Request</FieldLabel>
-                <select
-                  className={inputCls}
+                <SearchableSelect
+                  label="Linked Purchase Request"
                   value={purchaseRequestId}
-                  onChange={e => {
-                    const reqId = e.target.value ? Number(e.target.value) : '';
+                  options={requestOptions}
+                  placeholder="None (Direct Quotation)"
+                  onChange={val => {
+                    const reqId = val ? Number(val) : '';
                     setPurchaseRequestId(reqId);
                     const matchedReq = (rawRequests || []).find((r: any) => r.ID === reqId);
                     if (matchedReq) {
@@ -786,14 +904,8 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                     }
                   }}
                   disabled={isView}
-                >
-                  <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">None (Direct Quotation)</option>
-                  {(rawRequests || []).map((req: any) => (
-                    <option key={req.ID} value={req.ID} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
-                      {req.RequestedNo || req.OrderCode || `PR #${req.ID}`} - {req.CustName || 'Request'}
-                    </option>
-                  ))}
-                </select>
+                  clearable
+                />
               </div>
               <div>
                 <FieldLabel>Department</FieldLabel>
@@ -809,16 +921,15 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
               <div>
                 <FieldLabel>Currency &amp; Exchange Rate</FieldLabel>
                 <div className="flex gap-2">
-                  <select
-                    className={inputCls}
-                    value={currency}
-                    onChange={e => setCurrency(e.target.value)}
-                    disabled={isView}
-                  >
-                    <option value="TZS" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">TZS</option>
-                    <option value="USD" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">USD</option>
-                    <option value="EUR" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">EUR</option>
-                  </select>
+                  <div className="flex-1">
+                    <SearchableSelect
+                      value={currency}
+                      options={currencyOptions}
+                      onChange={val => setCurrency(String(val || 'TZS'))}
+                      disabled={isView}
+                      clearable={false}
+                    />
+                  </div>
                   <input
                     type="number" step="any"
                     className={inputCls + ' w-24 text-right'}
@@ -829,20 +940,18 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                 </div>
               </div>
               <div>
-                <FieldLabel>Request Type *</FieldLabel>
-                <select
-                  className={inputCls}
+                <SearchableSelect
+                  label="Request Type *"
                   value={typeRequest}
-                  onChange={e => {
-                    const newType = e.target.value;
+                  options={typeRequestOptions}
+                  onChange={val => {
+                    const newType = String(val || 'Item');
                     setTypeRequest(newType);
                     setRequestType(newType);
                   }}
                   disabled={isView}
-                >
-                  <option value="Item">Item (Material Inventory)</option>
-                  <option value="Service">Service (Contract / Fees)</option>
-                </select>
+                  clearable={false}
+                />
               </div>
               <div>
                 <FieldLabel>Full Supplier Address</FieldLabel>
@@ -930,17 +1039,18 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
             ) : typeRequest === 'Service' ? (
               /* ─── SERVICE TABLE ─── */
               <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm animate-fade-in">
-                <table className="w-full text-left border-collapse min-w-[1500px]">
+                <table className="w-full text-left border-collapse min-w-[2200px]">
                   <thead>
-                    <tr className="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700">
+                    <tr className="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold uppercase text-[9px] tracking-widest border-b border-slate-200 dark:border-slate-700">
                       {[
-                        '#', 'SERVICE DESCRIPTION *', 'AMOUNT / FEE (TZS)', 'TAX CODE', 'DISC %',
-                        'TAX AMOUNT', 'TOTAL WITH TAX', 'PROJECT', 'PRODUCT / DIM1',
-                        'LOCATION', 'ASSET', 'REMARKS', 'ACTION'
+                        '#', 'VENDOR', 'DESCRIPTION *', 'GL CODE', 'TOTAL (EXCLUSIVE)',
+                        'TAX CODE', 'DISCOUNT', 'TAX AMOUNT', 'TOTAL (INCLUSIVE)', 'PAYMENT TERMS',
+                        'PROJECT', 'PROJECT STAGE', 'PROJECT SUB STAGE',
+                        'DETAIL SUB STAGE', 'MORE DETAIL SUB STAGE', 'ACTION'
                       ].map((h, i) => (
                         <th
                           key={i}
-                          className="py-3 px-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap text-slate-600 dark:text-slate-300"
+                          className="py-3 px-3 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap text-slate-600 dark:text-slate-300"
                         >
                           {h}
                         </th>
@@ -956,24 +1066,65 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                           className="border-b transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-700/30"
                         >
                           {/* Line number */}
-                          <td className="py-2.5 px-3 w-[50px] text-center font-bold text-slate-500">
+                          <td className="py-2.5 px-3 w-[45px] text-center font-bold text-slate-500">
                             {idx + 1}
                           </td>
 
+                          {/* VENDOR */}
+                          <td className="py-2.5 px-2 min-w-[210px]">
+                            <VendorSelect
+                              size="sm"
+                              data={suppliersList}
+                              value={line.vendor || line.VendorCode || ''}
+                              onChange={(selectedVendorCode, supp) => {
+                                handleItemLineChange(idx, 'vendor', selectedVendorCode);
+                                handleItemLineChange(idx, 'VendorCode' as any, selectedVendorCode);
+                                if (supp) {
+                                  handleItemLineChange(idx, 'VendorName' as any, supp.Name || supp.name);
+                                  if (supp.PaymentTerms && !line.PaymentTerms) {
+                                    handleItemLineChange(idx, 'PaymentTerms' as any, supp.PaymentTerms);
+                                    handleItemLineChange(idx, 'po_id', supp.PaymentTerms);
+                                  }
+                                }
+                              }}
+                              disabled={isView}
+                            />
+                          </td>
+
                           {/* SERVICE DESCRIPTION */}
-                          <td className="py-2.5 px-2 min-w-[320px]">
+                          <td className="py-2.5 px-2 min-w-[260px]">
                             <input
                               type="text"
                               placeholder="Describe service / fee / contract details..."
                               className="w-full text-xs font-semibold py-2 px-3 rounded-lg border outline-none bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-600 shadow-sm focus:ring-2 focus:ring-indigo-500"
                               value={line.ItemName || line.Remarks || ''}
-                              onChange={e => handleItemLineChange(idx, 'ItemName', e.target.value)}
+                              onChange={e => {
+                                handleItemLineChange(idx, 'ItemName', e.target.value);
+                                handleItemLineChange(idx, 'Remarks', e.target.value);
+                              }}
+                              disabled={isView}
+                            />
+                          </td>
+
+                          {/* GL CODE */}
+                          <td className="py-2.5 px-2 min-w-[220px]">
+                            <GLAccountSelect
+                              size="sm"
+                              data={accountsList}
+                              value={line.GLCode || line.vendorRef || ''}
+                              onChange={(val, acct) => {
+                                handleItemLineChange(idx, 'GLCode' as any, val);
+                                handleItemLineChange(idx, 'vendorRef', val);
+                                if (acct) {
+                                  handleItemLineChange(idx, 'GLName' as any, acct.acctName || acct.name);
+                                }
+                              }}
                               disabled={isView}
                             />
                           </td>
 
                           {/* AMOUNT / FEE */}
-                          <td className="py-2.5 px-2 w-[160px]">
+                          <td className="py-2.5 px-2 w-[150px]">
                             <input
                               type="number" step="any" min="0"
                               placeholder="0.00"
@@ -982,6 +1133,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                               onChange={e => {
                                 const price = Number(e.target.value) || 0;
                                 handleItemLineChange(idx, 'UnitPrice', price);
+                                handleItemLineChange(idx, 'TotalExclusive' as any, price);
                                 handleItemLineChange(idx, 'Quantity', 1);
                               }}
                               disabled={isView}
@@ -989,32 +1141,32 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                           </td>
 
                           {/* TAX CODE */}
-                          <td className="py-2.5 px-2 min-w-[150px]">
-                            <select
-                              className={tableInputCls}
+                          <td className="py-2.5 px-2 w-[160px]">
+                            <TaxSelect
+                              size="sm"
                               value={line.VATCode || 'VAT_18'}
-                              onChange={e => {
-                                const code = e.target.value;
+                              onChange={code => {
                                 const rate = code === 'VAT_18' ? 18 : code === 'VAT_10' ? 10 : 0;
                                 handleItemLineChange(idx, 'VATCode', code);
+                                handleItemLineChange(idx, 'TaxCode' as any, code);
                                 handleItemLineChange(idx, 'VATPer', rate);
                               }}
                               disabled={isView}
-                            >
-                              <option value="VAT_18" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Input VAT 18%</option>
-                              <option value="VAT_10" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Input VAT 10%</option>
-                              <option value="VAT_0" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Zero Rated 0%</option>
-                              <option value="VAT_EXEMPT" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Exempt 0%</option>
-                            </select>
+                            />
                           </td>
 
                           {/* DISCOUNT % */}
                           <td className="py-2.5 px-2 w-[90px]">
                             <input
                               type="number" min="0" max="100" step="any"
+                              placeholder="0"
                               className={tableInputCls + ' text-center font-bold'}
                               value={line.DiscPrcnt || 0}
-                              onChange={e => handleItemLineChange(idx, 'DiscPrcnt', Math.min(100, Math.max(0, Number(e.target.value))))}
+                              onChange={e => {
+                                const disc = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                                handleItemLineChange(idx, 'DiscPrcnt', disc);
+                                handleItemLineChange(idx, 'Discount' as any, disc);
+                              }}
                               disabled={isView}
                             />
                           </td>
@@ -1030,84 +1182,87 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                           </td>
 
                           {/* TOTAL WITH TAX */}
-                          <td className="py-2.5 px-3 w-[140px] text-right font-extrabold font-mono text-xs text-indigo-600 dark:text-indigo-400">
+                          <td className="py-2.5 px-3 w-[150px] text-right font-extrabold font-mono text-xs text-indigo-600 dark:text-indigo-400">
                             {Number(line.LineTotalLC || amountBeforeTax).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                           </td>
 
+                          {/* PAYMENT TERMS */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <PaymentTermsSelect
+                              size="sm"
+                              value={line.PaymentTerms || line.po_id || 'Net 30 Days'}
+                              onChange={val => {
+                                handleItemLineChange(idx, 'PaymentTerms' as any, val);
+                                handleItemLineChange(idx, 'po_id', val);
+                              }}
+                              disabled={isView}
+                            />
+                          </td>
+
                           {/* PROJECT */}
-                          <td className="py-2.5 px-2 min-w-[160px]">
-                            <select
-                              className={tableInputCls}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <ProjectSelect
+                              size="sm"
+                              data={projectsList}
                               value={line.project || ''}
-                              onChange={e => handleItemLineChange(idx, 'project', e.target.value)}
+                              onChange={val => handleItemLineChange(idx, 'project', val)}
                               disabled={isView}
-                            >
-                              <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Project…</option>
-                              {projectsList.map((p: any) => (
-                                <option key={p.code || p.PrjCode || p.id} value={p.code || p.PrjCode} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{p.code || p.PrjCode} — {p.name || p.PrjName}</option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
-                          {/* PRODUCT / DIM1 */}
-                          <td className="py-2.5 px-2 min-w-[160px]">
-                            <select
-                              className={tableInputCls}
+                          {/* PROJECT STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={1}
+                              data={costCentersList}
                               value={line.DIM1 || ''}
-                              onChange={e => handleItemLineChange(idx, 'DIM1', e.target.value)}
+                              onChange={val => handleItemLineChange(idx, 'DIM1', val)}
                               disabled={isView}
-                            >
-                              <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Product / CC…</option>
-                              {productsList.map((p: any) => (
-                                <option key={p.code} value={p.code} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{p.code} — {p.name}</option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
-                          {/* LOCATION */}
-                          <td className="py-2.5 px-2 min-w-[150px]">
-                            <select
-                              className={tableInputCls}
+                          {/* PROJECT SUB STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={2}
+                              data={costCentersList}
+                              value={line.DIM2 || ''}
+                              onChange={val => handleItemLineChange(idx, 'DIM2', val)}
+                              disabled={isView}
+                            />
+                          </td>
+
+                          {/* DETAIL SUB STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={3}
+                              data={costCentersList}
                               value={line.DIM3 || ''}
-                              onChange={e => handleItemLineChange(idx, 'DIM3', e.target.value)}
+                              onChange={val => {
+                                handleItemLineChange(idx, 'DIM3', val);
+                                handleItemLineChange(idx, 'Location', val);
+                              }}
                               disabled={isView}
-                            >
-                              <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Location…</option>
-                              {locationsList.map((l: any) => (
-                                <option key={l.code} value={l.code} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{l.code} — {l.name}</option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
-                          {/* ASSET */}
-                          <td className="py-2.5 px-2 min-w-[150px]">
-                            <select
-                              className={tableInputCls}
+                          {/* MORE DETAIL SUB STAGE */}
+                          <td className="py-2.5 px-2 min-w-[170px]">
+                            <StageSelect
+                              size="sm"
+                              dimCode={4}
+                              data={costCentersList}
                               value={line.DIM4 || ''}
-                              onChange={e => handleItemLineChange(idx, 'DIM4', e.target.value)}
-                              disabled={isView}
-                            >
-                              <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Asset…</option>
-                              {assetsList.map((a: any) => (
-                                <option key={a.code} value={a.code} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{a.code} — {a.name}</option>
-                              ))}
-                            </select>
-                          </td>
-
-                          {/* REMARKS */}
-                          <td className="py-2.5 px-2 min-w-[180px]">
-                            <input
-                              type="text"
-                              placeholder="Notes…"
-                              className={tableInputCls}
-                              value={line.Remarks || ''}
-                              onChange={e => handleItemLineChange(idx, 'Remarks', e.target.value)}
+                              onChange={val => handleItemLineChange(idx, 'DIM4', val)}
                               disabled={isView}
                             />
                           </td>
 
                           {/* ACTION */}
-                          <td className="py-2.5 px-2 text-center w-[50px]">
+                          <td className="py-2.5 px-2 text-center w-[55px]">
                             {!isView && (
                               <button
                                 type="button"
@@ -1143,9 +1298,10 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                       <th className="py-3 px-3 min-w-[180px]">Warehouse</th>
                       <th className="py-3 px-3 min-w-[180px]">Cost Center</th>
                       <th className="py-3 px-3 min-w-[180px]">Project</th>
-                      <th className="py-3 px-3 min-w-[180px]">Product (DIM1)</th>
-                      <th className="py-3 px-3 min-w-[180px]">Location (DIM3)</th>
-                      <th className="py-3 px-3 min-w-[180px]">Asset (DIM4)</th>
+                      <th className="py-3 px-3 min-w-[180px]">Project Stage</th>
+                      <th className="py-3 px-3 min-w-[180px]">Project Sub Stage</th>
+                      <th className="py-3 px-3 min-w-[180px]">Detail Sub Stage</th>
+                      <th className="py-3 px-3 min-w-[180px]">More Detail Sub Stage</th>
                       <th className="py-3 px-2 w-12 text-center"></th>
                     </tr>
                   </thead>
@@ -1162,20 +1318,21 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                             value={line.ItemCode || (line.ItemID ? String(line.ItemID) : '')}
                             onChange={(val, opt) => {
                               if (!val) {
-                                handleItemSelect(idx, 0);
+                                handleItemSelect(idx, null);
                                 return;
                               }
                               const rawItem = opt?.raw;
                               if (rawItem) {
-                                handleAddItem(rawItem);
+                                handleItemSelect(idx, rawItem);
                               } else {
-                                handleItemSelect(idx, Number(val) || 0);
+                                handleItemSelect(idx, val);
                               }
                             }}
                             options={itemCatalogOptions}
                             placeholder="Search item code or name..."
                             disabled={isView}
                             size="sm"
+                            renderOption={renderItemOption}
                           />
                         </td>
 
@@ -1218,26 +1375,23 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                             type="number" min="0" max="100" step="any"
                             className={tableInputCls + ' text-right font-bold'}
                             value={line.DiscPrcnt || 0}
-                            onChange={e => handleItemLineChange(idx, 'DiscPrcnt', Math.min(100, Math.max(0, Number(e.target.value))))}
+                            onChange={e => handleItemLineChange(idx, 'DiscPrcnt', validateDiscountPercent(Number(e.target.value)))}
                             disabled={isView}
                           />
                         </td>
 
                         {/* VAT */}
-                        <td className="py-3 px-2 min-w-[110px]">
-                          <select
-                            className={tableInputCls + ' text-center font-bold'}
-                            value={line.VATPer ?? 18}
-                            onChange={e => handleItemLineChange(idx, 'VATPer', Number(e.target.value))}
+                        <td className="py-3 px-2 min-w-[140px]">
+                          <TaxSelect
+                            size="sm"
+                            value={line.VATCode || (line.VATPer === 18 ? 'VAT_18' : line.VATPer === 9 ? 'VAT_10' : line.VATPer === 0 ? 'VAT_0' : 'VAT_18')}
+                            onChange={code => {
+                              const rate = code === 'VAT_18' ? 18 : (code === 'VAT_10' || code === 'VAT_9') ? 10 : 0;
+                              handleItemLineChange(idx, 'VATCode', code);
+                              handleItemLineChange(idx, 'VATPer', rate);
+                            }}
                             disabled={isView}
-                          >
-                            <option value={18} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">18% VAT</option>
-                            <option value={9} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">9% VAT</option>
-                            <option value={0} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">0% VAT</option>
-                            {line.VATPer != null && line.VATPer !== 18 && line.VATPer !== 9 && line.VATPer !== 0 && (
-                              <option value={line.VATPer} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{line.VATPer}% VAT</option>
-                            )}
-                          </select>
+                          />
                         </td>
 
                         {/* LINE TAX */}
@@ -1252,108 +1406,86 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
 
                         {/* WAREHOUSE */}
                         <td className="py-3 px-3 min-w-[180px]">
-                          <select
-                            className={tableInputCls}
+                          <WarehouseSelect
+                            size="sm"
+                            data={warehousesList}
                             value={line.WhsCode || ''}
-                            onChange={e => handleItemLineChange(idx, 'WhsCode', e.target.value ? Number(e.target.value) : undefined)}
+                            onChange={val => handleItemLineChange(idx, 'WhsCode', val ? Number(val) : undefined)}
                             disabled={isView}
-                          >
-                            <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Warehouse…</option>
-                            {line.WhsCode && !warehousesList.some((w: any) => (w.whsCode || w.WhsCode || w.id) === line.WhsCode) && (
-                              <option value={line.WhsCode} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Warehouse #{line.WhsCode}</option>
-                            )}
-                            {warehousesList.map((w: any) => (
-                              <option key={w.whsCode || w.WhsCode || w.id} value={w.whsCode || w.WhsCode || w.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
-                                {w.whsName || w.WhsName || w.name}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </td>
 
                         {/* COST CENTER */}
                         <td className="py-3 px-3 min-w-[180px]">
-                          <select
-                            className={tableInputCls}
+                          <CostCenterSelect
+                            size="sm"
+                            data={costCentersList}
                             value={line.cost_center || ''}
-                            onChange={e => handleItemLineChange(idx, 'cost_center', e.target.value ? Number(e.target.value) : undefined)}
+                            onChange={val => handleItemLineChange(idx, 'cost_center', val ? Number(val) : undefined)}
                             disabled={isView}
-                          >
-                            <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Cost Center…</option>
-                            {costCentersList.map((c: any) => (
-                              <option key={c.id || c.OcrCode || c.code} value={c.id || c.OcrCode || c.code} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
-                                {c.name || c.OcrName || c.OcrCode}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </td>
 
                         {/* PROJECT */}
                         <td className="py-3 px-3 min-w-[180px]">
-                          <select
-                            className={tableInputCls}
+                          <ProjectSelect
+                            size="sm"
+                            data={projectsList}
                             value={line.project || ''}
-                            onChange={e => handleItemLineChange(idx, 'project', e.target.value)}
+                            onChange={val => handleItemLineChange(idx, 'project', val)}
                             disabled={isView}
-                          >
-                            <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Project…</option>
-                            {projectsList.map((p: any) => (
-                              <option key={p.code} value={p.code} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{p.code} — {p.name}</option>
-                            ))}
-                          </select>
+                          />
                         </td>
 
-                        {/* PRODUCT (DIM1) */}
+                        {/* PROJECT STAGE */}
                         <td className="py-3 px-3 min-w-[180px]">
-                          <select
-                            className={tableInputCls}
+                          <StageSelect
+                            size="sm"
+                            dimCode={1}
+                            data={costCentersList}
                             value={line.DIM1 || ''}
-                            onChange={e => handleItemLineChange(idx, 'DIM1', e.target.value)}
+                            onChange={val => handleItemLineChange(idx, 'DIM1', val)}
                             disabled={isView}
-                          >
-                            <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Product…</option>
-                            {line.DIM1 && !productsList.some((p: any) => p.code === line.DIM1) && (
-                              <option value={line.DIM1} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{line.DIM1}</option>
-                            )}
-                            {productsList.map((p: any) => (
-                              <option key={p.code} value={p.code} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{p.code} — {p.name}</option>
-                            ))}
-                          </select>
+                          />
                         </td>
 
-                        {/* LOCATION (DIM3) */}
+                        {/* PROJECT SUB STAGE */}
                         <td className="py-3 px-3 min-w-[180px]">
-                          <select
-                            className={tableInputCls}
+                          <StageSelect
+                            size="sm"
+                            dimCode={2}
+                            data={costCentersList}
+                            value={line.DIM2 || ''}
+                            onChange={val => handleItemLineChange(idx, 'DIM2', val)}
+                            disabled={isView}
+                          />
+                        </td>
+
+                        {/* DETAIL SUB STAGE */}
+                        <td className="py-3 px-3 min-w-[180px]">
+                          <StageSelect
+                            size="sm"
+                            dimCode={3}
+                            data={costCentersList}
                             value={line.DIM3 || ''}
-                            onChange={e => handleItemLineChange(idx, 'DIM3', e.target.value)}
+                            onChange={val => {
+                              handleItemLineChange(idx, 'DIM3', val);
+                              handleItemLineChange(idx, 'Location', val);
+                            }}
                             disabled={isView}
-                          >
-                            <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Location…</option>
-                            {line.DIM3 && !locationsList.some((l: any) => l.code === line.DIM3) && (
-                              <option value={line.DIM3} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{line.DIM3}</option>
-                            )}
-                            {locationsList.map((l: any) => (
-                              <option key={l.code} value={l.code} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{l.code} — {l.name}</option>
-                            ))}
-                          </select>
+                          />
                         </td>
 
-                        {/* ASSET (DIM4) */}
+                        {/* MORE DETAIL SUB STAGE */}
                         <td className="py-3 px-3 min-w-[180px]">
-                          <select
-                            className={tableInputCls}
+                          <StageSelect
+                            size="sm"
+                            dimCode={4}
+                            data={costCentersList}
                             value={line.DIM4 || ''}
-                            onChange={e => handleItemLineChange(idx, 'DIM4', e.target.value)}
+                            onChange={val => handleItemLineChange(idx, 'DIM4', val)}
                             disabled={isView}
-                          >
-                            <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Select Asset…</option>
-                            {line.DIM4 && !assetsList.some((a: any) => a.code === line.DIM4) && (
-                              <option value={line.DIM4} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{line.DIM4}</option>
-                            )}
-                            {assetsList.map((a: any) => (
-                              <option key={a.code} value={a.code} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{a.code} — {a.name}</option>
-                            ))}
-                          </select>
+                          />
                         </td>
 
                         {/* ACTION */}
@@ -1425,16 +1557,17 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                   accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
                 />
 
-                {!isView && (
+                {/* If no attachments: show dashed dropzone box */}
+                {!isView && attachments.length === 0 && (
                   <div
                     onClick={() => !isUploading && fileInputRef.current?.click()}
-                    className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${isUploading
+                    className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all h-[155px] flex flex-col items-center justify-center ${isUploading
                       ? 'opacity-60 cursor-not-allowed border-gray-300'
                       : 'cursor-pointer hover:border-primary hover:bg-primary/[0.02]'
                       }`}
                     style={{ borderColor: 'var(--color-border)' }}
                   >
-                    <div className="w-10 h-10 rounded-full bg-primary/10 transition-colors flex items-center justify-center mx-auto mb-2">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 transition-colors flex items-center justify-center mx-auto mb-2 shrink-0">
                       {isUploading ? (
                         <Spinner size="sm" />
                       ) : (
@@ -1451,7 +1584,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                 )}
 
                 {attachments.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="h-[155px] overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 gap-2.5 auto-rows-max">
                     {attachments.map((att, idx) => {
                       const fileUrl = getAttachmentUrl(att.Attachment);
                       const fileName = getFileName(att.Attachment);
@@ -1461,11 +1594,11 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                       return (
                         <div
                           key={idx}
-                          className="flex items-center justify-between p-3 rounded-xl border transition-all hover:shadow-sm"
+                          className="flex items-center justify-between p-2.5 rounded-xl border transition-all hover:shadow-sm"
                           style={{ background: 'var(--color-surface-hover)', borderColor: 'var(--color-border)' }}
                         >
-                          <div className="flex items-center gap-3 overflow-hidden">
-                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <div className="flex items-center gap-2.5 overflow-hidden min-w-0">
+                            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                               {isImg ? (
                                 <ImageIcon className="h-4 w-4 text-emerald-500" />
                               ) : isPdf ? (
@@ -1493,7 +1626,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                             <button
                               type="button"
                               onClick={() => handleRemoveAttachment(idx)}
-                              className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all shrink-0 ml-2"
+                              className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all shrink-0 ml-1.5"
                               title="Delete attachment"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -1505,9 +1638,11 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                   </div>
                 ) : (
                   isView && (
-                    <p className="text-xs italic text-center py-2" style={{ color: 'var(--color-text-secondary)' }}>
-                      No attachments attached to this purchase quotation.
-                    </p>
+                    <div className="h-[155px] flex items-center justify-center">
+                      <p className="text-xs italic text-center py-2" style={{ color: 'var(--color-text-secondary)' }}>
+                        No attachments attached to this purchase quotation.
+                      </p>
+                    </div>
                   )
                 )}
               </div>
@@ -1543,7 +1678,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                     type="number" min="0" max="100"
                     className="w-20 text-right text-xs font-bold font-mono py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-700 shadow-sm"
                     value={discountPercent}
-                    onChange={e => setDiscountPercent(Math.min(100, Math.max(0, Number(e.target.value))))}
+                    onChange={e => setDiscountPercent(validateDiscountPercent(Number(e.target.value)))}
                     disabled={isView}
                   />
                 </div>

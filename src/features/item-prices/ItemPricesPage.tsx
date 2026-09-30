@@ -9,6 +9,9 @@ import {
   Layers,
   Warehouse,
   Percent,
+  TrendingUp,
+  BarChart3,
+  Download,
 } from 'lucide-react';
 import {
   useItemPrices,
@@ -359,100 +362,125 @@ export const ItemPricesPage: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto animate-fade-in">
-      {/* Top Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
+      {/* Top Header Card Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl p-4 rounded-xl border border-slate-200/80 dark:border-white/10 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 flex items-center justify-center border border-teal-200 dark:border-teal-800">
-            <Tag className="w-6 h-6" />
+          <div 
+            className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 shadow-2xs"
+            style={{ background: 'var(--color-primary-50, rgba(99,102,241,0.08))', border: '1px solid var(--color-primary-200, rgba(99,102,241,0.2))' }}
+          >
+            <Tag className="w-4.5 h-4.5" style={{ color: 'var(--color-primary)' }} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
               Item Price Lists
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               Comprehensive overview of item prices across price lists, inventory stock, purchase costs, and margins
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <Button
-            variant="secondary"
+        <div className="flex items-center gap-2 shrink-0">
+          <button
             onClick={handleExportCSV}
-            className="border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-xs font-medium py-2 rounded-xl"
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-white/50 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
           >
-            <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-600" />
+            <Download className="w-3.5 h-3.5 text-emerald-600" />
             Export CSV
-          </Button>
+          </button>
         </div>
       </div>
 
-      {/* Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 flex items-center justify-center">
-            <Boxes className="w-5 h-5" />
+      {/* Dynamic KPI Stats Cards Row (Real counts from API) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Card 1: Catalog Items */}
+        <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center justify-between hover:border-slate-300 dark:hover:border-white/20 transition-all">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center">
+                <Boxes className="w-3 h-3" />
+              </div>
+              Catalog Items
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{isLoading ? '—' : stats.totalItems.toLocaleString()}</div>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+              <TrendingUp className="w-3 h-3" />
+              Active SKUs
+            </div>
           </div>
-          <div>
-            <span className="text-[11px] text-slate-400 font-medium uppercase">Catalog Items</span>
-            <p className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
-              {stats.totalItems.toLocaleString()}
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 flex items-center justify-center">
-            <Layers className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-[11px] text-slate-400 font-medium uppercase">Price Lists</span>
-            <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">
-              {priceLists.length} Active
-            </p>
+          <div className="text-blue-500/40 dark:text-blue-400/40">
+            <BarChart3 className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
-            <Percent className="w-5 h-5" />
+        {/* Card 2: Price Lists */}
+        <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center justify-between hover:border-slate-300 dark:hover:border-white/20 transition-all">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center">
+                <Layers className="w-3 h-3" />
+              </div>
+              Active Price Lists
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{priceLists.length}</div>
+            <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+              Configured lists
+            </div>
           </div>
-          <div>
-            <span className="text-[11px] text-slate-400 font-medium uppercase">Average Margin</span>
-            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-              +{stats.avgMargin}%
-            </p>
+          <div className="text-indigo-500/40 dark:text-indigo-400/40">
+            <Layers className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center">
-            <DollarSign className="w-5 h-5" />
+        {/* Card 3: Average Margin */}
+        <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center justify-between hover:border-slate-300 dark:hover:border-white/20 transition-all">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
+                <Percent className="w-3 h-3" />
+              </div>
+              Average Margin
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">+{stats.avgMargin}%</div>
+            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+              Target markup spread
+            </div>
           </div>
-          <div>
-            <span className="text-[11px] text-slate-400 font-medium uppercase">Highest Price</span>
-            <p className="text-lg font-bold text-slate-900 dark:text-white mt-0.5 font-mono">
-              ${stats.highestPrice.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </p>
+          <div className="text-emerald-500/40 dark:text-emerald-400/40">
+            <Percent className="w-5.5 h-5.5 stroke-[1.5]" />
+          </div>
+        </div>
+
+        {/* Card 4: Highest Price */}
+        <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center justify-between hover:border-slate-300 dark:hover:border-white/20 transition-all">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 flex items-center justify-center">
+                <DollarSign className="w-3 h-3" />
+              </div>
+              Highest Price
+            </div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+              ${stats.highestPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">
+              Max catalog unit price
+            </div>
+          </div>
+          <div className="text-purple-500/40 dark:text-purple-400/40">
+            <BarChart3 className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
         </div>
       </div>
 
       {/* Main Table with Filters */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center p-12 space-y-3">
-            <Spinner className="w-8 h-8 text-teal-600" />
-            <p className="text-xs text-slate-500">Loading item prices...</p>
-          </div>
-        ) : (
-          <DataTable
-            columns={columns}
-            data={itemPrices}
+      <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl rounded-xl border border-slate-200/80 dark:border-white/10 shadow-xs overflow-hidden">
+        <DataTable
+          columns={columns}
+          data={itemPrices}
+          isLoading={isLoading}
             searchValue={searchTerm}
             onSearchChange={setSearchTerm}
             searchPlaceholder="Search by item code, item name..."
@@ -512,7 +540,6 @@ export const ItemPricesPage: React.FC = () => {
               </div>
             }
           />
-        )}
       </div>
     </div>
   );

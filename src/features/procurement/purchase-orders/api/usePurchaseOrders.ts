@@ -33,7 +33,18 @@ export interface PurchaseOrderItem {
   DIM5?: string | null;
   ferightType?: string | null;
   vendorRef?: string | null;
+  po_id?: string | null;
   Location?: string | null;
+  GLCode?: string | null;
+  GLName?: string | null;
+  VendorCode?: string | null;
+  VendorName?: string | null;
+  PaymentTerms?: string | null;
+  TotalExclusive?: number | null;
+  TotalInclusive?: number | null;
+  TaxCode?: string | null;
+  TaxAmount?: number | null;
+  Discount?: number | null;
 }
 
 export interface PurchaseOrderAttachment {

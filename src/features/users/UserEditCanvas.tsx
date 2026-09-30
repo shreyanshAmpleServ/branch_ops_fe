@@ -11,6 +11,14 @@ import {
   useCostCentersMain, useAccounts 
 } from './api/useMasterData';
 import { useDesignStore } from '../../store/useDesignStore';
+import { 
+  WarehouseSelect, 
+  ProjectSelect, 
+  BranchSelect, 
+  GLAccountSelect, 
+  StageSelect,
+  SearchableSelect
+} from '../../components/ui';
 
 interface UserEditCanvasProps {
   user: ApiUser;
@@ -392,42 +400,48 @@ export const UserEditCanvas: React.FC<UserEditCanvasProps> = ({
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className={labelCls}>Area Location</label>
-                          <select className={inputCls} style={inputStyle} value={form.route ?? ''} onChange={e => set('route', e.target.value)}>
-                            <option value="">Select Area</option>
-                            {areasData?.data?.map(a => (
-                              <option key={a.id} value={a.code}>{a.name}</option>
-                            ))}
-                          </select>
+                          <SearchableSelect
+                            options={[
+                              { value: '', label: 'Select Area' },
+                              ...(areasData?.data || []).map(a => ({
+                                value: a.code,
+                                label: a.name,
+                              })),
+                            ]}
+                            value={form.route ?? ''}
+                            onChange={val => set('route', val)}
+                            placeholder="Select Area"
+                          />
                         </div>
                         <div>
-                          <label className={labelCls}>GIT Warehouse</label>
-                          <select className={inputCls} style={inputStyle} value={form.dfltWhsId ?? ''} onChange={e => set('dfltWhsId', e.target.value ? Number(e.target.value) : null)}>
-                            <option value="">Select Warehouse</option>
-                            {warehousesData?.data?.map(w => (
-                              <option key={w.id} value={w.id}>{w.name}</option>
-                            ))}
-                          </select>
+                          <WarehouseSelect
+                            label="GIT Warehouse"
+                            value={form.dfltWhsId}
+                            data={warehousesData?.data}
+                            onChange={val => set('dfltWhsId', val ? Number(val) : null)}
+                            placeholder="Select Warehouse"
+                          />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className={labelCls}>Primary Project</label>
-                          <select className={inputCls} style={inputStyle} value={form.project ?? ''} onChange={e => set('project', e.target.value)}>
-                            <option value="">Select Project</option>
-                            {projectsData?.data?.map(p => (
-                              <option key={p.id} value={p.code}>{p.name}</option>
-                            ))}
-                          </select>
+                          <ProjectSelect
+                            label="Primary Project"
+                            value={form.project}
+                            data={projectsData?.data}
+                            onChange={val => set('project', val)}
+                            placeholder="Select Project"
+                          />
                         </div>
                         <div>
-                          <label className={labelCls}>Assigned Branch</label>
-                          <select className={inputCls} style={inputStyle} value={form.branchId ?? ''} onChange={e => set('branchId', e.target.value ? Number(e.target.value) : null)}>
-                            <option value="">Select Branch</option>
-                            {branchesData?.data?.map(b => (
-                              <option key={b.id} value={b.id}>{b.name}</option>
-                            ))}
-                          </select>
+                          <BranchSelect
+                            label="Assigned Branch"
+                            value={form.branchId}
+                            data={branchesData?.data}
+                            onChange={val => set('branchId', val ? Number(val) : null)}
+                            placeholder="Select Branch"
+                          />
                         </div>
                       </div>
 
@@ -559,42 +573,36 @@ export const UserEditCanvas: React.FC<UserEditCanvasProps> = ({
                                   />
                                 </td>
                                 <td className="py-3 px-4">
-                                  <select
-                                    value={acc.accountNumber}
-                                    onChange={e => {
-                                      const updated = [...accounts];
-                                      updated[index] = { ...updated[index], accountNumber: e.target.value };
-                                      setAccounts(updated);
-                                    }}
-                                    className="w-full px-2.5 py-1.5 rounded-lg text-sm border focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none cursor-pointer"
-                                    style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-                                  >
-                                    <option value="">Select Account</option>
-                                    {accountsData?.data?.map(ac => (
-                                      <option key={ac.acctCode} value={ac.acctCode}>
-                                        {ac.acctCode} - {ac.acctName}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </td>
-                                <td className="py-3 px-4">
-                                  <select
-                                    value={acc.accountType}
-                                    onChange={e => {
-                                      const updated = [...accounts];
-                                      updated[index] = { ...updated[index], accountType: e.target.value };
-                                      setAccounts(updated);
-                                    }}
-                                    className="w-full px-2.5 py-1.5 rounded-lg text-sm border focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none cursor-pointer"
-                                    style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-                                  >
-                                    <option value="Cash Account">Cash Account</option>
-                                    <option value="Check Account">Check Account</option>
-                                    <option value="Mobile Money">Mobile Money</option>
-                                    <option value="Bank Deposit">Bank Deposit</option>
-                                    <option value="Other">Other</option>
-                                  </select>
-                                </td>
+                                    <GLAccountSelect
+                                      size="sm"
+                                      value={acc.accountNumber}
+                                      data={accountsData?.data}
+                                      onChange={val => {
+                                        const updated = [...accounts];
+                                        updated[index] = { ...updated[index], accountNumber: String(val || '') };
+                                        setAccounts(updated);
+                                      }}
+                                      placeholder="Select Account"
+                                    />
+                                  </td>
+                                  <td className="py-3 px-4 min-w-[170px]">
+                                    <SearchableSelect
+                                      size="sm"
+                                      options={[
+                                        { value: 'Cash Account', label: 'Cash Account' },
+                                        { value: 'Check Account', label: 'Check Account' },
+                                        { value: 'Mobile Money', label: 'Mobile Money' },
+                                        { value: 'Bank Deposit', label: 'Bank Deposit' },
+                                        { value: 'Other', label: 'Other' },
+                                      ]}
+                                      value={acc.accountType}
+                                      onChange={val => {
+                                        const updated = [...accounts];
+                                        updated[index] = { ...updated[index], accountType: val };
+                                        setAccounts(updated);
+                                      }}
+                                    />
+                                  </td>
                                 <td className="py-3 px-4 text-center">
                                   <button
                                     type="button"
@@ -635,55 +643,43 @@ export const UserEditCanvas: React.FC<UserEditCanvasProps> = ({
                         {/* PRODUCT (dim1) */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4">
                           <label className="text-xs font-bold uppercase tracking-wider w-40 text-gray-600">PRODUCT</label>
-                          <select
-                            className={`${inputCls} flex-1 max-w-xl cursor-pointer`}
-                            style={inputStyle}
-                            value={form.dim1 ?? ''}
-                            onChange={e => set('dim1', e.target.value)}
-                          >
-                            <option value="">Please Select</option>
-                            {productsList.map(cc => (
-                              <option key={cc.code} value={cc.code}>
-                                {cc.code} - {cc.name}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="flex-1 max-w-xl">
+                            <StageSelect
+                              dimCode={1}
+                              data={productsList}
+                              value={form.dim1}
+                              onChange={val => set('dim1', val)}
+                              placeholder="Please Select"
+                            />
+                          </div>
                         </div>
 
                         {/* LOCATION (dim3) */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4">
                           <label className="text-xs font-bold uppercase tracking-wider w-40 text-gray-600">LOCATION</label>
-                          <select
-                            className={`${inputCls} flex-1 max-w-xl cursor-pointer`}
-                            style={inputStyle}
-                            value={form.dim3 ?? ''}
-                            onChange={e => set('dim3', e.target.value)}
-                          >
-                            <option value="">Please Select</option>
-                            {locationsList.map(cc => (
-                              <option key={cc.code} value={cc.code}>
-                                {cc.code} - {cc.name}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="flex-1 max-w-xl">
+                            <StageSelect
+                              dimCode={3}
+                              data={locationsList}
+                              value={form.dim3}
+                              onChange={val => set('dim3', val)}
+                              placeholder="Please Select"
+                            />
+                          </div>
                         </div>
 
                         {/* ASSET (dim4) */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4">
                           <label className="text-xs font-bold uppercase tracking-wider w-40 text-gray-600">ASSET</label>
-                          <select
-                            className={`${inputCls} flex-1 max-w-xl cursor-pointer`}
-                            style={inputStyle}
-                            value={form.dim4 ?? ''}
-                            onChange={e => set('dim4', e.target.value)}
-                          >
-                            <option value="">Please Select</option>
-                            {assetsList.map(cc => (
-                              <option key={cc.code} value={cc.code}>
-                                {cc.code} - {cc.name}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="flex-1 max-w-xl">
+                            <StageSelect
+                              dimCode={4}
+                              data={assetsList}
+                              value={form.dim4}
+                              onChange={val => set('dim4', val)}
+                              placeholder="Please Select"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>

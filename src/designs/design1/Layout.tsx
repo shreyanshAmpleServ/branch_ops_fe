@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 
 export const Layout1: React.FC = () => {
   const { t } = useTranslation();
-  const { backgroundImage, mode } = useThemeStore();
+  const { backgroundImage, backgroundColor, mode } = useThemeStore();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -24,11 +24,14 @@ export const Layout1: React.FC = () => {
       className="min-h-screen gradient-mesh"
       style={backgroundImage ? {
         background: resolvedMode === 'dark'
-          ? `linear-gradient(rgba(10, 14, 26, 0.5), rgba(10, 14, 26, 0.5)), url(${backgroundImage})`
-          : `linear-gradient(rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)), url(${backgroundImage})`,
+          ? `linear-gradient(rgba(10, 14, 26, 0.55), rgba(10, 14, 26, 0.55)), url(${backgroundImage})`
+          : `linear-gradient(rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.18)), url(${backgroundImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed'
+      } : backgroundColor ? {
+        background: backgroundColor,
+        minHeight: '100vh',
       } : undefined}
     >
 

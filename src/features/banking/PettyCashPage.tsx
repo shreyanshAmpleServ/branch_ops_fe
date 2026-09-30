@@ -422,136 +422,133 @@ export const PettyCashPage: React.FC = () => {
   ], [accounts]);
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto min-h-screen">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-tr from-amber-600 to-amber-400 text-white rounded-xl shadow-lg shadow-amber-500/20">
-              <Wallet className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
-                Petty Cash & Expense Claims
-              </h1>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Track branch custodian balances, approve expense claims, and disburse petty cash
-              </p>
-            </div>
+    <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
+      {/* Top Header Card */}
+      <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center shrink-0">
+            <Wallet className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+              Petty Cash & Expense Claims
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Track branch custodian balances, approve expense claims, and disburse petty cash
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
+        <div className="flex items-center gap-2 shrink-0">
+          <button
             onClick={handleExportCSV}
             disabled={!claims.length}
-            className="flex items-center gap-2"
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer disabled:opacity-50"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5 text-emerald-600" />
             Export CSV
-          </Button>
-
-          <Button
-            variant="primary"
+          </button>
+          <button
             onClick={() => setIsCreateOpen(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white border-0 shadow-md shadow-amber-600/20"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-2xs transition-colors cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             New Expense Claim
-          </Button>
+          </button>
         </div>
       </div>
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 relative overflow-hidden bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                Total Custodian Balance
-              </p>
-              <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                TZS {metrics.currentBalance.toLocaleString()}
-              </h3>
+      {/* KPI Stats Cards Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Card 1: Total Custodian Balance */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <Wallet className="w-3 h-3" />
+              </div>
+              Custodian Balance
             </div>
-            <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-lg">
-              <Wallet className="w-5 h-5" />
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight font-mono">
+              TZS {metrics.currentBalance.toLocaleString()}
+            </div>
+            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+              {metrics.totalAuthorized ? Math.round((metrics.currentBalance / metrics.totalAuthorized) * 100) : 0}% available of authorized
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-neutral-500 border-t border-neutral-100 dark:border-neutral-800 pt-2">
-            <span>Authorized: TZS {metrics.totalAuthorized.toLocaleString()}</span>
-            <span className="font-semibold text-emerald-600">
-              {metrics.totalAuthorized ? Math.round((metrics.currentBalance / metrics.totalAuthorized) * 100) : 0}% remaining
-            </span>
+          <div className="text-emerald-400 opacity-60">
+            <Wallet className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 relative overflow-hidden bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                Pending Approval / Payout
-              </p>
-              <h3 className="text-2xl font-bold text-amber-600 dark:text-amber-400 font-mono">
-                TZS {metrics.pendingTotal.toLocaleString()}
-              </h3>
+        {/* Card 2: Pending Approval / Payout */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <Clock className="w-3 h-3" />
+              </div>
+              Pending Claims
             </div>
-            <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-lg">
-              <Clock className="w-5 h-5" />
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight font-mono">
+              TZS {metrics.pendingTotal.toLocaleString()}
+            </div>
+            <div className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+              {metrics.pendingCount} claim(s) awaiting payout
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-neutral-500 border-t border-neutral-100 dark:border-neutral-800 pt-2">
-            <span>Awaiting action</span>
-            <span className="font-semibold text-amber-600">{metrics.pendingCount} claim(s)</span>
+          <div className="text-amber-400 opacity-60">
+            <Clock className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 relative overflow-hidden bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                Total Disbursed Claims
-              </p>
-              <h3 className="text-2xl font-bold text-primary-600 dark:text-primary-400 font-mono">
-                TZS {metrics.disbursedTotal.toLocaleString()}
-              </h3>
+        {/* Card 3: Total Disbursed */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                <CheckCircle2 className="w-3 h-3" />
+              </div>
+              Disbursed Claims
             </div>
-            <div className="p-2.5 bg-primary-50 dark:bg-primary-950/40 text-primary-600 dark:text-primary-400 rounded-lg">
-              <CheckCircle2 className="w-5 h-5" />
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight font-mono">
+              TZS {metrics.disbursedTotal.toLocaleString()}
+            </div>
+            <div className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold">
+              {metrics.disbursedCount} claim(s) settled
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-neutral-500 border-t border-neutral-100 dark:border-neutral-800 pt-2">
-            <span>Successfully settled</span>
-            <span className="font-semibold text-primary-600">{metrics.disbursedCount} claim(s)</span>
+          <div className="text-teal-400 opacity-60">
+            <CheckCircle2 className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 relative overflow-hidden bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                Active Custodian Accounts
-              </p>
-              <h3 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-                {accounts.length}
-              </h3>
+        {/* Card 4: Custodian Accounts */}
+        <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="w-5.5 h-5.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                <Building className="w-3 h-3" />
+              </div>
+              Branch Funds
             </div>
-            <div className="p-2.5 bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 rounded-lg">
-              <Building className="w-5 h-5" />
+            <div className="text-lg font-bold text-slate-900 dark:text-white leading-tight font-mono">
+              {accounts.length}
+            </div>
+            <div className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold">
+              Active branch funds
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-neutral-500 border-t border-neutral-100 dark:border-neutral-800 pt-2">
-            <span>Branch funds</span>
-            <span className="font-semibold text-purple-600">All Operational</span>
+          <div className="text-purple-400 opacity-60">
+            <Building className="w-5.5 h-5.5 stroke-[1.5]" />
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Custodian Accounts Cards Section */}
-      <div className="space-y-3">
-        <h2 className="text-base font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-          <Building className="w-4 h-4 text-primary-500" />
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs p-4 space-y-3">
+        <h2 className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 uppercase tracking-wider">
+          <Building className="w-4 h-4 text-teal-600" />
           Branch Petty Cash Custodian Accounts
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -626,16 +623,14 @@ export const PettyCashPage: React.FC = () => {
       </div>
 
       {/* Main Table Container */}
-      <Card className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden">
-        {claimsLoading ? (
-          <div className="flex flex-col items-center justify-center p-12 space-y-3">
-            <Spinner className="w-8 h-8 text-amber-600" />
-            <p className="text-xs text-neutral-500">Loading petty cash claims...</p>
-          </div>
-        ) : (
-          <DataTable
-            columns={columns}
-            data={claims}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs overflow-hidden">
+        <DataTable
+          columns={columns}
+          data={claims}
+          isLoading={claimsLoading}
+            enableRowSelection={true}
+            enableExport={true}
+            exportFileName="petty-cash-claims"
             searchValue={searchTerm}
             onSearchChange={setSearchTerm}
             searchPlaceholder="Search by claim #, requester, or department..."
@@ -769,8 +764,7 @@ export const PettyCashPage: React.FC = () => {
             }}
             emptyMessage="No petty cash claims found matching your criteria."
           />
-        )}
-      </Card>
+      </div>
 
       {/* =========================================================================
        * CREATE CLAIM MODAL

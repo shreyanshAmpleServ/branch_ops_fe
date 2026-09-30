@@ -6,10 +6,8 @@ import type { TableDesignVariant, TableLibrary } from '../types/table.types';
 interface DesignStore {
   activeDesign: DesignId;
   tableDesign: TableDesignVariant;
-  tableLibrary: TableLibrary;
   setActiveDesign: (design: DesignId) => void;
   setTableDesign: (design: TableDesignVariant) => void;
-  setTableLibrary: (library: TableLibrary) => void;
 }
 
 export const useDesignStore = create<DesignStore>()(
@@ -17,10 +15,8 @@ export const useDesignStore = create<DesignStore>()(
     (set) => ({
       activeDesign: 'design1',
       tableDesign: 'modern',
-      tableLibrary: 'antd',
       setActiveDesign: (activeDesign) => set({ activeDesign }),
       setTableDesign: (tableDesign) => set({ tableDesign }),
-      setTableLibrary: (tableLibrary) => set({ tableLibrary }),
     }),
     { name: 'salesapp-design' }
   )
