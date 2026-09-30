@@ -214,7 +214,7 @@ export const TaskList: React.FC = () => {
 
       {/* Main Content Container */}
       {view === 'table' ? (
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs overflow-hidden">
+        <div className="w-full">
           <DataTable data={tasks} columns={columns} enableRowSelection enableExport exportFileName="tasks" />
         </div>
       ) : (

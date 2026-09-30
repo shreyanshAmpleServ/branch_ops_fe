@@ -64,7 +64,11 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
   // Find currently selected option
   const selectedOption = useMemo(() => {
-    if (value === undefined || value === null || value === '') return null;
+    if (value === undefined || value === null || value === '' || value === 0 || value === '0') {
+      const exactZero = options.find((opt) => opt.value === 0 || opt.value === '0');
+      if (exactZero && (value === 0 || value === '0')) return exactZero;
+      return null;
+    }
     return options.find((opt) => String(opt.value) === String(value)) || null;
   }, [value, options]);
 
@@ -73,7 +77,13 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     if (!isOpen) {
       if (selectedOption) {
         setSearchQuery(selectedOption.label);
-      } else if (value !== undefined && value !== null && value !== '') {
+      } else if (
+        value !== undefined &&
+        value !== null &&
+        value !== '' &&
+        value !== 0 &&
+        value !== '0'
+      ) {
         setSearchQuery(String(value));
       } else {
         setSearchQuery('');
@@ -286,7 +296,12 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
         <div className={`absolute flex items-center gap-0.5 text-slate-400 ${
           isSmall ? 'right-1.5' : 'right-2.5'
         }`}>
-          {clearable && value !== undefined && value !== null && value !== '' && !disabled && (
+          {clearable &&
+            value !== undefined &&
+            value !== null &&
+            value !== '' &&
+            (selectedOption !== null || (value !== 0 && value !== '0')) &&
+            !disabled && (
             <button
               type="button"
               onClick={handleClear}

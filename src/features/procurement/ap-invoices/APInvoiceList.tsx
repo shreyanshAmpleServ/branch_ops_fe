@@ -13,6 +13,7 @@ import {
   Upload,
   Download,
   BarChart3,
+  Trash2,
 } from 'lucide-react';
 import {
   useApInvoices,
@@ -29,6 +30,8 @@ export const APInvoiceList: React.FC = () => {
   const [typeRequestFilter, setTypeRequestFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<ApInvoice | null>(null);
 
   const { data: rawInvoices, isLoading, refetch, isRefetching } = useApInvoices({
     search: searchTerm || undefined,
@@ -39,6 +42,19 @@ export const APInvoiceList: React.FC = () => {
   });
 
   const deleteMutation = useDeleteApInvoice();
+
+  const handleConfirmDelete = async () => {
+    if (!invoiceToDelete) return;
+    try {
+      await deleteMutation.mutateAsync(invoiceToDelete.ID);
+      setIsDeleteModalOpen(false);
+      setInvoiceToDelete(null);
+      refetch();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete AP invoice');
+    }
+  };
+
   const invoicesList: ApInvoice[] = (Array.isArray(rawInvoices) ? rawInvoices : (rawInvoices as any)?.data) || [];
 
   // DYNAMIC STATS: 100% Calculated dynamically from API data
@@ -252,6 +268,18 @@ export const APInvoiceList: React.FC = () => {
               <Edit2 className="w-3.5 h-3.5" />
             </button>
           </Tooltip>
+          <Tooltip content="Delete AP Invoice" position="top">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setInvoiceToDelete(row.original);
+                setIsDeleteModalOpen(true);
+              }}
+              className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
         </div>
       ),
     },
@@ -391,7 +419,7 @@ export const APInvoiceList: React.FC = () => {
       </div>
 
       {/* Main Table Container */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs overflow-hidden">
+      <div className="w-full">
         <DataTable
           columns={columns}
           data={invoicesList}
@@ -447,6 +475,49 @@ export const APInvoiceList: React.FC = () => {
             onRowClick={(row) => navigate(`/procurement/ap-invoice/view/${row.ID}`)}
           />
       </div>
+
+      {/* Glass Delete Confirmation Modal */}
+      {isDeleteModalOpen && invoiceToDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="glass-card bg-white/90 dark:bg-slate-800/90 rounded-2xl max-w-md w-full shadow-2xl border border-slate-200/80 dark:border-white/10 p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Delete AP Invoice</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Are you sure you want to delete invoice <span className="font-semibold text-slate-700 dark:text-slate-300">{invoiceToDelete.OrderCode || `#${invoiceToDelete.ID}`}</span>?
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/20 p-2.5 rounded-xl border border-rose-200/50 dark:border-rose-900/30">
+              This action will permanently delete this accounts payable record from the system.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setInvoiceToDelete(null);
+                }}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete Invoice'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

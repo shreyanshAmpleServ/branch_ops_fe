@@ -57,7 +57,7 @@ const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const SectionCard: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
   <div
-    className={`rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden ${className}`}
+    className={`rounded-2xl border border-slate-200/80 dark:border-slate-700/80 glass-card bg-white dark:bg-slate-800 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden ${className}`}
   >
     {children}
   </div>
@@ -1526,9 +1526,9 @@ export const GoodsReceiptFormPage: React.FC<GoodsReceiptFormPageProps> = ({ mode
               <SectionHeader icon={<DollarSign className="w-4 h-4" />} title="Financial Summary" />
               <div className="p-5 space-y-3.5 text-xs">
                 {/* Subtotal */}
-                <div className="flex justify-between items-center text-slate-600 dark:text-slate-400 font-medium">
+                <div className="flex justify-between items-center text-slate-700 dark:text-slate-300 font-semibold">
                   <span>Subtotal Before Discount</span>
-                  <span className="font-mono text-sm font-bold text-slate-800 dark:text-slate-200">
+                  <span className="font-mono text-sm font-bold text-slate-900 dark:text-white">
                     {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
                   </span>
                 </div>
@@ -1536,7 +1536,7 @@ export const GoodsReceiptFormPage: React.FC<GoodsReceiptFormPageProps> = ({ mode
                 {/* Discount % */}
                 <div className="flex justify-between items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-600 dark:text-slate-400 font-medium">Document Discount %</span>
+                    <span className="text-slate-700 dark:text-slate-300 font-semibold">Document Discount %</span>
                     <input
                       type="number"
                       min="0"
@@ -1545,17 +1545,17 @@ export const GoodsReceiptFormPage: React.FC<GoodsReceiptFormPageProps> = ({ mode
                       value={discPrcnt}
                       onChange={e => setDiscPrcnt(validateDiscountPercent(parseFloat(e.target.value) || 0))}
                       disabled={mode === 'view'}
-                      className="w-16 px-2 py-1 text-right text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      className="w-16 px-2 py-1 text-right text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-slate-100 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-teal-500"
                     />
                   </div>
-                  <span className="font-mono text-rose-600 dark:text-rose-400 font-semibold">
+                  <span className="font-mono text-rose-600 dark:text-rose-400 font-bold">
                     - {totalDiscount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
                   </span>
                 </div>
 
                 {/* Freight */}
                 <div className="flex justify-between items-center gap-4">
-                  <span className="text-slate-600 dark:text-slate-400 font-medium">Freight / Transport Charges</span>
+                  <span className="text-slate-700 dark:text-slate-300 font-semibold">Freight / Transport Charges</span>
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
@@ -1564,16 +1564,16 @@ export const GoodsReceiptFormPage: React.FC<GoodsReceiptFormPageProps> = ({ mode
                       value={freight}
                       onChange={e => setFreight(parseFloat(e.target.value) || 0)}
                       disabled={mode === 'view'}
-                      className="w-28 px-2 py-1 text-right text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      className="w-28 px-2 py-1 text-right text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-slate-100 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-teal-500"
                     />
                     <span className="font-mono text-slate-700 dark:text-slate-300 font-semibold">{currency}</span>
                   </div>
                 </div>
 
                 {/* Tax Total */}
-                <div className="flex justify-between items-center text-slate-600 dark:text-slate-400 font-medium">
+                <div className="flex justify-between items-center text-slate-700 dark:text-slate-300 font-semibold">
                   <span>VAT / Tax Total</span>
-                  <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">
                     {totalTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
                   </span>
                 </div>

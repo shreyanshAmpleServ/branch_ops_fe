@@ -431,7 +431,7 @@ export const PurchaseRequestList: React.FC = () => {
       </div>
 
       {/* Main Table Container */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs overflow-hidden">
+      <div className="w-full">
         <DataTable
           columns={columns}
           data={requestsList}

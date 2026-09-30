@@ -77,8 +77,7 @@ const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const SectionCard: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
   <div
-    className={`rounded-2xl border shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden ${className}`}
-    style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+    className={`rounded-2xl border border-slate-200/80 dark:border-slate-700/80 glass-card bg-white dark:bg-slate-800 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden ${className}`}
   >
     {children}
   </div>
@@ -1652,31 +1651,30 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
           {/* FINANCIAL SUMMARY */}
           <div className="xl:col-span-1">
             <div
-              className="rounded-2xl border overflow-hidden shadow-sm sticky top-5"
-              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+              className="rounded-2xl border overflow-hidden shadow-sm sticky top-5 bg-white/85 dark:bg-slate-900/80 backdrop-blur-xl border-slate-200/90 dark:border-white/10 glass-card"
             >
-              <div className="px-5 py-3.5 border-b flex items-center gap-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-hover)' }}>
-                <DollarSign className="h-3.5 w-3.5 text-primary" />
-                <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-text)' }}>
+              <div className="px-5 py-3.5 border-b flex items-center gap-2 border-slate-200/90 dark:border-white/10 bg-slate-50/90 dark:bg-slate-800/80">
+                <DollarSign className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                <span className="text-[11px] font-bold uppercase tracking-widest text-slate-800 dark:text-slate-100">
                   Quotation Financial Summary
                 </span>
               </div>
 
               <div className="p-5 space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>Subtotal (before tax)</span>
-                  <span className="text-xs font-bold font-mono" style={{ color: 'var(--color-text)' }}>
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Subtotal (before tax)</span>
+                  <span className="text-xs font-bold font-mono text-slate-900 dark:text-white">
                     {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                     Header Discount (%)
                   </span>
                   <input
                     type="number" min="0" max="100"
-                    className="w-20 text-right text-xs font-bold font-mono py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-700 shadow-sm"
+                    className="w-20 text-right text-xs font-bold font-mono py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-600 shadow-sm"
                     value={discountPercent}
                     onChange={e => setDiscountPercent(validateDiscountPercent(Number(e.target.value)))}
                     disabled={isView}
@@ -1691,14 +1689,14 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                       checked={hasRounding}
                       onChange={e => setHasRounding(e.target.checked)}
                       disabled={isView}
-                      className="rounded border-gray-300 text-primary focus:ring-primary w-3.5 h-3.5"
+                      className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-3.5 h-3.5"
                     />
-                    <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>Rounding</span>
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Rounding</span>
                   </label>
                   {hasRounding && (
                     <input
                       type="number" step="any"
-                      className="w-24 text-right text-xs font-bold font-mono py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-700 shadow-sm"
+                      className="w-24 text-right text-xs font-bold font-mono py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-600 shadow-sm"
                       value={roundingAmount}
                       onChange={e => setRoundingAmount(Number(e.target.value))}
                       disabled={isView}
@@ -1714,14 +1712,14 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                       checked={hasFreight}
                       onChange={e => setHasFreight(e.target.checked)}
                       disabled={isView}
-                      className="rounded border-gray-300 text-primary focus:ring-primary w-3.5 h-3.5"
+                      className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-3.5 h-3.5"
                     />
-                    <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>Freight</span>
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Freight</span>
                   </label>
                   {hasFreight && (
                     <input
                       type="number" min="0" step="any"
-                      className="w-24 text-right text-xs font-bold font-mono py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-700 shadow-sm"
+                      className="w-24 text-right text-xs font-bold font-mono py-1.5 px-2 rounded-lg border outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-600 shadow-sm"
                       value={freightAmount}
                       onChange={e => setFreightAmount(Number(e.target.value))}
                       disabled={isView}
@@ -1729,9 +1727,9 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between pt-1 border-t" style={{ borderColor: 'var(--color-border)' }}>
-                  <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>Tax (VAT)</span>
-                  <span className="text-xs font-bold font-mono" style={{ color: 'var(--color-text)' }}>
+                <div className="flex items-center justify-between pt-1 border-t border-slate-200/90 dark:border-white/10">
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Tax (VAT)</span>
+                  <span className="text-xs font-bold font-mono text-slate-900 dark:text-white">
                     {totalTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>

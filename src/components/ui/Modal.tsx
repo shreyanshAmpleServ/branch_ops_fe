@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useDesignStore } from '../../store/useDesignStore';
+import { useThemeStore } from '../../store/useThemeStore';
 
 interface ModalProps {
   isOpen: boolean;
@@ -31,6 +32,8 @@ export const Modal: React.FC<ModalProps> = ({
   closeOnOverlay = true,
 }) => {
   const { activeDesign } = useDesignStore();
+  const { backgroundImage, backgroundColor } = useThemeStore();
+  const resolvedGlass = activeDesign === 'design1' || !!backgroundImage || !!backgroundColor;
 
   useEffect(() => {
     if (isOpen) {
@@ -70,8 +73,8 @@ export const Modal: React.FC<ModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className={`relative w-full ${sizeClasses[size]} rounded-2xl shadow-2xl overflow-hidden ${activeDesign === 'design1' ? 'glass-card' : ''}`}
-            style={activeDesign !== 'design1' ? { background: 'var(--color-surface)', border: '1px solid var(--color-border)' } : undefined}
+            className={`relative w-full ${sizeClasses[size]} rounded-2xl shadow-2xl overflow-hidden ${resolvedGlass ? 'glass-card' : ''}`}
+            style={!resolvedGlass ? { background: 'var(--color-surface)', border: '1px solid var(--color-border)' } : undefined}
           >
             {/* Header */}
             {(title || showCloseButton) && (

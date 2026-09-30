@@ -73,7 +73,7 @@ const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const SectionCard: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
   <div
-    className={`rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden ${className}`}
+    className={`rounded-2xl border border-slate-200/80 dark:border-slate-700/80 glass-card bg-white dark:bg-slate-800 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden ${className}`}
   >
     {children}
   </div>
@@ -1881,25 +1881,25 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
           {/* FINANCIAL SUMMARY */}
           <div className="xl:col-span-1">
             <div
-              className="rounded-2xl border overflow-hidden shadow-xs sticky top-5 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+              className="rounded-2xl border overflow-hidden shadow-sm sticky top-5 bg-white/85 dark:bg-slate-900/80 backdrop-blur-xl border-slate-200/90 dark:border-white/10 glass-card"
             >
-              <div className="px-5 py-3.5 border-b flex items-center gap-2 border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50">
-                <DollarSign className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
-                <span className="text-[11px] font-bold uppercase tracking-widest text-slate-800 dark:text-slate-200">
+              <div className="px-5 py-3.5 border-b flex items-center gap-2 border-slate-200/90 dark:border-white/10 bg-slate-50/90 dark:bg-slate-800/80">
+                <DollarSign className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                <span className="text-[11px] font-bold uppercase tracking-widest text-slate-800 dark:text-slate-100">
                   Order Financial Summary
                 </span>
               </div>
 
               <div className="p-5 space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Subtotal (before tax)</span>
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Subtotal (before tax)</span>
                   <span className="text-xs font-bold font-mono text-slate-900 dark:text-white">
                     {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                     Header Discount (%)
                   </span>
                   <input
@@ -1909,12 +1909,12 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                     value={discPrcnt}
                     onChange={(e) => setDiscPrcnt(validateDiscountPercent(Number(e.target.value)))}
                     disabled={mode === 'view'}
-                    className="w-20 text-right px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500/20 outline-none text-slate-900 dark:text-slate-100"
+                    className="w-20 text-right px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-teal-500/20 outline-none text-slate-900 dark:text-slate-100"
                   />
                 </div>
 
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                     Freight Charges
                   </span>
                   <input
@@ -1923,7 +1923,7 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                     value={freight}
                     onChange={(e) => setFreight(Number(e.target.value))}
                     disabled={mode === 'view'}
-                    className="w-24 text-right px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500/20 outline-none text-slate-900 dark:text-slate-100"
+                    className="w-24 text-right px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-teal-500/20 outline-none text-slate-900 dark:text-slate-100"
                   />
                 </div>
 
@@ -1936,7 +1936,7 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                       disabled={mode === 'view'}
                       className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-3.5 h-3.5"
                     />
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Rounding Option</span>
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Rounding Option</span>
                   </label>
                   {isRounding && (
                     <input
@@ -1944,21 +1944,21 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                       value={roundingAmnt}
                       onChange={(e) => setRoundingAmnt(Number(e.target.value))}
                       disabled={mode === 'view'}
-                      className="w-24 text-right px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500/20 outline-none text-slate-900 dark:text-slate-100"
+                      className="w-24 text-right px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-teal-500/20 outline-none text-slate-900 dark:text-slate-100"
                     />
                   )}
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Tax Amount</span>
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Tax Amount</span>
                   <span className="text-xs font-bold font-mono text-slate-900 dark:text-white">
                     {totalTax.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
                   </span>
                 </div>
 
-                <div className="border-t border-slate-200 dark:border-slate-700 pt-3 flex justify-between items-center text-sm font-bold text-slate-900 dark:text-white">
-                  <span>Grand Total</span>
-                  <span className="text-teal-600 dark:text-teal-400 font-black text-base font-mono">
+                <div className="border-t border-slate-200/90 dark:border-white/10 pt-3 flex justify-between items-center text-sm font-bold text-slate-900 dark:text-white">
+                  <span className="text-slate-800 dark:text-slate-200">Grand Total</span>
+                  <span className="text-teal-600 dark:text-teal-400 font-black text-lg font-mono">
                     {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
                   </span>
                 </div>

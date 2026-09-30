@@ -1,13 +1,22 @@
 import React, { useRef } from 'react';
 import type { PurchaseOrder } from '../api/usePurchaseOrders';
 import { format } from 'date-fns';
-import { ArrowLeft, Download, FileSpreadsheet, Paperclip, ExternalLink, Printer, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  Download,
+  FileSpreadsheet,
+  Paperclip,
+  ExternalLink,
+  Printer,
+  CheckCircle2,
+  Clock,
+  XCircle,
+} from 'lucide-react';
 import { Button } from '../../../../components/ui';
 import * as XLSX from 'xlsx';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
 import "../../purchase-quotations/components/view.css";
-
 import { getAttachmentUrl, getFileName } from '../../../../lib/api';
 
 interface PurchaseOrderReceiptViewProps {
@@ -30,7 +39,7 @@ export const PurchaseOrderReceiptView: React.FC<PurchaseOrderReceiptViewProps> =
       image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, windowWidth: 1123 },
       jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' as const },
-      pagebreak: { mode: 'css', avoid: ['.avoid-page-break', 'tr'] }
+      pagebreak: { mode: 'css', avoid: ['.avoid-page-break', 'tr'] },
     };
 
     html2pdf().set(opt).from(element).save();
@@ -41,372 +50,461 @@ export const PurchaseOrderReceiptView: React.FC<PurchaseOrderReceiptViewProps> =
   };
 
   const handleDownloadExcel = () => {
-    const items = order.items?.map(item => ({
-      'SNO': item.LineNum,
-      'VENDOR': order.CustCode || '',
-      'ITEM CODE': item.ItemCode || (item.ItemID ? `ITM-${item.ItemID}` : ''),
-      'ITEM NAME': item.ItemName || '',
-      'QTY': Number(item.Quantity || 0),
-      'UOM': item.UoM || 'pcs',
-      'UNIT PRICE': Number(item.UnitPrice || 0).toFixed(2),
-      'DISCOUNT %': Number(item.DiscPrcnt || 0).toFixed(2),
-      'TOTAL EXCLUSIVE': (Number(item.Quantity || 0) * Number(item.UnitPrice || 0)).toFixed(2),
-      'TAX AMOUNT': Number(item.LineTax || 0).toFixed(2),
-      'TOTAL INCLUSIVE': Number(item.LineTotalLC || 0).toFixed(2),
-      'WAREHOUSE': item.WhsCode || '',
-      'PROJECT': item.project || '',
-      'COST CENTER': item.cost_center || ''
-    })) || [];
+    const items =
+      order.items?.map((item) => ({
+        SNO: item.LineNum,
+        VENDOR: order.CustCode || '',
+        'ITEM CODE': item.ItemCode || (item.ItemID ? `ITM-${item.ItemID}` : ''),
+        'ITEM NAME': item.ItemName || '',
+        QTY: Number(item.Quantity || 0),
+        UOM: item.UoM || 'pcs',
+        'UNIT PRICE': Number(item.UnitPrice || 0).toFixed(2),
+        'DISCOUNT %': Number(item.DiscPrcnt || 0).toFixed(2),
+        'TOTAL EXCLUSIVE': (Number(item.Quantity || 0) * Number(item.UnitPrice || 0)).toFixed(2),
+        'TAX AMOUNT': Number(item.LineTax || 0).toFixed(2),
+        'TOTAL INCLUSIVE': Number(item.LineTotalLC || 0).toFixed(2),
+        WAREHOUSE: item.WhsCode || '',
+        PROJECT: item.project || '',
+        'COST CENTER': item.cost_center || '',
+      })) || [];
 
     const ws = XLSX.utils.json_to_sheet(items);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Purchase Order");
+    XLSX.utils.book_append_sheet(wb, ws, 'Purchase Order');
     XLSX.writeFile(wb, `Purchase_Order_${order.OrderCode || order.ID}.xlsx`);
   };
 
-  const subtotal = order.items?.reduce((sum, item) => sum + (Number(item.Quantity || 0) * Number(item.UnitPrice || 0)), 0) || 0;
+  const subtotal =
+    order.items?.reduce(
+      (sum, item) => sum + Number(item.Quantity || 0) * Number(item.UnitPrice || 0),
+      0
+    ) || 0;
   const headerDisc = Number(order.DiscPrcnt || 0);
   const discountAmount = subtotal * (headerDisc / 100);
-  const amountInWords = "Tanzanian Shillings " + Number(order.DocTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " Only";
+  const totalExclusive = subtotal - discountAmount;
+  const totalTax = Number(order.TaxTotal || order.VatTotal || 0);
+  const finalDocTotal = Number(order.DocTotal || totalExclusive + totalTax);
 
-  const aprStatus = order.AprStatus || 'P';
+  const amountInWords =
+    'Tanzanian Shillings ' +
+    finalDocTotal.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }) +
+    ' Only';
+
+  const aprStatus = order.AprStatus || (order.Status === 'C' ? 'Y' : order.Status === 'O' ? 'P' : 'P');
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Top Action Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-md sticky top-0 z-20">
         <div className="flex items-center gap-3">
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             icon={<ArrowLeft className="h-4 w-4" />}
             onClick={onBack}
             className="hover:scale-95 transition-all text-xs font-bold rounded-xl"
           >
             Back
           </Button>
-          <div className="flex items-center gap-2">
-            <span className="text-xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
-              Purchase Order #{order.OrderCode || order.ID}
-            </span>
-            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
-              aprStatus === 'Y' || order.Status === 'O' || order.Status === 'Open'
-                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                : aprStatus === 'N' || order.Status === 'C' || order.Status === 'Closed'
-                ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
-                : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
-            }`}>
-              {aprStatus === 'Y' ? <CheckCircle2 className="w-3.5 h-3.5" /> : aprStatus === 'N' ? <XCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
-              {aprStatus === 'Y' ? 'Approved' : aprStatus === 'N' ? 'Rejected' : 'Pending Approval'}
-            </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-extrabold text-gray-900 dark:text-gray-100">
+                Purchase Order Details
+              </h2>
+              <span className="font-mono text-xs font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 px-2 py-0.5 rounded-md border border-teal-200 dark:border-teal-800">
+                {order.OrderCode || `ID #${order.ID}`}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
+              Official Purchase Order Document View
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <Button
-            variant="secondary"
             icon={<Printer className="h-4 w-4" />}
             onClick={handlePrint}
-            className="hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-semibold rounded-xl"
+            variant="secondary"
+            className="text-xs font-bold rounded-xl hover:scale-95 transition-all"
           >
             Print
           </Button>
           <Button
-            variant="secondary"
-            icon={<FileSpreadsheet className="h-4 w-4 text-emerald-600" />}
+            icon={<FileSpreadsheet className="h-4 w-4" />}
             onClick={handleDownloadExcel}
-            className="hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-semibold rounded-xl"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-sm transition-all hover:scale-95 text-xs font-bold px-4 rounded-xl"
           >
-            Export Excel
+            Excel
           </Button>
           <Button
-            variant="primary"
             icon={<Download className="h-4 w-4" />}
             onClick={handleDownloadPDF}
-            className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white text-xs font-semibold rounded-xl shadow-md"
+            className="bg-teal-600 hover:bg-teal-700 text-white border-0 shadow-md shadow-teal-500/20 transition-all hover:scale-95 text-xs font-bold px-4 rounded-xl"
           >
             Download PDF
           </Button>
         </div>
       </div>
 
-      {/* Main Printable Document Card */}
-      <div className="flex justify-center">
-        <div 
+      {/* Printable Area Container */}
+      <div className="flex justify-center overflow-x-auto pb-8 w-full">
+        <div
           ref={printRef}
-            className="purchase-quotation-print bg-white text-slate-800 shadow-2xl rounded-2xl border border-slate-200 min-w-[920px] w-full max-w-[1140px] mx-auto shrink-0 overflow-hidden"
-
-          // className="w-full max-w-[1100px] bg-white text-gray-900 p-8 sm:p-12 rounded-2xl shadow-xl border border-gray-100 space-y-8 text-sm leading-relaxed"
-          // style={{ fontFamily: "'Inter', sans-serif" }}
+          className="purchase-quotation-print bg-white text-slate-800 shadow-2xl rounded-2xl border border-slate-200 min-w-[920px] w-full max-w-[1140px] mx-auto shrink-0 overflow-hidden"
+          style={{ position: 'relative' }}
         >
-          {/* Header Branding */}
+          {/* Header Banner */}
           <div className="w-full bg-gradient-to-r from-[#005f73] via-[#0A9396] to-[#94D2BD] text-white px-10 py-6 flex items-center justify-between">
-            <div>            
-
-              <div className="space-y-1">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-teal-600 to-cyan-700 flex items-center justify-center text-white font-bold text-xl shadow-md">
-                  PO
-                </div>
-                <div>
-                  <h1 className="text-[10px] font-bold uppercase tracking-widest text-teal-200">PURCHASE ORDER</h1>
-                  <p className="text-2xl font-extrabold tracking-tight uppercase text-white">PROCUREMENT DEPARTMENT</p>
-                </div>
-              </div>
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-teal-200">
+                PROCUREMENT MODULE
+              </span>
+              <h1 className="text-2xl font-extrabold tracking-tight uppercase text-white">
+                PURCHASE ORDER
+              </h1>
             </div>
-            <div className="text-right ">
+            <div className="text-right">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/20 backdrop-blur-md text-white border border-white/30 uppercase tracking-wider">
-                <div className="text-xs text-teal-700 font-bold uppercase tracking-wider">Order No</div>
-                <div className="text-lg font-black text-teal-900">{order.OrderCode || `PO-${order.ID}`}</div>
-                {order.RequestedNo && (
-                  <div className="text-xs text-gray-500 font-medium">Ref / Base PR: {order.RequestedNo}</div>
+                {aprStatus === 'Y' && (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" /> Approved
+                  </>
                 )}
-                {(order as any).relation_from && (
-                  <div className="text-[11px] text-teal-800 font-semibold">Relation: {(order as any).relation_from}</div>
+                {aprStatus === 'N' && (
+                  <>
+                    <XCircle className="h-3.5 w-3.5 text-rose-300" /> Rejected
+                  </>
+                )}
+                {aprStatus === 'P' && (
+                  <>
+                    <Clock className="h-3.5 w-3.5 text-amber-300" /> Pending Approval
+                  </>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Info Card: Balanced 2-Column Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50/80 rounded-2xl p-6 border border-gray-200/80">
-            {/* Left Column: Vendor & Order Info */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-teal-700 uppercase tracking-wider border-b border-gray-200 pb-1">
-                Vendor & Header Info
-              </h3>
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <span className="font-semibold text-gray-500">Vendor:</span>
-                <span className="col-span-2 font-bold text-gray-900">{order.CustName || order.CustCode || 'N/A'}</span>
+          <div className="p-10 space-y-8">
+            {/* Top Info Grid - Balanced 2 Equal Columns */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+              {/* Left Card: Issuer Company Details */}
+              <div className="bg-slate-50 rounded-2xl border border-slate-200/80 p-5 shadow-sm flex flex-col justify-between">
+                <div>
+                  <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-[#005f73] mb-3 pb-1 border-b border-slate-200">
+                    Issuer Company Details
+                  </h3>
+                  <div className="flex gap-4 items-start">
+                    <div className="w-14 h-14 bg-gradient-to-br from-[#005f73] to-[#0A9396] rounded-2xl shadow-md flex items-center justify-center shrink-0 text-white font-black text-xl tracking-wider">
+                      DCC
+                    </div>
+                    <div className="space-y-1 text-xs">
+                      <h2 className="text-base font-extrabold text-[#005f73]">DCC Sales APP</h2>
+                      <p className="text-slate-600 leading-relaxed">
+                        5th Floor, IT Plaza, Ohio Street/Garden Avenue
+                        <br />
+                        P.O.Box 20419 Dar es Salaam, Tanzania
+                      </p>
+                      <p className="text-slate-500 text-[11px] pt-1">
+                        Phone: <span className="font-semibold text-slate-700">+255-22-2112161</span>{' '}
+                        | Email:{' '}
+                        <span className="font-semibold text-slate-700">
+                          sales@doubleclick.co.tz
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-                <span className="font-semibold text-gray-500">Vendor Code:</span>
-                <span className="col-span-2 text-gray-800 font-medium">{order.CustCode || 'N/A'}</span>
+                <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-slate-200/60 text-xs bg-white/60 p-3 rounded-xl border border-slate-100">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      TIN Number
+                    </span>
+                    <span className="font-extrabold text-slate-800 font-mono text-xs">
+                      TIN12345
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      VRN Number
+                    </span>
+                    <span className="font-extrabold text-slate-800 font-mono text-xs">
+                      VRN12345
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-                {order.RequestType && (
-                  <>
-                    <span className="font-semibold text-gray-500">Request Type:</span>
-                    <span className="col-span-2 text-gray-800 font-medium">{order.RequestType}</span>
-                  </>
-                )}
-
-                {order.TypeRequest && (
-                  <>
-                    <span className="font-semibold text-gray-500">Type Request:</span>
-                    <span className="col-span-2 text-gray-800 font-medium">{order.TypeRequest}</span>
-                  </>
-                )}
-
-                {order.Department && (
-                  <>
-                    <span className="font-semibold text-gray-500">Department:</span>
-                    <span className="col-span-2 text-gray-800 font-medium">{order.Department}</span>
-                  </>
-                )}
-
-                {(order.ExpenseType || order.Expense_type) && (
-                  <>
-                    <span className="font-semibold text-gray-500">Expense Type:</span>
-                    <span className="col-span-2 text-gray-800 font-medium">{order.ExpenseType || order.Expense_type}</span>
-                  </>
-                )}
-
-                {order.TypePayment && (
-                  <>
-                    <span className="font-semibold text-gray-500">Payment Type:</span>
-                    <span className="col-span-2 text-gray-800 font-medium">{order.TypePayment}</span>
-                  </>
-                )}
+              {/* Right Card: Document Metadata */}
+              <div className="bg-slate-50 rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+                <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-[#005f73] mb-3 pb-1 border-b border-slate-200">
+                  Document Metadata
+                </h3>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                    <span className="text-slate-500">Order Code</span>
+                    <span className="font-bold text-[#005f73] font-mono text-sm">
+                      {order.OrderCode || `ID #${order.ID}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                    <span className="text-slate-500">Supplier / Vendor</span>
+                    <span
+                      className="font-bold text-slate-800 truncate max-w-[220px]"
+                      title={order.CustName || order.CustCode || ''}
+                    >
+                      {order.CustName
+                        ? `${order.CustName} (${order.CustCode})`
+                        : order.CustCode || '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                    <span className="text-slate-500">Base PR Ref No.</span>
+                    <span className="font-semibold text-slate-700">
+                      {order.RequestedNo || '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                    <span className="text-slate-500">Posting Date</span>
+                    <span className="font-semibold text-slate-700">
+                      {order.PostDate ? format(new Date(order.PostDate), 'yyyy-MM-dd') : '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                    <span className="text-slate-500">Expected Receipt Date</span>
+                    <span className="font-semibold text-slate-700">
+                      {order.ReceiptDate
+                        ? format(new Date(order.ReceiptDate), 'yyyy-MM-dd')
+                        : order.PODate
+                        ? format(new Date(order.PODate), 'yyyy-MM-dd')
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                    <span className="text-slate-500">Department</span>
+                    <span className="font-semibold text-slate-700">
+                      {order.Department || '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                    <span className="text-slate-500">Created By</span>
+                    <span className="font-semibold text-slate-700">
+                      {order.CreatedByName || `User #${order.CreatedBy || '-'}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center pt-0.5">
+                    <span className="text-slate-500">Currency</span>
+                    <span className="font-bold text-teal-600 font-mono">{currency}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Right Column: Dates & Status */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-teal-700 uppercase tracking-wider border-b border-gray-200 pb-1">
-                Dates & Status
-              </h3>
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <span className="font-semibold text-gray-500">Posting Date:</span>
-                <span className="col-span-2 text-gray-800 font-medium">
-                  {order.PostDate ? format(new Date(order.PostDate), 'dd MMM yyyy') : 'N/A'}
-                </span>
-
-                {order.PODate && (
-                  <>
-                    <span className="font-semibold text-gray-500">PO Date:</span>
-                    <span className="col-span-2 text-gray-800 font-medium">
-                      {format(new Date(order.PODate), 'dd MMM yyyy')}
-                    </span>
-                  </>
-                )}
-
-                {order.ReceiptDate && (
-                  <>
-                    <span className="font-semibold text-gray-500">Expected Receipt:</span>
-                    <span className="col-span-2 text-gray-800 font-medium">
-                      {format(new Date(order.ReceiptDate), 'dd MMM yyyy')}
-                    </span>
-                  </>
-                )}
-
-                <span className="font-semibold text-gray-500">Doc Status:</span>
-                <span className="col-span-2 text-gray-800 font-medium capitalize">
-                  {order.Status === 'O' ? 'Open' : order.Status === 'C' ? 'Closed' : order.Status || 'Pending'}
-                </span>
-
-                <span className="font-semibold text-gray-500">Created By:</span>
-                <span className="col-span-2 text-gray-800 font-medium">{order.CreatedByName || `User #${order.CreatedBy || '-'}`}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Line Items Table */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-              Order Material Lines & Details
-            </h3>
-            <div className="overflow-x-auto rounded-xl border border-gray-200">
-              <table className="w-full text-left text-xs border-collapse">
+            {/* Items Table */}
+            <div className="w-full border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-gradient-to-r from-slate-100 to-gray-100 text-gray-700 font-bold border-b border-gray-200">
-                    <th className="py-3 px-3 text-center w-12">#</th>
-                    <th className="py-3 px-4">Item Code & Name</th>
-                    <th className="py-3 px-3 text-center">Qty</th>
+                  <tr className="bg-slate-100/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider border-b border-slate-200">
+                    <th className="py-3 px-3 w-10 text-center">#</th>
+                    <th className="py-3 px-3">Vendor</th>
+                    <th className="py-3 px-3">Item Code</th>
+                    <th className="py-3 px-3">Item Description</th>
+                    <th className="py-3 px-3 text-right">Qty</th>
                     <th className="py-3 px-3 text-center">UoM</th>
                     <th className="py-3 px-3 text-right">Unit Price</th>
-                    <th className="py-3 px-3 text-right">Disc %</th>
-                    <th className="py-3 px-3 text-right">Tax Amount</th>
-                    <th className="py-3 px-4 text-right">Total ({currency})</th>
+                    <th className="py-3 px-3 text-right">Excl. Total</th>
+                    <th className="py-3 px-3 text-right">Tax (VAT)</th>
+                    <th className="py-3 px-3 text-right">Incl. Total</th>
+                    <th className="py-3 px-3">Warehouse</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {order.items && order.items.length > 0 ? (
-                    order.items.map((item, idx) => {
-                      const qty = Number(item.Quantity || 0);
-                      const price = Number(item.UnitPrice || 0);
-                      const disc = Number(item.DiscPrcnt || 0);
-                      const lineTax = Number(item.LineTax || 0);
-                      const lineTotal = Number(item.LineTotalLC || 0);
+                <tbody className="text-xs text-slate-700 divide-y divide-slate-100">
+                  {order.items?.map((item, idx) => {
+                    const qty = Number(item.Quantity || 0);
+                    const price = Number(item.UnitPrice || 0);
+                    const disc = Number(item.DiscPrcnt || 0);
+                    const itemTotalExcl = qty * price * (1 - disc / 100);
+                    const taxAmt = Number(item.LineTax || 0);
+                    const itemTotalIncl = Number(item.LineTotalLC || itemTotalExcl + taxAmt);
 
-                      return (
-                        <tr key={item.ID || idx} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="py-3 px-3 text-center font-medium text-gray-500">{item.LineNum || idx + 1}</td>
-                          <td className="py-3 px-4 font-medium text-gray-900">
-                            <div>{item.ItemName || 'Unnamed Item'}</div>
-                            {item.ItemCode && <div className="text-[10px] text-gray-400">{item.ItemCode}</div>}
-                            <div className="flex flex-wrap gap-2 text-[10px] text-gray-500 mt-1">
-                              {item.WhsCode && <span>Whs: {item.WhsCode}</span>}
-                              {item.project && <span>Prj: {item.project}</span>}
-                              {item.cost_center && <span>CC: {item.cost_center}</span>}
+                    return (
+                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400">
+                          {String(item.LineNum || idx + 1).padStart(2, '0')}
+                        </td>
+                        <td className="py-2.5 px-3 font-medium text-slate-600">
+                          {item.vendor || item.VendorCode || order.CustCode || '—'}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono font-semibold text-[#005f73]">
+                          {item.ItemCode || (item.ItemID ? `ITM-${item.ItemID}` : '—')}
+                        </td>
+                        <td className="py-2.5 px-3 font-bold text-slate-800">
+                          <div>{item.ItemName || 'Unnamed Item'}</div>
+                          {item.Remarks && (
+                            <div className="text-[10px] text-slate-400 font-normal italic mt-0.5">
+                              {item.Remarks}
                             </div>
-                            {item.Remarks && <div className="text-[10px] text-gray-500 italic mt-0.5">{item.Remarks}</div>}
-                          </td>
-                          <td className="py-3 px-3 text-center font-bold text-gray-800">{qty}</td>
-                          <td className="py-3 px-3 text-center text-gray-600">{item.UoM || 'pcs'}</td>
-                          <td className="py-3 px-3 text-right text-gray-700">{price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                          <td className="py-3 px-3 text-right text-gray-600">{disc > 0 ? `${disc}%` : '-'}</td>
-                          <td className="py-3 px-3 text-right text-gray-600">{lineTax > 0 ? lineTax.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '-'}</td>
-                          <td className="py-3 px-4 text-right font-bold text-teal-800">{lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                        </tr>
-                      );
-                    })
-                  ) : (
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono font-semibold">
+                          {qty.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-2.5 px-3 text-center text-slate-500 font-medium">
+                          {item.UoM || 'pcs'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-slate-600">
+                          {price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-slate-600">
+                          {itemTotalExcl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-slate-500">
+                          {taxAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono font-extrabold text-emerald-700">
+                          {itemTotalIncl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-500">
+                          {item.WhsCode ? `Whs ${item.WhsCode}` : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {(!order.items || order.items.length === 0) && (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-gray-400 italic">
-                        No line items found.
+                      <td colSpan={11} className="py-12 text-center text-slate-400 italic">
+                        No item lines found
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
-          </div>
 
-          {/* Calculations & Remarks Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-            <div className="space-y-4">
-              {order.Remarks && (
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-1">
-                  <div className="text-xs font-bold text-gray-700 uppercase tracking-wider">Remarks / Notes</div>
-                  <p className="text-xs text-gray-600 whitespace-pre-wrap">{order.Remarks}</p>
+            {/* Bottom Section: Remarks & Summary Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start pt-4 avoid-page-break">
+              {/* Left Column (7 cols) */}
+              <div className="md:col-span-7 space-y-4">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/70 space-y-1">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#005f73] block">
+                    Amount in Words
+                  </span>
+                  <p className="text-xs font-bold text-slate-800 leading-relaxed">{amountInWords}</p>
                 </div>
-              )}
 
-              <div className="bg-teal-50/60 rounded-xl p-4 border border-teal-100 space-y-1">
-                <div className="text-xs font-bold text-teal-800 uppercase tracking-wider">Amount in Words</div>
-                <p className="text-xs font-medium text-teal-900 italic">{amountInWords}</p>
-              </div>
-            </div>
+                {order.Remarks && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block">
+                      Remarks & Instructions
+                    </span>
+                    <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed">
+                      {order.Remarks}
+                    </p>
+                  </div>
+                )}
 
-            {/* Totals Box */}
-            <div className="bg-gray-50 rounded-2xl p-5 border border-gray-200 space-y-3">
-              <div className="flex justify-between text-xs text-gray-600">
-                <span>Subtotal Exclusive:</span>
-                <span className="font-semibold text-gray-800">{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}</span>
+                {order.attachments && order.attachments.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block">
+                      Attached Files ({order.attachments.length})
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {order.attachments.map((att, idx) => (
+                        <a
+                          key={idx}
+                          href={getAttachmentUrl(att.Attachment)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition-all"
+                        >
+                          <Paperclip className="h-3.5 w-3.5 text-slate-500" />
+                          <span>{getFileName(att.Attachment)}</span>
+                          <ExternalLink className="h-3 w-3 text-slate-400" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              {headerDisc > 0 && (
-                <div className="flex justify-between text-xs text-emerald-600">
-                  <span>Header Discount ({headerDisc}%):</span>
-                  <span className="font-semibold">-{discountAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}</span>
+
+              {/* Right Column: Financial Calculation Card (5 cols) */}
+              <div className="md:col-span-5 bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-2.5 text-xs shadow-sm">
+                <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-[#005f73] pb-1 border-b border-slate-200">
+                  Financial Calculation
+                </h4>
+                <div className="flex justify-between items-center text-slate-600">
+                  <span>Subtotal Excl. Tax</span>
+                  <span className="font-mono font-semibold">
+                    {currency} {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
-              )}
-              <div className="flex justify-between text-xs text-gray-600">
-                <span>Tax Total:</span>
-                <span className="font-semibold text-gray-800">{Number(order.TaxTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}</span>
-              </div>
-              {Number(order.Freight || 0) > 0 && (
-                <div className="flex justify-between text-xs text-gray-600">
-                  <span>Freight Charges:</span>
-                  <span className="font-semibold text-gray-800">{Number(order.Freight).toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}</span>
+                {headerDisc > 0 && (
+                  <div className="flex justify-between items-center text-slate-600">
+                    <span>Discount ({headerDisc}%)</span>
+                    <span className="font-mono text-rose-600">
+                      -{currency}{' '}
+                      {discountAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-slate-600">
+                  <span>Total Before Tax</span>
+                  <span className="font-mono font-semibold">
+                    {currency}{' '}
+                    {totalExclusive.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
-              )}
-              <div className="border-t border-gray-300 pt-3 flex justify-between items-center text-sm font-black text-gray-900">
-                <span>Grand Total:</span>
-                <span className="text-lg text-teal-700">{Number(order.DocTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}</span>
-              </div>
-            </div>
-          </div>
+                {Number(order.Freight || 0) > 0 && (
+                  <div className="flex justify-between items-center text-slate-600">
+                    <span>Freight Charges</span>
+                    <span className="font-mono font-semibold">
+                      {currency}{' '}
+                      {Number(order.Freight || 0).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-slate-600">
+                  <span>VAT / Tax Amount</span>
+                  <span className="font-mono font-semibold">
+                    {currency}{' '}
+                    {totalTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
 
-          {/* Attachments Section */}
-          {order.attachments && order.attachments.length > 0 && (
-            <div className="space-y-3 border-t border-gray-200 pt-4 avoid-page-break">
-              <div className="flex items-center gap-2 text-xs font-bold text-gray-700 uppercase tracking-wider">
-                <Paperclip className="h-4 w-4 text-teal-600" />
-                <span>Attachments ({order.attachments.length})</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {order.attachments.map((att, idx) => {
-                  const url = getAttachmentUrl(att.Attachment);
-                  const filename = getFileName(att.Attachment);
-                  return (
-                    <a
-                      key={att.ID || idx}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-between p-3 rounded-xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-200 transition-all text-xs group"
-                    >
-                      <span className="font-medium text-gray-700 group-hover:text-teal-900 truncate max-w-[80%]">
-                        {filename}
-                      </span>
-                      <ExternalLink className="h-3.5 w-3.5 text-gray-400 group-hover:text-teal-600 flex-shrink-0" />
-                    </a>
-                  );
-                })}
+                <div className="flex justify-between items-center pt-3 mt-2 border-t border-slate-300">
+                  <span className="font-extrabold text-slate-900 text-sm">Grand Total</span>
+                  <span className="font-black font-mono text-emerald-700 text-lg">
+                    {currency}{' '}
+                    {finalDocTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Signatures & Approval Footer */}
-          <div className="border-t border-gray-200 pt-8 mt-12 grid grid-cols-3 gap-6 text-center text-xs avoid-page-break">
-            <div className="space-y-8">
-              <div className="border-b border-gray-300 pb-1 font-semibold text-gray-700">Prepared By</div>
-              <div className="text-gray-500 font-medium">{order.CreatedByName || `User #${order.CreatedBy || '-'}`}</div>
-            </div>
-            <div className="space-y-8">
-              <div className="border-b border-gray-300 pb-1 font-semibold text-gray-700">Checked By</div>
-              <div className="text-gray-400 italic">Signature & Date</div>
-            </div>
-            <div className="space-y-8">
-              <div className="border-b border-gray-300 pb-1 font-semibold text-gray-700">Authorized Approval</div>
-              <div className="text-gray-400 italic">Signature & Stamp</div>
+            {/* Signature & Approval Block */}
+            <div className="pt-10 border-t border-slate-200 grid grid-cols-3 gap-8 text-xs text-slate-600 avoid-page-break">
+              <div>
+                <p className="font-bold text-slate-800">Prepared By:</p>
+                <div className="mt-10 border-b border-slate-300 w-44"></div>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {order.CreatedByName || `User #${order.CreatedBy || '-'}`}
+                </p>
+              </div>
+              <div>
+                <p className="font-bold text-slate-800">Verified By:</p>
+                <div className="mt-10 border-b border-slate-300 w-44"></div>
+                <p className="mt-1 text-[11px] text-slate-500">Procurement Department</p>
+              </div>
+              <div className="text-right flex flex-col items-end">
+                <p className="font-bold text-slate-800">Authorized Approval:</p>
+                <div className="mt-10 border-b border-slate-300 w-44"></div>
+                <p className="mt-1 text-[11px] text-slate-500">Management Signature</p>
+              </div>
             </div>
           </div>
         </div>
@@ -414,3 +512,5 @@ export const PurchaseOrderReceiptView: React.FC<PurchaseOrderReceiptViewProps> =
     </div>
   );
 };
+
+export default PurchaseOrderReceiptView;

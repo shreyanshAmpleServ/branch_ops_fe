@@ -650,51 +650,122 @@
   /* Glass card styling when custom background is active in LIGHT MODE */
   .has-custom-bg:not(.dark) .glass-card,
   :not(.dark).has-custom-bg .glass-card {
-    background: rgba(255, 255, 255, 0.55) !important;
-    backdrop-filter: blur(16px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(16px) saturate(190%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.5) !important;
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.03) !important;
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(20px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.7) !important;
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.04) !important;
     color: #0f172a !important;
-    --color-surface: rgba(255, 255, 255, 0.65);
-    --color-surface-hover: rgba(255, 255, 255, 0.45);
+    --color-surface: rgba(255, 255, 255, 0.85);
+    --color-surface-hover: rgba(241, 245, 249, 0.7);
     --color-text: #0f172a;
     --color-text-secondary: #475569;
-    --color-border: rgba(255, 255, 255, 0.45);
-  }
-
-  /* Table cell borders and text in light mode glass */
-  .has-custom-bg:not(.dark) .glass-card td,
-  .has-custom-bg:not(.dark) .glass-card th,
-  .has-custom-bg:not(.dark) .glass-card tr,
-  .has-custom-bg:not(.dark) .glass-card .ant-table-cell {
-    border-color: rgba(226, 232, 240, 0.8) !important;
-    color: #0f172a !important;
-  }
-
-  .has-custom-bg:not(.dark) .glass-card th {
-    color: #475569 !important;
-  }
-
-  .has-custom-bg:not(.dark) .glass-card tbody tr:hover {
-    background-color: rgba(241, 245, 249, 0.65) !important;
+    --color-border: rgba(226, 232, 240, 0.85);
   }
 
   /* Harmonize standard cards with the glass aesthetic on custom backgrounds */
-  .has-custom-bg:not(.dark) .bg-white {
-    background-color: rgba(255, 255, 255, 0.58) !important;
-    backdrop-filter: blur(16px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(16px) saturate(190%) !important;
-    border-color: rgba(255, 255, 255, 0.45) !important;
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08) !important;
+  .has-custom-bg:not(.dark) .bg-white,
+  .has-custom-bg:not(.dark) [class*="bg-white/8"],
+  .has-custom-bg:not(.dark) [class*="bg-white/9"],
+  .has-custom-bg:not(.dark) .card {
+    background-color: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(20px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(190%) !important;
+    border-color: rgba(255, 255, 255, 0.7) !important;
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08) !important;
   }
 
-  /* Inputs, selects and fields in light frosted glass */
-  .has-custom-bg:not(.dark) .glass-card input:not([type="checkbox"]):not([type="radio"]),
-  .has-custom-bg:not(.dark) .glass-card select,
-  .has-custom-bg:not(.dark) .bg-white input:not([type="checkbox"]):not([type="radio"]),
-  .has-custom-bg:not(.dark) .bg-white select {
+  /* Prevent nested full cards from compounding into opaque white surfaces while preserving form controls */
+  .has-custom-bg .bg-white > .glass-card,
+  .has-custom-bg .glass-card > .glass-card,
+  .has-custom-bg .glass-card > .bg-white:not([role="dialog"]):not(.modal-content):not([class*="fixed"]),
+  .has-custom-bg .bg-white > .bg-white:not([role="dialog"]):not(.modal-content):not([class*="fixed"]),
+  .has-custom-bg .dark\:bg-slate-800 > .glass-card,
+  .has-custom-bg .dark\:bg-slate-800 > .dark\:bg-slate-800:not([role="dialog"]):not(.modal-content):not([class*="fixed"]),
+  .has-custom-bg .glass-card > .dark\:bg-slate-800:not([role="dialog"]):not(.modal-content):not([class*="fixed"]) {
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Glassify ALL tables across the whole application in custom background / glass mode */
+  .has-custom-bg table,
+  .has-custom-bg .table,
+  .has-custom-bg .table > :not(caption) > * > *,
+  .has-custom-bg table tr,
+  .has-custom-bg table td,
+  .has-custom-bg table th,
+  .has-custom-bg table thead,
+  .has-custom-bg table tbody,
+  .has-custom-bg table tfoot,
+  .has-custom-bg .table-wrapper,
+  .has-custom-bg [class*="overflow-x-auto"],
+  .has-custom-bg .ant-table,
+  .has-custom-bg .ant-table-container,
+  .has-custom-bg .ant-table-content,
+  .has-custom-bg .ant-table-thead > tr > th,
+  .has-custom-bg .ant-table-tbody > tr > td,
+  .has-custom-bg .ant-table-cell,
+  .has-custom-bg .p-datatable,
+  .has-custom-bg .p-datatable-wrapper,
+  .has-custom-bg .p-datatable-table,
+  .has-custom-bg .p-datatable-thead > tr > th,
+  .has-custom-bg .p-datatable-tbody > tr > td,
+  .has-custom-bg .MuiDataGrid-root,
+  .has-custom-bg .MuiDataGrid-cell,
+  .has-custom-bg .MuiDataGrid-columnHeaders,
+  .has-custom-bg .MuiDataGrid-footerContainer {
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  /* Table header, row hover, and cell styles in LIGHT MODE */
+  .has-custom-bg:not(.dark) table thead,
+  .has-custom-bg:not(.dark) table thead tr,
+  .has-custom-bg:not(.dark) table thead th,
+  .has-custom-bg:not(.dark) .ant-table-thead > tr > th,
+  .has-custom-bg:not(.dark) .p-datatable-thead > tr > th {
+    background-color: rgba(241, 245, 249, 0.92) !important;
     color: #0f172a !important;
+    font-weight: 700 !important;
+    border-bottom: 1px solid rgba(203, 213, 225, 0.9) !important;
+  }
+
+  .has-custom-bg:not(.dark) table tbody tr:hover,
+  .has-custom-bg:not(.dark) table tbody tr:hover > td,
+  .has-custom-bg:not(.dark) .glass-card tbody tr:hover,
+  .has-custom-bg:not(.dark) .glass-card tbody tr:hover > td,
+  .has-custom-bg:not(.dark) .ant-table-tbody > tr:hover > td {
+    background-color: rgba(241, 245, 249, 0.6) !important;
+  }
+
+  .has-custom-bg:not(.dark) table td,
+  .has-custom-bg:not(.dark) table th,
+  .has-custom-bg:not(.dark) .glass-card td,
+  .has-custom-bg:not(.dark) .glass-card th,
+  .has-custom-bg:not(.dark) .glass-card .ant-table-cell {
+    border-color: rgba(226, 232, 240, 0.85) !important;
+    color: #0f172a !important;
+  }
+
+  /* Inputs, selects, and filter elements in LIGHT MODE glass */
+  .has-custom-bg:not(.dark) input:not([type="checkbox"]):not([type="radio"]),
+  .has-custom-bg:not(.dark) select,
+  .has-custom-bg:not(.dark) textarea {
+    background-color: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(203, 213, 225, 0.9) !important;
+    color: #0f172a !important;
+  }
+
+  .has-custom-bg:not(.dark) input:focus,
+  .has-custom-bg:not(.dark) select:focus,
+  .has-custom-bg:not(.dark) textarea:focus {
+    border-color: #0d9488 !important;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.2) !important;
   }
 
   .has-custom-bg:not(.dark) input::placeholder {
@@ -712,35 +783,116 @@
     color: #0f172a !important;
   }
 
-  /* Headings & Text in LIGHT MODE: Always crisp dark slate */
-  .has-custom-bg:not(.dark) h1,
-  .has-custom-bg:not(.dark) h2,
-  .has-custom-bg:not(.dark) h3,
-  .has-custom-bg:not(.dark) h4,
-  .has-custom-bg:not(.dark) h5,
-  .has-custom-bg:not(.dark) h6,
+  /* Headings & Text in LIGHT MODE: Always crisp dark slate, excluding elements explicitly styled light or inside dark/login containers */
+  .has-custom-bg:not(.dark) h1:not(.login-page *):not(.login-card *):not([class*="text-white"]):not(.dark *),
+  .has-custom-bg:not(.dark) h2:not(.login-page *):not(.login-card *):not([class*="text-white"]):not(.dark *),
+  .has-custom-bg:not(.dark) h3:not(.login-page *):not(.login-card *):not([class*="text-white"]):not(.dark *),
+  .has-custom-bg:not(.dark) h4:not(.login-page *):not(.login-card *):not([class*="text-white"]):not(.dark *),
+  .has-custom-bg:not(.dark) h5:not(.login-page *):not(.login-card *):not([class*="text-white"]):not(.dark *),
+  .has-custom-bg:not(.dark) h6:not(.login-page *):not(.login-card *):not([class*="text-white"]):not(.dark *),
   .has-custom-bg:not(.dark) .page-container > h1,
   .has-custom-bg:not(.dark) .page-container > div h1 {
     color: #0f172a !important;
+  }
+
+  /* Login Page Text - Ensure pristine contrast on dark/frosted login screens */
+  .login-page h1,
+  .login-page h2,
+  .login-page h3,
+  .login-card h1,
+  .login-card h2,
+  .login-card h3 {
+    color: #ffffff !important;
+  }
+
+  .login-page input:not([type="checkbox"]):not([type="radio"]),
+  .login-card input:not([type="checkbox"]):not([type="radio"]) {
+    color: #ffffff !important;
+  }
+
+  .login-page input::placeholder,
+  .login-card input::placeholder {
+    color: rgba(203, 213, 225, 0.65) !important;
   }
 
   /* Glass card styling when custom background is active in DARK MODE */
   .dark.has-custom-bg .glass-card,
   .has-custom-bg.dark .glass-card,
   .has-custom-bg .dark .glass-card {
-    background: rgba(15, 23, 42, 0.62) !important;
+    background: rgba(15, 23, 42, 0.78) !important;
     backdrop-filter: blur(20px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(20px) saturate(190%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
     box-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.5) !important;
     color: #f8fafc !important;
-    --color-surface: rgba(15, 23, 42, 0.65);
+    --color-surface: rgba(15, 23, 42, 0.78);
     --color-surface-hover: rgba(255, 255, 255, 0.08);
     --color-text: #f8fafc;
     --color-text-secondary: #94a3b8;
-    --color-border: rgba(255, 255, 255, 0.1);
+    --color-border: rgba(255, 255, 255, 0.12);
   }
 
+  /* Table header, row hover, and cell styles in DARK MODE */
+  .dark.has-custom-bg table thead,
+  .dark.has-custom-bg table thead tr,
+  .dark.has-custom-bg table thead th,
+  .has-custom-bg.dark table thead th,
+  .dark.has-custom-bg .ant-table-thead > tr > th,
+  .has-custom-bg.dark .ant-table-thead > tr > th {
+    background-color: rgba(15, 23, 42, 0.88) !important;
+    color: #f1f5f9 !important;
+    font-weight: 700 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  }
+
+  /* Inputs, selects, and filter elements in DARK MODE glass */
+  .dark.has-custom-bg input:not([type="checkbox"]):not([type="radio"]),
+  .has-custom-bg.dark input:not([type="checkbox"]):not([type="radio"]),
+  .has-custom-bg .dark input:not([type="checkbox"]):not([type="radio"]),
+  .dark.has-custom-bg select,
+  .has-custom-bg.dark select,
+  .has-custom-bg .dark select,
+  .dark.has-custom-bg textarea,
+  .has-custom-bg.dark textarea,
+  .has-custom-bg .dark textarea {
+    background-color: rgba(15, 23, 42, 0.82) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    color: #f8fafc !important;
+  }
+
+  .dark.has-custom-bg input:focus,
+  .has-custom-bg.dark input:focus,
+  .has-custom-bg .dark input:focus,
+  .dark.has-custom-bg select:focus,
+  .has-custom-bg.dark select:focus,
+  .has-custom-bg .dark select:focus,
+  .dark.has-custom-bg textarea:focus,
+  .has-custom-bg.dark textarea:focus,
+  .has-custom-bg .dark textarea:focus {
+    border-color: #14b8a6 !important;
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.25) !important;
+  }
+
+  .dark.has-custom-bg input::placeholder,
+  .has-custom-bg.dark input::placeholder,
+  .has-custom-bg .dark input::placeholder {
+    color: #64748b !important;
+  }
+
+  .dark.has-custom-bg table tbody tr:hover,
+  .dark.has-custom-bg table tbody tr:hover > td,
+  .has-custom-bg.dark table tbody tr:hover,
+  .has-custom-bg.dark table tbody tr:hover > td,
+  .dark.has-custom-bg .glass-card tbody tr:hover,
+  .has-custom-bg.dark .glass-card tbody tr:hover,
+  .dark.has-custom-bg .ant-table-tbody > tr:hover > td {
+    background-color: rgba(255, 255, 255, 0.07) !important;
+  }
+
+  .dark.has-custom-bg table td,
+  .dark.has-custom-bg table th,
   .dark.has-custom-bg .glass-card td,
   .dark.has-custom-bg .glass-card th,
   .dark.has-custom-bg .glass-card tr,
@@ -753,23 +905,45 @@
     color: #f8fafc !important;
   }
 
-  .dark.has-custom-bg .glass-card th,
-  .has-custom-bg.dark .glass-card th {
-    color: #94a3b8 !important;
-  }
-
-  .dark.has-custom-bg .glass-card tbody tr:hover,
-  .has-custom-bg.dark .glass-card tbody tr:hover {
-    background-color: rgba(255, 255, 255, 0.06) !important;
-  }
-
   .dark.has-custom-bg .dark\:bg-slate-800,
-  .has-custom-bg.dark .dark\:bg-slate-800 {
+  .has-custom-bg.dark .dark\:bg-slate-800,
+  .dark.has-custom-bg .bg-slate-800,
+  .has-custom-bg.dark .bg-slate-800,
+  .dark.has-custom-bg [class*="dark:bg-slate-800"],
+  .dark.has-custom-bg [class*="dark:bg-slate-900"],
+  .dark.has-custom-bg .card {
     background-color: rgba(15, 23, 42, 0.62) !important;
     backdrop-filter: blur(20px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(20px) saturate(190%) !important;
     border-color: rgba(255, 255, 255, 0.1) !important;
     box-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  /* Modals, Popovers, and Dialogs in custom background mode */
+  .has-custom-bg:not(.dark) [role="dialog"],
+  .has-custom-bg:not(.dark) .modal-content,
+  .has-custom-bg:not(.dark) .fixed.inset-0 > div > div.bg-white,
+  .has-custom-bg:not(.dark) .fixed.inset-0 > div.bg-white {
+    background: rgba(255, 255, 255, 0.8) !important;
+    backdrop-filter: blur(24px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.18) !important;
+    color: #0f172a !important;
+  }
+
+  .dark.has-custom-bg [role="dialog"],
+  .has-custom-bg.dark [role="dialog"],
+  .dark.has-custom-bg .modal-content,
+  .has-custom-bg.dark .modal-content,
+  .dark.has-custom-bg .fixed.inset-0 > div > div.dark\:bg-slate-800,
+  .has-custom-bg.dark .fixed.inset-0 > div.dark\:bg-slate-800 {
+    background: rgba(15, 23, 42, 0.82) !important;
+    backdrop-filter: blur(24px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.5) !important;
+    color: #f8fafc !important;
   }
 
   /* Frosted Header in DARK MODE */

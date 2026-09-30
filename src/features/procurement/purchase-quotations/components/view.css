@@ -12,9 +12,13 @@
     visibility: hidden !important;
   }
 
-  /* SIRF PURCHASE QUOTATION DIKHE */
+  /* SIRF VOUCHER / DOCUMENT DIKHE */
   .purchase-quotation-print,
-  .purchase-quotation-print * {
+  .purchase-quotation-print *,
+  .printable-voucher,
+  .printable-voucher *,
+  .sales-document-print,
+  .sales-document-print * {
     visibility: visible !important;
   }
 
@@ -40,9 +44,11 @@
   }
 
   /* =================================
-     MAIN QUOTATION
+     MAIN DOCUMENT CONTAINER
      ================================= */
-  .purchase-quotation-print {
+  .purchase-quotation-print,
+  .printable-voucher,
+  .sales-document-print {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
@@ -59,11 +65,41 @@
     box-shadow: none !important;
 
     overflow: visible !important;
+    background: #ffffff !important;
   }
 
-  .purchase-quotation-print * {
+  .purchase-quotation-print *,
+  .printable-voucher *,
+  .sales-document-print * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Print Padding Optimization */
+  .purchase-quotation-print .p-10,
+  .printable-voucher .p-10,
+  .sales-document-print .p-10 {
+    padding: 16px 20px !important;
+  }
+
+  .purchase-quotation-print .px-10,
+  .printable-voucher .px-10,
+  .sales-document-print .px-10 {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+
+  .purchase-quotation-print .py-6,
+  .printable-voucher .py-6,
+  .sales-document-print .py-6 {
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+  }
+
+  .purchase-quotation-print .space-y-8 > :not([hidden]) ~ :not([hidden]),
+  .printable-voucher .space-y-8 > :not([hidden]) ~ :not([hidden]),
+  .sales-document-print .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 14px !important;
   }
 
   /* =================================
@@ -71,10 +107,12 @@
      Company Details + Document Info
      ================================= */
 
-  .purchase-quotation-print .grid.md\:grid-cols-2 {
+  .purchase-quotation-print .grid.md\:grid-cols-2,
+  .printable-voucher .grid.md\:grid-cols-2,
+  .sales-document-print .grid.md\:grid-cols-2 {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
-    gap: 20px !important;
+    gap: 16px !important;
     width: 100% !important;
   }
 
@@ -82,15 +120,21 @@
      ITEMS TABLE
      ================================= */
 
-  .purchase-quotation-print table {
+  .purchase-quotation-print table,
+  .printable-voucher table,
+  .sales-document-print table {
     width: 100% !important;
     max-width: 100% !important;
-    font-size: 9px !important;
+    font-size: 8.5px !important;
     table-layout: auto !important;
   }
 
   .purchase-quotation-print th,
-  .purchase-quotation-print td {
+  .purchase-quotation-print td,
+  .printable-voucher th,
+  .printable-voucher td,
+  .sales-document-print th,
+  .sales-document-print td {
     padding: 4px 6px !important;
   }
 
@@ -99,19 +143,38 @@
      Remarks + Financial Calculation
      ================================= */
 
-  .purchase-quotation-print .grid.md\:grid-cols-12 {
+  .purchase-quotation-print .grid.md\:grid-cols-12,
+  .printable-voucher .grid.md\:grid-cols-12,
+  .sales-document-print .grid.md\:grid-cols-12 {
     display: grid !important;
     grid-template-columns: repeat(12, 1fr) !important;
-    gap: 20px !important;
+    gap: 16px !important;
     width: 100% !important;
   }
 
-  .purchase-quotation-print .md\:col-span-7 {
+  .purchase-quotation-print .md\:col-span-7,
+  .printable-voucher .md\:col-span-7,
+  .sales-document-print .md\:col-span-7 {
     grid-column: span 7 / span 7 !important;
   }
 
-  .purchase-quotation-print .md\:col-span-5 {
+  .purchase-quotation-print .md\:col-span-5,
+  .printable-voucher .md\:col-span-5,
+  .sales-document-print .md\:col-span-5 {
     grid-column: span 5 / span 5 !important;
+  }
+
+  /* Signature Spacing */
+  .purchase-quotation-print .pt-10,
+  .printable-voucher .pt-10,
+  .sales-document-print .pt-10 {
+    padding-top: 16px !important;
+  }
+
+  .purchase-quotation-print .mt-10,
+  .printable-voucher .mt-10,
+  .sales-document-print .mt-10 {
+    margin-top: 20px !important;
   }
 
   /* =================================
@@ -119,6 +182,8 @@
      ================================= */
 
   .purchase-quotation-print tr,
+  .printable-voucher tr,
+  .sales-document-print tr,
   .avoid-page-break {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
@@ -132,7 +197,17 @@
   .purchase-quotation-print .shadow-xl,
   .purchase-quotation-print .shadow-lg,
   .purchase-quotation-print .shadow-md,
-  .purchase-quotation-print .shadow-sm {
+  .purchase-quotation-print .shadow-sm,
+  .printable-voucher .shadow-2xl,
+  .printable-voucher .shadow-xl,
+  .printable-voucher .shadow-lg,
+  .printable-voucher .shadow-md,
+  .printable-voucher .shadow-sm,
+  .sales-document-print .shadow-2xl,
+  .sales-document-print .shadow-xl,
+  .sales-document-print .shadow-lg,
+  .sales-document-print .shadow-md,
+  .sales-document-print .shadow-sm {
     box-shadow: none !important;
   }
 }

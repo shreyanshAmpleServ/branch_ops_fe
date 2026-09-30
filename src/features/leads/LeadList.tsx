@@ -190,7 +190,7 @@ export const LeadList: React.FC = () => {
       </div>
 
       {/* Main Table Container */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs overflow-hidden">
+      <div className="w-full">
         <DataTable data={leads} columns={columns} enableRowSelection enableExport exportFileName="leads" />
       </div>
 

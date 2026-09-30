@@ -119,7 +119,7 @@ export function DataTable<TData>({
   const { backgroundImage, backgroundColor } = useThemeStore();
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  const resolvedGlass = activeDesign === 'design1' || !!backgroundImage || !!backgroundColor;
+  const resolvedGlass = activeDesign === 'design1' || !!backgroundImage || !!backgroundColor || (typeof document !== 'undefined' && document.documentElement.classList.contains('has-custom-bg'));
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -268,9 +268,9 @@ export function DataTable<TData>({
   // Design-specific table classes
   const designClasses = {
     modern: {
-      wrapper: 'rounded-2xl relative',
-      header: resolvedGlass ? 'bg-slate-500/5 dark:bg-black/25 border-b border-slate-200/80 dark:border-white/10' : 'bg-surface',
-      headerCell: 'font-bold text-[11px] uppercase tracking-wider whitespace-nowrap text-slate-700 dark:text-slate-300',
+      wrapper: 'rounded-2xl relative overflow-hidden',
+      header: resolvedGlass ? 'bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-md border-b border-slate-200/90 dark:border-white/10' : 'bg-surface border-b border-border',
+      headerCell: 'font-bold text-[11px] uppercase tracking-wider whitespace-nowrap text-slate-800 dark:text-slate-100',
       row: resolvedGlass
         ? 'border-b border-slate-200/60 dark:border-white/5 hover:bg-slate-500/5 dark:hover:bg-white/5 transition-colors'
         : 'border-b border-border/50 hover:bg-surface-hover/50 transition-colors',
@@ -607,7 +607,6 @@ export function DataTable<TData>({
                             key={header.id}
                             className={`${dc.headerCell} ${dc.cell} text-left whitespace-nowrap`}
                             style={{
-                              color: 'var(--color-text-secondary)',
                               width: header.getSize(),
                               cursor: header.column.getCanSort() ? 'pointer' : 'default',
                               fontSize: '11px',

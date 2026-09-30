@@ -72,7 +72,7 @@ const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const SectionCard: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
   <div
-    className={`rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden ${className}`}
+    className={`rounded-2xl border border-slate-200/80 dark:border-slate-700/80 glass-card bg-white dark:bg-slate-800 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden ${className}`}
   >
     {children}
   </div>
@@ -84,7 +84,7 @@ const SectionHeader: React.FC<{ icon: React.ReactNode; title: string; right?: Re
   right
 }) => (
   <div
-    className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80"
+    className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-800/60 backdrop-blur-sm"
   >
     <div className="flex items-center gap-2.5">
       <span className="text-teal-600 dark:text-teal-400">{icon}</span>
@@ -782,7 +782,7 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
   return (
     <div className="p-4 space-y-4 w-full max-w-full animate-fade-in">
       {/* Top Header Card */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-card bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
         <div className="space-y-0.5">
           <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
             <Link to="/dashboard" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors font-medium">Home</Link>
@@ -1165,10 +1165,10 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
               </div>
             ) : typeRequest === 'Service' ? (
               /* ─── SERVICE INVOICE TABLE ─── */
-              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm animate-fade-in">
+              <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm animate-fade-in">
                 <table className="w-full text-left border-collapse min-w-[2200px]">
                   <thead>
-                    <tr className="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold uppercase text-[9px] tracking-widest border-b border-slate-200 dark:border-slate-700">
+                    <tr className="bg-slate-100/60 dark:bg-slate-900/60 backdrop-blur-sm text-slate-800 dark:text-slate-200 font-bold uppercase text-[9px] tracking-widest border-b border-slate-200/80 dark:border-slate-700/80">
                       {[
                         '#', 'VENDOR', 'DESCRIPTION *', 'GL CODE', 'TOTAL (EXCLUSIVE)',
                         'TAX CODE', 'DISCOUNT', 'TAX AMOUNT', 'TOTAL (INCLUSIVE)', 'PAYMENT TERMS',
@@ -1184,7 +1184,7 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-800/40">
+                  <tbody className="divide-y divide-slate-200/60 dark:divide-slate-700/60 bg-transparent">
                     {items.map((line, idx) => {
                         const amountBeforeTax = Number(line.UnitPrice || 0) * (1 - Number(line.DiscPrcnt || 0) / 100);
                         return (
@@ -1415,10 +1415,10 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
               </div>
             ) : (
               /* ─── PHYSICAL INVENTORY ITEMS TABLE ─── */
-              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm animate-fade-in">
+              <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm animate-fade-in">
                 <table className="w-full text-left text-xs border-collapse min-w-[1900px]">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                    <tr className="border-b border-slate-200/80 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-900/60 backdrop-blur-sm text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                       <th className="p-3 w-10 text-center">#</th>
                       <th className="p-3 min-w-[280px]">Item Code & Description</th>
                       <th className="p-3 w-28">Invoiced Qty</th>
@@ -1438,7 +1438,7 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
                       {mode !== 'view' && <th className="p-3 w-12 text-center">Action</th>}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 bg-white dark:bg-slate-800/40">
+                  <tbody className="divide-y divide-slate-100/60 dark:divide-slate-700/60 bg-transparent">
                     {items.map((item, index) => (
                       <tr
                         key={index}
@@ -1881,8 +1881,8 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
       {/* ─── MODAL: COPY FROM PURCHASE ORDER ─── */}
       {isCopyPoModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-4xl w-full max-h-[85vh] shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
+          <div className="glass-card bg-white/90 dark:bg-slate-800/90 rounded-2xl max-w-4xl w-full max-h-[85vh] shadow-2xl border border-slate-200/80 dark:border-white/10 flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200/80 dark:border-white/10 flex items-center justify-between bg-slate-50/60 dark:bg-slate-800/60 backdrop-blur-sm">
               <div className="flex items-center gap-2.5">
                 <Copy className="w-5 h-5 text-teal-600" />
                 <div>
@@ -2067,8 +2067,8 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
       {/* ─── MODAL: COPY FROM GRPO ─── */}
       {isCopyGrpoModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-4xl w-full max-h-[85vh] shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
+          <div className="glass-card bg-white/90 dark:bg-slate-800/90 rounded-2xl max-w-4xl w-full max-h-[85vh] shadow-2xl border border-slate-200/80 dark:border-white/10 flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200/80 dark:border-white/10 flex items-center justify-between bg-slate-50/60 dark:bg-slate-800/60 backdrop-blur-sm">
               <div className="flex items-center gap-2.5">
                 <Copy className="w-5 h-5 text-indigo-600" />
                 <div>
@@ -2253,8 +2253,8 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
       {/* ─── MODAL: CATALOG SEARCH ─── */}
       {isItemModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[80vh] shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
+          <div className="glass-card bg-white/90 dark:bg-slate-800/90 rounded-2xl max-w-2xl w-full max-h-[80vh] shadow-2xl border border-slate-200/80 dark:border-white/10 flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200/80 dark:border-white/10 flex items-center justify-between bg-slate-50/60 dark:bg-slate-800/60 backdrop-blur-sm">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">Item Master Catalog</h3>
               <button
                 type="button"
@@ -2323,8 +2323,8 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
       {/* ─── MODAL: VENDOR ADVANCED SEARCH ─── */}
       {isVendorModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[80vh] shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
+          <div className="glass-card bg-white/90 dark:bg-slate-800/90 rounded-2xl max-w-2xl w-full max-h-[80vh] shadow-2xl border border-slate-200/80 dark:border-white/10 flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200/80 dark:border-white/10 flex items-center justify-between bg-slate-50/60 dark:bg-slate-800/60 backdrop-blur-sm">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">Vendor & Supplier Catalog</h3>
               <button
                 type="button"

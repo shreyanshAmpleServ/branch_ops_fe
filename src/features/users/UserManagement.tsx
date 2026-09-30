@@ -282,7 +282,7 @@ export const UserManagement: React.FC = () => {
       </div>
 
       {/* Unified DataTable Component */}
-      <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl rounded-xl border border-slate-200/80 dark:border-white/10 shadow-xs overflow-hidden">
+      <div className="w-full">
         <DataTable
           data={users}
           columns={columns}

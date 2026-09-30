@@ -476,7 +476,7 @@ export const ItemPricesPage: React.FC = () => {
       </div>
 
       {/* Main Table with Filters */}
-      <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl rounded-xl border border-slate-200/80 dark:border-white/10 shadow-xs overflow-hidden">
+      <div className="w-full">
         <DataTable
           columns={columns}
           data={itemPrices}

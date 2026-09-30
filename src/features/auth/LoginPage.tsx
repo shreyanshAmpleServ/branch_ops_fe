@@ -28,7 +28,7 @@ const LoginDesign1: React.FC<LoginFormProps> = ({ onSubmit, isLoading, error, sa
   const [rememberMe, setRememberMe] = useState(!!savedEmail);
 
   return (
-    <main className="relative w-screen h-screen min-h-screen bg-slate-950 flex items-center justify-center p-4 overflow-hidden">
+    <main className="login-page relative w-screen h-screen min-h-screen bg-slate-950 flex items-center justify-center p-4 overflow-hidden">
       {/* 21st.dev WebGL Interactive Moving Smokey Waves Background */}
       <SmokeyBackground
         color={primaryColor || '#4f46e5'}
@@ -40,7 +40,7 @@ const LoginDesign1: React.FC<LoginFormProps> = ({ onSubmit, isLoading, error, sa
         initial={{ opacity: 0, y: 25, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="relative z-10 w-full max-w-sm p-7 space-y-5 bg-white/10 dark:bg-slate-900/40 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl"
+        className="login-card relative z-10 w-full max-w-sm p-7 space-y-5 bg-slate-900/60 backdrop-blur-2xl rounded-2xl border border-white/20 shadow-2xl"
       >
         <div className="text-center">
           <motion.div
@@ -52,10 +52,10 @@ const LoginDesign1: React.FC<LoginFormProps> = ({ onSubmit, isLoading, error, sa
           >
             <Sparkles className="h-6 w-6 text-white" />
           </motion.div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">
+          <h2 className="text-2xl font-bold tracking-tight" style={{ color: '#ffffff' }}>
             {t('auth.loginTitle') || 'Welcome Back'}
           </h2>
-          <p className="mt-1 text-xs text-slate-300">
+          <p className="mt-1 text-xs font-medium" style={{ color: '#cbd5e1' }}>
             {t('auth.loginSubtitle') || 'Sign in to access your dashboard'}
           </p>
         </div>
@@ -80,41 +80,43 @@ const LoginDesign1: React.FC<LoginFormProps> = ({ onSubmit, isLoading, error, sa
         >
           {/* Email Input */}
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-300">
+            <label className="block text-xs font-semibold" style={{ color: '#e2e8f0' }}>
               {t('auth.email') || 'Email Address'}
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 type="email"
                 placeholder="name@company.com"
                 required
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl text-xs text-white placeholder:text-slate-400/70 bg-white/5 border border-white/15 focus:border-white/40 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all duration-200"
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl text-xs text-white placeholder:text-slate-400 bg-slate-950/40 border border-white/20 focus:border-indigo-400 focus:bg-slate-950/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all duration-200"
+                style={{ color: '#ffffff' }}
               />
             </div>
           </div>
 
           {/* Password Input */}
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-300">
+            <label className="block text-xs font-semibold" style={{ color: '#e2e8f0' }}>
               {t('auth.password') || 'Password'}
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
               <input
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 required
-                className="w-full pl-9 pr-10 py-2.5 rounded-xl text-xs text-white placeholder:text-slate-400/70 bg-white/5 border border-white/15 focus:border-white/40 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all duration-200"
+                className="w-full pl-9 pr-10 py-2.5 rounded-xl text-xs text-white placeholder:text-slate-400 bg-slate-950/40 border border-white/20 focus:border-indigo-400 focus:bg-slate-950/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all duration-200"
+                style={{ color: '#ffffff' }}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-white transition-colors"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -123,7 +125,7 @@ const LoginDesign1: React.FC<LoginFormProps> = ({ onSubmit, isLoading, error, sa
 
           {/* Remember Me & Forgot Password */}
           <div className="flex items-center justify-between text-xs pt-0.5">
-            <label className="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
+            <label className="flex items-center gap-2 cursor-pointer select-none" style={{ color: '#cbd5e1' }}>
               <input
                 type="checkbox"
                 id="rememberMe-d1"
@@ -135,7 +137,8 @@ const LoginDesign1: React.FC<LoginFormProps> = ({ onSubmit, isLoading, error, sa
             </label>
             <Link
               to="/forgot-password"
-              className="text-indigo-300 hover:text-white hover:underline transition-colors"
+              className="font-medium hover:underline transition-colors"
+              style={{ color: '#a5b4fc' }}
             >
               {t('auth.forgotPassword') || 'Forgot Password?'}
             </Link>
@@ -145,9 +148,10 @@ const LoginDesign1: React.FC<LoginFormProps> = ({ onSubmit, isLoading, error, sa
           <button
             type="submit"
             disabled={isLoading}
-            className="group w-full flex items-center justify-center py-2.5 px-4 rounded-xl text-xs font-semibold text-white shadow-lg transition-all duration-300 hover:opacity-95 active:scale-98 cursor-pointer disabled:opacity-50"
+            className="group w-full flex items-center justify-center py-2.5 px-4 rounded-xl text-xs font-bold text-white shadow-lg transition-all duration-300 hover:opacity-95 active:scale-98 cursor-pointer disabled:opacity-50"
             style={{
               background: 'linear-gradient(135deg, var(--color-primary, #4f46e5), var(--color-primary-dark, #3730a3))',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
             }}
           >
             {isLoading ? (
@@ -164,9 +168,9 @@ const LoginDesign1: React.FC<LoginFormProps> = ({ onSubmit, isLoading, error, sa
           </button>
         </form>
 
-        <p className="text-center text-xs text-slate-400 pt-1">
+        <p className="text-center text-xs pt-1" style={{ color: '#94a3b8' }}>
           {t('auth.noAccount') || "Don't have an account?"}{' '}
-          <Link to="/register" className="font-semibold text-indigo-300 hover:text-white hover:underline transition-colors">
+          <Link to="/register" className="font-semibold hover:underline transition-colors" style={{ color: '#a5b4fc' }}>
             {t('auth.signUpHere') || 'Sign Up'}
           </Link>
         </p>

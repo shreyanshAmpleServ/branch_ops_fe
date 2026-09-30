@@ -524,7 +524,7 @@ export const ItemManagement: React.FC = () => {
       </div>
 
       {/* Main Table Container */}
-      <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs overflow-hidden">
+      <div className="w-full">
         <DataTable
           data={items}
           columns={columns}
