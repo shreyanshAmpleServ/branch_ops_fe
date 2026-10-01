@@ -171,9 +171,17 @@ export const WarehouseSelect: React.FC<WarehouseSelectProps> = ({
 }) => {
   const query = useWarehouses();
   const rawList = useMemo(() => {
-    if (data) return data;
+    if (data) {
+      if (Array.isArray(data)) return data;
+      if (Array.isArray((data as any)?.warehouses)) return (data as any).warehouses;
+      if (Array.isArray((data as any)?.data)) return (data as any).data;
+      return [];
+    }
     const res = query.data as any;
-    return (Array.isArray(res) ? res : res?.data) || [];
+    if (Array.isArray(res)) return res;
+    if (Array.isArray(res?.warehouses)) return res.warehouses;
+    if (Array.isArray(res?.data)) return res.data;
+    return [];
   }, [data, query.data]);
 
   const options = useMemo(() => rawList.map(formatWarehouseOption), [rawList]);

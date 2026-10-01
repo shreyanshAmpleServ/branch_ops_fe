@@ -167,11 +167,18 @@ export const PurchaseRequestList: React.FC = () => {
     },
     {
       accessorKey: 'CustName',
-      header: 'VENDOR',
+      header: 'REQUESTED BY',
       cell: ({ row }) => (
-        <span className="text-xs font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">
-          {row.original.CustName || 'N/A'}
-        </span>
+        <div className="flex flex-col">
+          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+            {row.original.CustName || row.original.CreatedByName || (row.original.CustCode ? `User #${row.original.CustCode}` : 'N/A')}
+          </span>
+          {row.original.Department && (
+            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+              {row.original.Department}
+            </span>
+          )}
+        </div>
       ),
     },
     {

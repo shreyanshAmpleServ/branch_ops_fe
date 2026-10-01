@@ -19,7 +19,8 @@ import {
   AlertCircle,
   Info,
   ExternalLink,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Calendar
 } from 'lucide-react';
 import {
   useCreatePurchaseOrder,
@@ -33,6 +34,7 @@ import { useRetailers } from '../../customers/api/useRetailers';
 import { usePurchaseRequests } from '../purchase-requests/api/usePurchaseRequests';
 import { usePurchaseQuotations } from '../purchase-quotations/api/usePurchaseQuotations';
 import { useItems } from '../../items/api/useItems';
+import { useUsers } from '../../users/api/useUsers';
 import { useProjects, useWarehouses, useCostCentersMain, useBranches, useAccounts } from '../../users/api/useMasterData';
 import {
   PAYMENT_TERMS_OPTIONS,
@@ -110,9 +112,25 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
   const { data: costCentersResponse } = useCostCentersMain();
   const { data: branchesResponse } = useBranches();
   const { data: accountsResponse } = useAccounts();
+  const { data: usersResponse } = useUsers({ limit: 500 });
 
   const suppliersList = Array.isArray(suppliersResponse) ? suppliersResponse : (suppliersResponse as any)?.data || [];
   const accountsList = accountsResponse?.data || [];
+  const usersList = usersResponse?.users || [];
+
+  const userOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return usersList.map((u: any) => {
+      const fullName = u.fullName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || `User #${u.id}`;
+      return {
+        value: u.id,
+        label: fullName,
+        subtext: [u.department, u.email].filter(Boolean).join(' • ') || undefined,
+        badge: u.role || (u.isAdmin ? 'Admin' : undefined),
+        raw: u,
+      };
+    });
+  }, [usersList]);
+
   const itemsList = itemsResponse?.items || (Array.isArray(itemsResponse) ? itemsResponse : (itemsResponse as any)?.data) || [];
   const projectsList = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse as any)?.data || [];
   const warehousesList = Array.isArray(warehousesResponse) ? warehousesResponse : (warehousesResponse as any)?.data || [];
@@ -181,12 +199,32 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
     setIsVendorModalOpen(false);
     setActiveRowVendorIndexForModal(null);
   };
+
+  const [requestedById, setRequestedById] = useState<number | ''>('');
   const [branchId, setBranchId] = useState<number | ''>('');
   const [requestType, setRequestType] = useState('Direct');
   const [typeRequest, setTypeRequest] = useState('Item');
   const [typePayment, setTypePayment] = useState('Cash');
   const [department, setDepartment] = useState('');
   const [expenseType, setExpenseType] = useState('');
+
+  const handleRequestedByChange = (val: string | number) => {
+    if (!val) {
+      setRequestedById('');
+      return;
+    }
+    const numId = Number(val);
+    setRequestedById(numId);
+    const foundUser = usersList.find((u: any) => u.id === numId);
+    if (foundUser) {
+      if (foundUser.department && !department) {
+        setDepartment(foundUser.department);
+      }
+      if (foundUser.branchId && !branchId) {
+        setBranchId(foundUser.branchId);
+      }
+    }
+  };
   const [remarks, setRemarks] = useState('');
   const [discPrcnt, setDiscPrcnt] = useState<number>(0);
   const [freight, setFreight] = useState<number>(0);
@@ -299,6 +337,9 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
 
     if (selectedPqForCopy.CustCode) setCustCode(selectedPqForCopy.CustCode);
     if (selectedPqForCopy.CustName) setCustName(selectedPqForCopy.CustName);
+    if (selectedPqForCopy.CreatedBy || (selectedPqForCopy as any).ReqBy) {
+      setRequestedById(Number((selectedPqForCopy as any).ReqBy || selectedPqForCopy.CreatedBy));
+    }
     setPurchaseQuotationId(Number(selectedPqForCopy.ID));
     setPqId(selectedPqForCopy.QuotCode || selectedPqForCopy.RequestedNo || String(selectedPqForCopy.ID));
     setRelationFrom('PQ');
@@ -389,6 +430,9 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
       setCustCode(selectedPrForCopy.CustCode);
       setCustName(selectedPrForCopy.CustName || '');
     }
+    if (selectedPrForCopy.CreatedBy || (selectedPrForCopy as any).ReqBy) {
+      setRequestedById(Number((selectedPrForCopy as any).ReqBy || selectedPrForCopy.CreatedBy));
+    }
     setPurchaseRequestId(Number(selectedPrForCopy.ID));
     setPrId(selectedPrForCopy.RequestedNo || selectedPrForCopy.OrderCode || String(selectedPrForCopy.ID));
     setRelationFrom('PR');
@@ -447,6 +491,13 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
   // Populate Existing Data
   useEffect(() => {
     if (existingOrder && (mode === 'edit' || mode === 'view')) {
+      if ((existingOrder as any).ReqBy) {
+        setRequestedById((existingOrder as any).ReqBy);
+      } else if (existingOrder.CreatedBy) {
+        setRequestedById(existingOrder.CreatedBy);
+      } else {
+        setRequestedById('');
+      }
       setCustCode(existingOrder.CustCode || '');
       setCustName(existingOrder.CustName || '');
       setOrderCode(existingOrder.OrderCode || '');
@@ -666,7 +717,11 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
     const updated = [...items];
     let processedValue = value;
     if (field === 'DiscPrcnt' || (field as any) === 'Discount') {
-      processedValue = validateDiscountPercent(Number(value));
+      if (value === '' || value === undefined || value === null) {
+        processedValue = '';
+      } else {
+        processedValue = validateDiscountPercent(Number(value));
+      }
     }
     const item = { ...updated[index], [field]: processedValue };
 
@@ -675,10 +730,10 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
       item.VATPer = rate;
     }
 
-    const qty = Number(field === 'Quantity' ? processedValue : item.Quantity || 0);
-    const price = Number(field === 'UnitPrice' ? processedValue : item.UnitPrice || 0);
-    const disc = Number((field === 'DiscPrcnt' || (field as any) === 'Discount') ? processedValue : item.DiscPrcnt || 0);
-    const vatPer = Number(field === 'VATPer' ? processedValue : item.VATPer || 0);
+    const qty = Number(field === 'Quantity' ? processedValue : item.Quantity) || 0;
+    const price = Number(field === 'UnitPrice' ? processedValue : item.UnitPrice) || 0;
+    const disc = Number((field === 'DiscPrcnt' || (field as any) === 'Discount') ? processedValue : item.DiscPrcnt) || 0;
+    const vatPer = Number(field === 'VATPer' ? processedValue : item.VATPer) || 0;
 
     const lineTotalBefDisc = qty * price;
     const lineTotalAfterDisc = lineTotalBefDisc * (1 - disc / 100);
@@ -805,6 +860,8 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
       Pq_ID: pqId || undefined,
       PurchaseRequestId: purchaseRequestId ? Number(purchaseRequestId) : undefined,
       PurchaseQuotationId: purchaseQuotationId ? Number(purchaseQuotationId) : undefined,
+      CreatedBy: requestedById ? Number(requestedById) : undefined,
+      ReqBy: requestedById ? Number(requestedById) : undefined,
       DiscPrcnt: Number(discPrcnt),
       Freight: Number(freight),
       Rounding: isRounding ? 'Y' : 'N',
@@ -927,27 +984,96 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Header Information Card */}
+        {/* 1. BASIC DETAILS */}
         <SectionCard>
-          <SectionHeader icon={<Building2 className="w-4 h-4" />} title="Header & Vendor Information" />
+          <SectionHeader icon={<Info className="w-4 h-4" />} title="Basic Details" />
+          <div className="p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {/* Request Type */}
+              <div>
+                <SearchableSelect
+                  label="Request Type *"
+                  value={typeRequest}
+                  options={typeRequestOptions}
+                  onChange={(val) => setTypeRequest(String(val || 'Item'))}
+                  disabled={mode === 'view'}
+                  clearable={false}
+                />
+              </div>
+
+              {/* Requested By */}
+              <div>
+                <SearchableSelect
+                  label="Requested By"
+                  value={requestedById}
+                  options={userOptions}
+                  onChange={(val) => handleRequestedByChange(val || '')}
+                  disabled={mode === 'view'}
+                  placeholder="Select requester / user..."
+                  clearable
+                />
+              </div>
+
+              {/* Supplier / Vendor */}
+              <VendorSelect
+                label="Supplier / Vendor *"
+                value={custCode}
+                data={suppliersList}
+                onChange={(val, supp) => {
+                  const code = String(val || '');
+                  if (supp) {
+                    setCustCode(code);
+                    setCustName(supp.Name || supp.name || supp.cardName || supp.CardName || '');
+                  } else {
+                    setCustCode(code);
+                    setCustName('');
+                  }
+                }}
+                disabled={mode === 'view'}
+              />
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* 2. DATES & LOGISTIC PIPELINES */}
+        <SectionCard>
+          <SectionHeader icon={<Calendar className="w-4 h-4" />} title="Dates & Logistic Pipelines" />
           <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {/* Vendor Dropdown */}
-            <VendorSelect
-              label="Supplier / Vendor *"
-              value={custCode}
-              data={suppliersList}
-              onChange={(val, supp) => {
-                const code = String(val || '');
-                if (supp) {
-                  setCustCode(code);
-                  setCustName(supp.Name || supp.name || supp.cardName || supp.CardName || '');
-                } else {
-                  setCustCode(code);
-                  setCustName('');
-                }
-              }}
-              disabled={mode === 'view'}
-            />
+            {/* Posting Date */}
+            <div>
+              <FieldLabel>Posting Date</FieldLabel>
+              <input
+                type="date"
+                value={postDate}
+                onChange={(e) => setPostDate(e.target.value)}
+                disabled={mode === 'view'}
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
+              />
+            </div>
+
+            {/* PO Date */}
+            <div>
+              <FieldLabel>PO Date</FieldLabel>
+              <input
+                type="date"
+                value={poDate}
+                onChange={(e) => setPoDate(e.target.value)}
+                disabled={mode === 'view'}
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
+              />
+            </div>
+
+            {/* Expected Receipt Date */}
+            <div>
+              <FieldLabel>Expected Receipt Date</FieldLabel>
+              <input
+                type="date"
+                value={receiptDate}
+                onChange={(e) => setReceiptDate(e.target.value)}
+                disabled={mode === 'view'}
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
+              />
+            </div>
 
             {/* Order Code */}
             <div>
@@ -970,6 +1096,68 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                 placeholder="e.g. PR26/106"
                 value={requestedNo}
                 onChange={(e) => setRequestedNo(e.target.value)}
+                disabled={mode === 'view'}
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
+              />
+            </div>
+
+            {/* Branch */}
+            <div>
+              <BranchSelect
+                label="Branch"
+                value={branchId}
+                data={branchesList}
+                onChange={(val) => setBranchId(val ? Number(val) : '')}
+                disabled={mode === 'view'}
+                placeholder="Select Branch..."
+              />
+            </div>
+
+            {/* Department */}
+            <div>
+              <FieldLabel>Department</FieldLabel>
+              <input
+                type="text"
+                placeholder="e.g. Logistics / Operations"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                disabled={mode === 'view'}
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
+              />
+            </div>
+
+            {/* Payment Type */}
+            <div>
+              <SearchableSelect
+                label="Payment Type"
+                value={typePayment}
+                options={typePaymentOptions}
+                onChange={(val) => setTypePayment(String(val || 'Cash'))}
+                disabled={mode === 'view'}
+                clearable={false}
+              />
+            </div>
+
+            {/* Request Flow */}
+            <div>
+              <SearchableSelect
+                label="Request Flow"
+                value={requestType}
+                options={requestTypeOptions}
+                onChange={(val) => setRequestType(String(val || 'Direct'))}
+                disabled={mode === 'view'}
+                clearable={false}
+              />
+            </div>
+
+            {/* Expense Type */}
+            <div>
+              <FieldLabel>Expense Type</FieldLabel>
+              <input
+                type="text"
+                placeholder="e.g. Operational Expense"
+                value={expenseType}
+                onChange={(e) => setExpenseType(e.target.value)}
                 disabled={mode === 'view'}
                 className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
               />
@@ -1029,7 +1217,7 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
             </div>
 
             {/* Linked Purchase Quotation */}
-            <div>
+            <div className="sm:col-span-2">
               <SearchableSelect
                 label="Linked Purchase Quotation"
                 value={purchaseQuotationId}
@@ -1065,128 +1253,6 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                 }}
                 disabled={mode === 'view'}
                 clearable
-              />
-            </div>
-
-            {/* Posting Date */}
-            <div>
-              <FieldLabel>Posting Date</FieldLabel>
-              <input
-                type="date"
-                value={postDate}
-                onChange={(e) => setPostDate(e.target.value)}
-                disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              />
-            </div>
-
-            {/* PO Date */}
-            <div>
-              <FieldLabel>PO Date</FieldLabel>
-              <input
-                type="date"
-                value={poDate}
-                onChange={(e) => setPoDate(e.target.value)}
-                disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              />
-            </div>
-
-            {/* Expected Receipt Date */}
-            <div>
-              <FieldLabel>Expected Receipt Date</FieldLabel>
-              <input
-                type="date"
-                value={receiptDate}
-                onChange={(e) => setReceiptDate(e.target.value)}
-                disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              />
-            </div>
-
-            {/* Currency */}
-            <div>
-              <SearchableSelect
-                label="Currency"
-                value={currency}
-                options={currencyOptions}
-                onChange={(val) => setCurrency(String(val || 'TZS'))}
-                disabled={mode === 'view'}
-                clearable={false}
-              />
-            </div>
-
-            {/* Branch */}
-            <div>
-              <BranchSelect
-                label="Branch"
-                value={branchId}
-                data={branchesList}
-                onChange={(val) => setBranchId(val ? Number(val) : '')}
-                disabled={mode === 'view'}
-                placeholder="Select Branch..."
-              />
-            </div>
-
-            {/* Request Type */}
-            <div>
-              <SearchableSelect
-                label="Request Type"
-                value={requestType}
-                options={requestTypeOptions}
-                onChange={(val) => setRequestType(String(val || 'Direct'))}
-                disabled={mode === 'view'}
-                clearable={false}
-              />
-            </div>
-
-            {/* Type Request */}
-            <div>
-              <SearchableSelect
-                label="Type Request"
-                value={typeRequest}
-                options={typeRequestOptions}
-                onChange={(val) => setTypeRequest(String(val || 'Item'))}
-                disabled={mode === 'view'}
-                clearable={false}
-              />
-            </div>
-
-            {/* Payment Type */}
-            <div>
-              <SearchableSelect
-                label="Payment Type"
-                value={typePayment}
-                options={typePaymentOptions}
-                onChange={(val) => setTypePayment(String(val || 'Cash'))}
-                disabled={mode === 'view'}
-                clearable={false}
-              />
-            </div>
-
-            {/* Department */}
-            <div>
-              <FieldLabel>Department</FieldLabel>
-              <input
-                type="text"
-                placeholder="e.g. Logistics / Operations"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
-              />
-            </div>
-
-            {/* Expense Type */}
-            <div>
-              <FieldLabel>Expense Type</FieldLabel>
-              <input
-                type="text"
-                placeholder="e.g. Operational Expense"
-                value={expenseType}
-                onChange={(e) => setExpenseType(e.target.value)}
-                disabled={mode === 'view'}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-slate-200"
               />
             </div>
           </div>
@@ -1353,15 +1419,23 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                           {/* AMOUNT / FEE */}
                           <td className="py-2.5 px-2 w-[150px]">
                             <input
-                              type="number" step="any" min="0"
+                              type="text"
+                              inputMode="decimal"
                               placeholder="0.00"
-                              className="w-full text-right py-2 px-2.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              value={line.UnitPrice || ''}
+                              className="w-full h-9 px-2.5 text-xs font-bold font-mono text-right bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-md shadow-xs outline-none transition-all duration-150 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                              value={line.UnitPrice === 0 ? '0' : (line.UnitPrice ?? '')}
                               onChange={e => {
-                                const price = Number(e.target.value) || 0;
-                                handleUpdateItemRow(idx, 'UnitPrice', price);
-                                handleUpdateItemRow(idx, 'TotalExclusive' as any, price);
-                                handleUpdateItemRow(idx, 'Quantity', 1);
+                                const val = e.target.value;
+                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                  handleUpdateItemRow(idx, 'UnitPrice', val);
+                                  handleUpdateItemRow(idx, 'TotalExclusive' as any, val);
+                                  handleUpdateItemRow(idx, 'Quantity', 1);
+                                }
+                              }}
+                              onBlur={() => {
+                                const p = line.UnitPrice === '' || isNaN(Number(line.UnitPrice)) ? 0 : Number(line.UnitPrice);
+                                handleUpdateItemRow(idx, 'UnitPrice', p);
+                                handleUpdateItemRow(idx, 'TotalExclusive' as any, p);
                               }}
                               disabled={mode === 'view'}
                             />
@@ -1385,14 +1459,23 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                           {/* DISCOUNT % */}
                           <td className="py-2.5 px-2 w-[90px]">
                             <input
-                              type="number" min="0" max="100" step="any"
+                              type="text"
+                              inputMode="decimal"
                               placeholder="0"
-                              className="w-full text-right py-2 px-2.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              value={line.DiscPrcnt || 0}
+                              className="w-full h-9 px-2.5 text-xs font-bold font-mono text-right bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-md shadow-xs outline-none transition-all duration-150 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                              value={line.DiscPrcnt === 0 ? '0' : (line.DiscPrcnt ?? '')}
                               onChange={e => {
-                                const disc = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-                                handleUpdateItemRow(idx, 'DiscPrcnt', disc);
-                                handleUpdateItemRow(idx, 'Discount' as any, disc);
+                                const val = e.target.value;
+                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                  const num = val === '' ? '' : Math.min(100, Math.max(0, Number(val)));
+                                  handleUpdateItemRow(idx, 'DiscPrcnt', num);
+                                  handleUpdateItemRow(idx, 'Discount' as any, num);
+                                }
+                              }}
+                              onBlur={() => {
+                                const d = line.DiscPrcnt === '' || isNaN(Number(line.DiscPrcnt)) ? 0 : Number(line.DiscPrcnt);
+                                handleUpdateItemRow(idx, 'DiscPrcnt', d);
+                                handleUpdateItemRow(idx, 'Discount' as any, d);
                               }}
                               disabled={mode === 'view'}
                             />
@@ -1585,12 +1668,21 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                         </td>
                         <td className="py-3 px-2 min-w-[100px]">
                           <input
-                            type="number"
-                            min="1"
-                            value={item.Quantity}
-                            onChange={(e) => handleUpdateItemRow(idx, 'Quantity', Number(e.target.value))}
+                            type="text"
+                            inputMode="decimal"
+                            value={item.Quantity === undefined || item.Quantity === null ? '' : item.Quantity}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                handleUpdateItemRow(idx, 'Quantity', val);
+                              }
+                            }}
+                            onBlur={() => {
+                              const q = item.Quantity === '' || isNaN(Number(item.Quantity)) ? 1 : Number(item.Quantity);
+                              handleUpdateItemRow(idx, 'Quantity', q);
+                            }}
                             disabled={mode === 'view'}
-                            className="w-full text-center py-2 px-2.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-full h-9 px-2.5 text-xs font-bold font-mono text-center bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-md shadow-xs outline-none transition-all duration-150 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                           />
                         </td>
                         <td className="py-3 px-2 min-w-[90px]">
@@ -1599,29 +1691,46 @@ export const PurchaseOrderFormPage: React.FC<PurchaseOrderFormPageProps> = ({ mo
                             value={item.UoM || 'pcs'}
                             onChange={(e) => handleUpdateItemRow(idx, 'UoM', e.target.value)}
                             disabled={mode === 'view'}
-                            className="w-full text-center py-2 px-2 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm"
+                            className="w-full h-9 px-2 text-xs font-semibold text-center bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-md shadow-xs outline-none transition-all duration-150 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                           />
                         </td>
                         <td className="py-3 px-2 min-w-[130px]">
                           <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.UnitPrice}
-                            onChange={(e) => handleUpdateItemRow(idx, 'UnitPrice', Number(e.target.value))}
+                            type="text"
+                            inputMode="decimal"
+                            value={item.UnitPrice === 0 ? '0' : (item.UnitPrice ?? '')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                handleUpdateItemRow(idx, 'UnitPrice', val);
+                              }
+                            }}
+                            onBlur={() => {
+                              const p = item.UnitPrice === '' || isNaN(Number(item.UnitPrice)) ? 0 : Number(item.UnitPrice);
+                              handleUpdateItemRow(idx, 'UnitPrice', p);
+                            }}
                             disabled={mode === 'view'}
-                            className="w-full text-right py-2 px-2.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-full h-9 px-2.5 text-xs font-bold font-mono text-right bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-md shadow-xs outline-none transition-all duration-150 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                           />
                         </td>
                         <td className="py-3 px-2 min-w-[100px]">
                           <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={item.DiscPrcnt || 0}
-                            onChange={(e) => handleUpdateItemRow(idx, 'DiscPrcnt', validateDiscountPercent(Number(e.target.value)))}
+                            type="text"
+                            inputMode="decimal"
+                            value={item.DiscPrcnt === 0 ? '0' : (item.DiscPrcnt ?? '')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                const num = val === '' ? '' : Math.min(100, Math.max(0, Number(val)));
+                                handleUpdateItemRow(idx, 'DiscPrcnt', num);
+                              }
+                            }}
+                            onBlur={() => {
+                              const d = item.DiscPrcnt === '' || isNaN(Number(item.DiscPrcnt)) ? 0 : Number(item.DiscPrcnt);
+                              handleUpdateItemRow(idx, 'DiscPrcnt', d);
+                            }}
                             disabled={mode === 'view'}
-                            className="w-full text-right py-2 px-2.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-full h-9 px-2.5 text-xs font-bold font-mono text-right bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-md shadow-xs outline-none transition-all duration-150 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                           />
                         </td>
                         <td className="py-3 px-2 min-w-[140px]">

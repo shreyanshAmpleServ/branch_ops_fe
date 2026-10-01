@@ -50,11 +50,13 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     left: number;
     width: number;
     maxHeight: number;
+    openUp: boolean;
   }>({
     top: 0,
     left: 0,
     width: 0,
     maxHeight: 280,
+    openUp: false,
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -62,14 +64,27 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Find currently selected option
+  // Find currently selected option with multi-key matching (id, code, WhsCode)
   const selectedOption = useMemo(() => {
     if (value === undefined || value === null || value === '' || value === 0 || value === '0') {
       const exactZero = options.find((opt) => opt.value === 0 || opt.value === '0');
       if (exactZero && (value === 0 || value === '0')) return exactZero;
       return null;
     }
-    return options.find((opt) => String(opt.value) === String(value)) || null;
+    return (
+      options.find((opt) => {
+        if (String(opt.value) === String(value)) return true;
+        if (opt.raw) {
+          if (opt.raw.id !== undefined && String(opt.raw.id) === String(value)) return true;
+          if (opt.raw.ID !== undefined && String(opt.raw.ID) === String(value)) return true;
+          if (opt.raw.code && String(opt.raw.code).toLowerCase() === String(value).toLowerCase()) return true;
+          if (opt.raw.Code && String(opt.raw.Code).toLowerCase() === String(value).toLowerCase()) return true;
+          if (opt.raw.WhsCode !== undefined && String(opt.raw.WhsCode) === String(value)) return true;
+          if (opt.raw.whsCode !== undefined && String(opt.raw.whsCode) === String(value)) return true;
+        }
+        return false;
+      }) || null
+    );
   }, [value, options]);
 
   // Keep search query in sync with selected option when dropdown is closed
@@ -93,26 +108,29 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
   // Update floating portal coordinates with viewport boundary detection
   const updateCoords = () => {
-    if (inputRef.current) {
-      const rect = inputRef.current.getBoundingClientRect();
-      const targetWidth = Math.min(Math.max(rect.width, 280), window.innerWidth - 24);
-      const spaceBelow = window.innerHeight - rect.bottom - 16;
-      const spaceAbove = rect.top - 16;
+    const el = containerRef.current || inputRef.current;
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const targetWidth = Math.min(Math.max(rect.width, 260), Math.min(480, window.innerWidth - 24));
+      const spaceBelow = window.innerHeight - rect.bottom - 12;
+      const spaceAbove = rect.top - 12;
       const openUp = spaceBelow < 220 && spaceAbove > spaceBelow;
       const maxHeight = Math.max(160, Math.min(openUp ? spaceAbove : spaceBelow, 320));
 
-      const top = openUp
-        ? rect.top - maxHeight - 6
-        : rect.bottom + 6;
+      let left = rect.left;
+      if (left + targetWidth > window.innerWidth - 12) {
+        left = window.innerWidth - targetWidth - 12;
+      }
+      left = Math.max(12, left);
 
-      const maxLeft = window.innerWidth - targetWidth - 12;
-      const left = Math.max(12, Math.min(rect.left, maxLeft));
+      const top = openUp ? rect.top - 6 : rect.bottom + 6;
 
       setCoords({
         top,
         left,
         width: targetWidth,
         maxHeight,
+        openUp,
       });
     }
   };
@@ -246,7 +264,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   };
 
   const sizeClasses = {
-    sm: 'py-1 pl-7 pr-9 text-xs rounded-lg',
+    sm: 'h-9 pl-7 pr-7 text-xs rounded-md',
     md: 'py-2 pl-9 pr-14 text-xs rounded-xl',
     lg: 'py-2.5 pl-10 pr-16 text-sm rounded-xl',
   };
@@ -280,11 +298,11 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
           placeholder={placeholder}
           disabled={disabled}
           className={`
-            w-full bg-slate-50/70 hover:bg-white focus:bg-white dark:bg-slate-900/60 dark:hover:bg-slate-900 dark:focus:bg-slate-900
+            w-full bg-white hover:bg-slate-50/50 focus:bg-white dark:bg-slate-900 dark:hover:bg-slate-800/80 dark:focus:bg-slate-900
             text-slate-900 dark:text-slate-100 font-medium
-            border border-slate-200 dark:border-slate-700/80
+            border border-slate-300 dark:border-slate-600
             focus:border-teal-500 dark:focus:border-teal-400
-            focus:outline-none focus:ring-4 focus:ring-teal-500/10 dark:focus:ring-teal-400/10
+            focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20
             shadow-xs transition-all duration-150 placeholder:text-slate-400 dark:placeholder:text-slate-500
             disabled:opacity-60 disabled:cursor-not-allowed
             ${sizeClasses[size]}
@@ -344,7 +362,9 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
               left: `${coords.left}px`,
               width: `${coords.width}px`,
               maxHeight: `${coords.maxHeight}px`,
-              zIndex: 9999,
+              transform: coords.openUp ? 'translateY(-100%)' : 'none',
+              transformOrigin: coords.openUp ? 'bottom left' : 'top left',
+              zIndex: 99999,
             }}
             className="bg-white/98 dark:bg-slate-900/98 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/90 shadow-[0_20px_40px_-8px_rgba(0,0,0,0.18),0_6px_16px_-4px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col animate-in fade-in-0 zoom-in-95 duration-150"
           >

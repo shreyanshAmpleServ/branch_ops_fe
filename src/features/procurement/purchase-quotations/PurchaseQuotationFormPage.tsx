@@ -21,7 +21,8 @@ import {
   Copy,
   CheckSquare,
   Square,
-  AlertCircle
+  AlertCircle,
+  Calendar
 } from 'lucide-react';
 import {
   useCreatePurchaseQuotation,
@@ -35,6 +36,7 @@ import api, { getAttachmentUrl, getFileName } from '../../../lib/api';
 import { useRetailers } from '../../customers/api/useRetailers';
 import { usePurchaseRequests } from '../purchase-requests/api/usePurchaseRequests';
 import { useItems } from '../../items/api/useItems';
+import { useUsers } from '../../users/api/useUsers';
 import { useProjects, useWarehouses, useCostCentersMain, useBranches, useAccounts } from '../../users/api/useMasterData';
 import {
   PAYMENT_TERMS_OPTIONS,
@@ -129,9 +131,25 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
   const { data: costCentersMainResponse } = useCostCentersMain();
   const { data: branchesResponse } = useBranches();
   const { data: accountsResponse } = useAccounts();
+  const { data: usersResponse } = useUsers({ limit: 500 });
 
   const suppliersList = (Array.isArray(suppliersResponse) ? suppliersResponse : (suppliersResponse as any)?.data) || [];
   const accountsList = accountsResponse?.data || [];
+  const usersList = usersResponse?.users || [];
+
+  const userOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return usersList.map((u: any) => {
+      const fullName = u.fullName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || `User #${u.id}`;
+      return {
+        value: u.id,
+        label: fullName,
+        subtext: [u.department, u.email].filter(Boolean).join(' • ') || undefined,
+        badge: u.role || (u.isAdmin ? 'Admin' : undefined),
+        raw: u,
+      };
+    });
+  }, [usersList]);
+
   const supplierOptions: SearchableSelectOption[] = React.useMemo(() => {
     return suppliersList.map(formatVendorOption);
   }, [suppliersList]);
@@ -168,6 +186,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
   const updateMutation = useUpdatePurchaseQuotation();
   const { data: existingQuotation, isLoading: isLoadingDetails } = usePurchaseQuotation(numericId);
 
+  const [requestedById, setRequestedById] = useState<number | ''>('');
   const [custCode, setCustCode] = useState('');
   const [custName, setCustName] = useState('');
   const [address, setAddress] = useState('');
@@ -186,6 +205,24 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
   const [purchaseRequestId, setPurchaseRequestId] = useState<number | ''>('');
   const [prId, setPrId] = useState<string>('');
   const { data: rawRequests } = usePurchaseRequests({});
+
+  const handleRequestedByChange = (val: string | number) => {
+    if (!val) {
+      setRequestedById('');
+      return;
+    }
+    const numId = Number(val);
+    setRequestedById(numId);
+    const foundUser = usersList.find((u: any) => u.id === numId);
+    if (foundUser) {
+      if (foundUser.department && !department) {
+        setDepartment(foundUser.department);
+      }
+      if (foundUser.branchId && !branchId) {
+        setBranchId(foundUser.branchId);
+      }
+    }
+  };
 
   // Copy From Request Modal State
   const [isCopyPrModalOpen, setIsCopyPrModalOpen] = useState(false);
@@ -257,6 +294,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
     setPurchaseRequestId(Number(selectedPrForCopy.ID));
     setPrId(selectedPrForCopy.RequestedNo || selectedPrForCopy.OrderCode || String(selectedPrForCopy.ID));
     if (selectedPrForCopy.Currency) setCurrency(selectedPrForCopy.Currency);
+    if (selectedPrForCopy.CreatedBy) setRequestedById(Number(selectedPrForCopy.CreatedBy));
     if (selectedPrForCopy.Branch_id) setBranchId(Number(selectedPrForCopy.Branch_id));
     if (selectedPrForCopy.Department) setDepartment(selectedPrForCopy.Department);
     if (selectedPrForCopy.RequestType) setRequestType(selectedPrForCopy.RequestType);
@@ -320,6 +358,13 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
 
   useEffect(() => {
     if (existingQuotation && (mode === 'edit' || mode === 'view')) {
+      if (existingQuotation.ReqBy) {
+        setRequestedById(existingQuotation.ReqBy);
+      } else if (existingQuotation.CreatedBy) {
+        setRequestedById(existingQuotation.CreatedBy);
+      } else {
+        setRequestedById('');
+      }
       setCustCode(existingQuotation.CustCode || '');
       setCustName(existingQuotation.CustName || '');
       setAddress(existingQuotation.Address || '');
@@ -366,6 +411,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
         setAttachments(existingQuotation.attachments);
       }
     } else {
+      setRequestedById('');
       setCustCode(''); setCustName(''); setAddress(''); setCustRefNo('');
       setCurrency('TZS'); setCurRate(1.0);
       setPostDate(new Date().toISOString().split('T')[0]);
@@ -621,13 +667,17 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
       const copy = [...prev];
       let processedValue = value;
       if (field === 'DiscPrcnt' || (field as any) === 'Discount') {
-        processedValue = validateDiscountPercent(Number(value));
+        if (value === '' || value === undefined || value === null) {
+          processedValue = '';
+        } else {
+          processedValue = validateDiscountPercent(Number(value));
+        }
       }
       const line = { ...copy[index], [field]: processedValue };
-      const qty = Number(field === 'Quantity' ? processedValue : line.Quantity || 0);
-      const price = Number(field === 'UnitPrice' ? processedValue : line.UnitPrice || 0);
-      const disc = Number((field === 'DiscPrcnt' || (field as any) === 'Discount') ? processedValue : line.DiscPrcnt || 0);
-      const vat = Number(field === 'VATPer' ? processedValue : line.VATPer || 0);
+      const qty = Number(field === 'Quantity' ? processedValue : line.Quantity) || 0;
+      const price = Number(field === 'UnitPrice' ? processedValue : line.UnitPrice) || 0;
+      const disc = Number((field === 'DiscPrcnt' || (field as any) === 'Discount') ? processedValue : line.DiscPrcnt) || 0;
+      const vat = Number(field === 'VATPer' ? processedValue : line.VATPer) || 0;
 
       const baseAmount = qty * price;
       const afterDisc = baseAmount * (1 - disc / 100);
@@ -688,6 +738,8 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
       TypeRequest: typeRequest,
       PurchaseRequestId: purchaseRequestId ? Number(purchaseRequestId) : undefined,
       Pr_ID: prId || undefined,
+      CreatedBy: requestedById ? Number(requestedById) : undefined,
+      ReqBy: requestedById ? Number(requestedById) : undefined,
       DiscPrcnt: discountPercent, Rounding: hasRounding ? 'Y' : 'N', RoundingAmnt: roundingAmount,
       Freight: hasFreight ? freightAmount : 0,
       items: items.map((item, idx) => ({
@@ -742,9 +794,9 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
     transition-all duration-200 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500
     bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100
     placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm`;
-  const tableInputCls = `w-full text-xs font-bold py-2 px-3 rounded-lg border outline-none 
-    transition-all duration-200 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500
-    bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-600 shadow-sm
+  const tableInputCls = `w-full h-9 text-xs font-semibold px-2.5 rounded-md border outline-none 
+    transition-all duration-150 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500
+    bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-600 shadow-xs
     [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`;
 
   return (
@@ -803,11 +855,38 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
           </div>
         </div>
 
-        {/* BASIC DETAILS */}
+        {/* 1. BASIC DETAILS */}
         <SectionCard>
-          <SectionHeader icon={<Info className="h-3.5 w-3.5" />} title="Quotation Header & Supplier Information" />
-          <div className="p-5 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SectionHeader icon={<Info className="h-3.5 w-3.5" />} title="Basic Details" />
+          <div className="p-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <SearchableSelect
+                  label="Request Type *"
+                  value={typeRequest}
+                  options={typeRequestOptions}
+                  onChange={val => {
+                    const newType = String(val || 'Item');
+                    setTypeRequest(newType);
+                    setRequestType(newType);
+                  }}
+                  disabled={isView}
+                  clearable={false}
+                />
+              </div>
+
+              <div>
+                <SearchableSelect
+                  label="Requested By"
+                  value={requestedById}
+                  options={userOptions}
+                  onChange={val => handleRequestedByChange(val || '')}
+                  disabled={isView}
+                  placeholder="Select requester / user..."
+                  clearable
+                />
+              </div>
+
               <VendorSelect
                 label="Supplier / Vendor *"
                 value={custCode}
@@ -824,17 +903,15 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                 }}
                 disabled={isView}
               />
-              <div>
-                <FieldLabel>Supplier Reference No.</FieldLabel>
-                <input
-                  type="text"
-                  className={inputCls}
-                  placeholder="e.g. REF-2026-99"
-                  value={custRefNo}
-                  onChange={e => setCustRefNo(e.target.value)}
-                  disabled={isView}
-                />
-              </div>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* 2. DATES & LOGISTIC PIPELINES */}
+        <SectionCard>
+          <SectionHeader icon={<Calendar className="h-3.5 w-3.5" />} title="Dates & Logistic Pipelines" />
+          <div className="p-5 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <FieldLabel>Posting Date *</FieldLabel>
                 <input
@@ -855,9 +932,17 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                   disabled={isView}
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <FieldLabel>Supplier Reference No.</FieldLabel>
+                <input
+                  type="text"
+                  className={inputCls}
+                  placeholder="e.g. REF-2026-99"
+                  value={custRefNo}
+                  onChange={e => setCustRefNo(e.target.value)}
+                  disabled={isView}
+                />
+              </div>
               <div>
                 <BranchSelect
                   label="Branch Location"
@@ -866,6 +951,20 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                   onChange={val => setBranchId(val ? Number(val) : '')}
                   disabled={isView}
                   placeholder="Select Branch..."
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <FieldLabel>Department</FieldLabel>
+                <input
+                  type="text"
+                  className={inputCls}
+                  placeholder="e.g. Logistics / Operations"
+                  value={department}
+                  onChange={e => setDepartment(e.target.value)}
+                  disabled={isView}
                 />
               </div>
               <div>
@@ -880,6 +979,9 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                     const matchedReq = (rawRequests || []).find((r: any) => r.ID === reqId);
                     if (matchedReq) {
                       setPrId(matchedReq.RequestedNo || matchedReq.OrderCode || String(matchedReq.ID));
+                      if (matchedReq.CreatedBy) {
+                        setRequestedById(Number(matchedReq.CreatedBy));
+                      }
                       if (matchedReq.items && matchedReq.items.length > 0 && items.length === 0) {
                         setItems(matchedReq.items.map((it: any, idx: number) => ({
                           LineNum: idx + 1,
@@ -906,53 +1008,7 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                   clearable
                 />
               </div>
-              <div>
-                <FieldLabel>Department</FieldLabel>
-                <input
-                  type="text"
-                  className={inputCls}
-                  placeholder="e.g. Logistics / Operations"
-                  value={department}
-                  onChange={e => setDepartment(e.target.value)}
-                  disabled={isView}
-                />
-              </div>
-              <div>
-                <FieldLabel>Currency &amp; Exchange Rate</FieldLabel>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <SearchableSelect
-                      value={currency}
-                      options={currencyOptions}
-                      onChange={val => setCurrency(String(val || 'TZS'))}
-                      disabled={isView}
-                      clearable={false}
-                    />
-                  </div>
-                  <input
-                    type="number" step="any"
-                    className={inputCls + ' w-24 text-right'}
-                    value={curRate}
-                    onChange={e => setCurRate(Number(e.target.value))}
-                    disabled={isView}
-                  />
-                </div>
-              </div>
-              <div>
-                <SearchableSelect
-                  label="Request Type *"
-                  value={typeRequest}
-                  options={typeRequestOptions}
-                  onChange={val => {
-                    const newType = String(val || 'Item');
-                    setTypeRequest(newType);
-                    setRequestType(newType);
-                  }}
-                  disabled={isView}
-                  clearable={false}
-                />
-              </div>
-              <div>
+              <div className="sm:col-span-2">
                 <FieldLabel>Full Supplier Address</FieldLabel>
                 <input
                   type="text"
@@ -1125,15 +1181,23 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                           {/* AMOUNT / FEE */}
                           <td className="py-2.5 px-2 w-[150px]">
                             <input
-                              type="number" step="any" min="0"
+                              type="text"
+                              inputMode="decimal"
                               placeholder="0.00"
-                              className={tableInputCls + ' text-right font-bold'}
-                              value={line.UnitPrice || ''}
+                              className={tableInputCls + ' text-right font-bold font-mono'}
+                              value={line.UnitPrice === 0 ? '0' : (line.UnitPrice ?? '')}
                               onChange={e => {
-                                const price = Number(e.target.value) || 0;
-                                handleItemLineChange(idx, 'UnitPrice', price);
-                                handleItemLineChange(idx, 'TotalExclusive' as any, price);
-                                handleItemLineChange(idx, 'Quantity', 1);
+                                const val = e.target.value;
+                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                  handleItemLineChange(idx, 'UnitPrice', val);
+                                  handleItemLineChange(idx, 'TotalExclusive' as any, val);
+                                  handleItemLineChange(idx, 'Quantity', 1);
+                                }
+                              }}
+                              onBlur={() => {
+                                const p = line.UnitPrice === '' || isNaN(Number(line.UnitPrice)) ? 0 : Number(line.UnitPrice);
+                                handleItemLineChange(idx, 'UnitPrice', p);
+                                handleItemLineChange(idx, 'TotalExclusive' as any, p);
                               }}
                               disabled={isView}
                             />
@@ -1157,14 +1221,23 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                           {/* DISCOUNT % */}
                           <td className="py-2.5 px-2 w-[90px]">
                             <input
-                              type="number" min="0" max="100" step="any"
+                              type="text"
+                              inputMode="decimal"
                               placeholder="0"
-                              className={tableInputCls + ' text-center font-bold'}
-                              value={line.DiscPrcnt || 0}
+                              className={tableInputCls + ' text-right font-bold font-mono'}
+                              value={line.DiscPrcnt === 0 ? '0' : (line.DiscPrcnt ?? '')}
                               onChange={e => {
-                                const disc = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-                                handleItemLineChange(idx, 'DiscPrcnt', disc);
-                                handleItemLineChange(idx, 'Discount' as any, disc);
+                                const val = e.target.value;
+                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                  const num = val === '' ? '' : Math.min(100, Math.max(0, Number(val)));
+                                  handleItemLineChange(idx, 'DiscPrcnt', num);
+                                  handleItemLineChange(idx, 'Discount' as any, num);
+                                }
+                              }}
+                              onBlur={() => {
+                                const d = line.DiscPrcnt === '' || isNaN(Number(line.DiscPrcnt)) ? 0 : Number(line.DiscPrcnt);
+                                handleItemLineChange(idx, 'DiscPrcnt', d);
+                                handleItemLineChange(idx, 'Discount' as any, d);
                               }}
                               disabled={isView}
                             />
@@ -1338,10 +1411,20 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                         {/* QTY */}
                         <td className="py-3 px-2 min-w-[100px]">
                           <input
-                            type="number" min="1" step="any"
-                            className={tableInputCls + ' text-center font-bold'}
-                            value={line.Quantity}
-                            onChange={e => handleItemLineChange(idx, 'Quantity', Math.max(0, Number(e.target.value)))}
+                            type="text"
+                            inputMode="decimal"
+                            className={tableInputCls + ' text-center font-bold font-mono'}
+                            value={line.Quantity === undefined || line.Quantity === null ? '' : line.Quantity}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                handleItemLineChange(idx, 'Quantity', val);
+                              }
+                            }}
+                            onBlur={() => {
+                              const q = line.Quantity === '' || isNaN(Number(line.Quantity)) ? 1 : Number(line.Quantity);
+                              handleItemLineChange(idx, 'Quantity', q);
+                            }}
                             disabled={isView}
                           />
                         </td>
@@ -1360,10 +1443,20 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                         {/* UNIT PRICE */}
                         <td className="py-3 px-2 min-w-[130px]">
                           <input
-                            type="number" min="0" step="any"
-                            className={tableInputCls + ' text-right font-bold'}
-                            value={line.UnitPrice}
-                            onChange={e => handleItemLineChange(idx, 'UnitPrice', Math.max(0, Number(e.target.value)))}
+                            type="text"
+                            inputMode="decimal"
+                            className={tableInputCls + ' text-right font-bold font-mono'}
+                            value={line.UnitPrice === 0 ? '0' : (line.UnitPrice ?? '')}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                handleItemLineChange(idx, 'UnitPrice', val);
+                              }
+                            }}
+                            onBlur={() => {
+                              const p = line.UnitPrice === '' || isNaN(Number(line.UnitPrice)) ? 0 : Number(line.UnitPrice);
+                              handleItemLineChange(idx, 'UnitPrice', p);
+                            }}
                             disabled={isView}
                           />
                         </td>
@@ -1371,10 +1464,21 @@ export const PurchaseQuotationFormPage: React.FC<PurchaseQuotationFormPageProps>
                         {/* DISCOUNT % */}
                         <td className="py-3 px-2 min-w-[100px]">
                           <input
-                            type="number" min="0" max="100" step="any"
-                            className={tableInputCls + ' text-right font-bold'}
-                            value={line.DiscPrcnt || 0}
-                            onChange={e => handleItemLineChange(idx, 'DiscPrcnt', validateDiscountPercent(Number(e.target.value)))}
+                            type="text"
+                            inputMode="decimal"
+                            className={tableInputCls + ' text-right font-bold font-mono'}
+                            value={line.DiscPrcnt === 0 ? '0' : (line.DiscPrcnt ?? '')}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                const num = val === '' ? '' : Math.min(100, Math.max(0, Number(val)));
+                                handleItemLineChange(idx, 'DiscPrcnt', num);
+                              }
+                            }}
+                            onBlur={() => {
+                              const d = line.DiscPrcnt === '' || isNaN(Number(line.DiscPrcnt)) ? 0 : Number(line.DiscPrcnt);
+                              handleItemLineChange(idx, 'DiscPrcnt', d);
+                            }}
                             disabled={isView}
                           />
                         </td>

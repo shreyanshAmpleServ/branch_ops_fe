@@ -104,6 +104,7 @@ export interface PurchaseOrder {
   Pq_ID?: string | number | null;
   PurchaseRequestId?: number | null;
   PurchaseQuotationId?: number | null;
+  ReqBy?: number | null;
   CreatedByName?: string | null;
   items?: PurchaseOrderItem[];
   attachments?: PurchaseOrderAttachment[];
@@ -140,6 +141,8 @@ export interface PurchaseOrderInput {
   Pq_ID?: string | number | null;
   PurchaseRequestId?: number | null;
   PurchaseQuotationId?: number | null;
+  CreatedBy?: number | null;
+  ReqBy?: number | null;
   items: PurchaseOrderItem[];
   attachments?: { LineNum?: number; Attachment: string }[];
 }

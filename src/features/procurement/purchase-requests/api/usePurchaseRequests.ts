@@ -128,8 +128,9 @@ export interface PurchaseRequest {
 }
 
 export interface PurchaseRequestInput {
-  CustCode: string;
+  CustCode?: string;
   CustName?: string | null;
+  CreatedBy?: number | null;
   Address?: string | null;
   CustRefNo?: string | null;
   Currency?: string | null;

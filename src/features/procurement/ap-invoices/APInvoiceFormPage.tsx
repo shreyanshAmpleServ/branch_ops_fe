@@ -330,22 +330,25 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
       const updated = [...prev];
       let processedValue = value;
       if (field === 'DiscPrcnt' || (field as any) === 'Discount') {
-        processedValue = validateDiscountPercent(Number(value));
+        if (value === '' || value === undefined || value === null) {
+          processedValue = '';
+        } else {
+          processedValue = validateDiscountPercent(Number(value));
+        }
       }
       const item = { ...updated[index], [field]: processedValue };
 
-      const qty = Number(item.Quantity || 0);
-      const delQty = Number(field === 'DeliveredQty' ? processedValue : item.DeliveredQty !== undefined ? item.DeliveredQty : qty);
-      const price = Number(field === 'UnitPrice' ? processedValue : item.UnitPrice || 0);
-      const disc = Number((field === 'DiscPrcnt' || (field as any) === 'Discount') ? processedValue : item.DiscPrcnt || 0);
-      const vatPer = Number(field === 'VATPer' ? processedValue : item.VATPer || 0);
+      const qty = Number(item.Quantity) || 0;
+      const delQty = Number(field === 'DeliveredQty' ? processedValue : item.DeliveredQty !== undefined ? item.DeliveredQty : qty) || 0;
+      const price = Number(field === 'UnitPrice' ? processedValue : item.UnitPrice) || 0;
+      const disc = Number((field === 'DiscPrcnt' || (field as any) === 'Discount') ? processedValue : item.DiscPrcnt) || 0;
+      const vatPer = Number(field === 'VATPer' ? processedValue : item.VATPer) || 0;
 
       const lineTotalBefDisc = delQty * price;
       const lineTotalAfterDisc = lineTotalBefDisc * (1 - disc / 100);
       const lineTax = lineTotalAfterDisc * (vatPer / 100);
       const lineTotalLC = lineTotalAfterDisc + lineTax;
 
-      item.DeliveredQty = delQty;
       item.LineTax = lineTax;
       item.LineTotalLC = lineTotalLC;
 
@@ -1253,18 +1256,24 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
                             {/* AMOUNT / FEE */}
                             <td className="py-2.5 px-2 w-[150px]">
                               <input
-                                type="number"
-                                step="any"
-                                min="0"
+                                type="text"
+                                inputMode="decimal"
                                 placeholder="0.00"
-                                className="w-full text-right py-2 px-2.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                value={line.UnitPrice || ''}
+                                className="w-full h-9 px-2.5 text-xs font-bold font-mono text-right bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-md shadow-xs outline-none transition-all duration-150 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                                value={line.UnitPrice === 0 ? '0' : (line.UnitPrice ?? '')}
                                 onChange={e => {
-                                  const price = Number(e.target.value) || 0;
-                                  handleUpdateItemRow(idx, 'UnitPrice', price);
-                                  handleUpdateItemRow(idx, 'TotalExclusive' as any, price);
-                                  handleUpdateItemRow(idx, 'Quantity', 1);
-                                  handleUpdateItemRow(idx, 'DeliveredQty', 1);
+                                  const val = e.target.value;
+                                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                    handleUpdateItemRow(idx, 'UnitPrice', val);
+                                    handleUpdateItemRow(idx, 'TotalExclusive' as any, val);
+                                    handleUpdateItemRow(idx, 'Quantity', 1);
+                                    handleUpdateItemRow(idx, 'DeliveredQty', 1);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const p = line.UnitPrice === '' || isNaN(Number(line.UnitPrice)) ? 0 : Number(line.UnitPrice);
+                                  handleUpdateItemRow(idx, 'UnitPrice', p);
+                                  handleUpdateItemRow(idx, 'TotalExclusive' as any, p);
                                 }}
                                 disabled={mode === 'view'}
                               />
@@ -1288,17 +1297,23 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
                             {/* DISCOUNT % */}
                             <td className="py-2.5 px-2 w-[90px]">
                               <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="any"
+                                type="text"
+                                inputMode="decimal"
                                 placeholder="0"
-                                className="w-full text-right py-2 px-2.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                value={line.DiscPrcnt || 0}
+                                className="w-full h-9 px-2.5 text-xs font-bold font-mono text-right bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-md shadow-xs outline-none transition-all duration-150 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                                value={line.DiscPrcnt === 0 ? '0' : (line.DiscPrcnt ?? '')}
                                 onChange={e => {
-                                  const disc = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-                                  handleUpdateItemRow(idx, 'DiscPrcnt', disc);
-                                  handleUpdateItemRow(idx, 'Discount' as any, disc);
+                                  const val = e.target.value;
+                                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                    const num = val === '' ? '' : Math.min(100, Math.max(0, Number(val)));
+                                    handleUpdateItemRow(idx, 'DiscPrcnt', num);
+                                    handleUpdateItemRow(idx, 'Discount' as any, num);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const d = line.DiscPrcnt === '' || isNaN(Number(line.DiscPrcnt)) ? 0 : Number(line.DiscPrcnt);
+                                  handleUpdateItemRow(idx, 'DiscPrcnt', d);
+                                  handleUpdateItemRow(idx, 'Discount' as any, d);
                                 }}
                                 disabled={mode === 'view'}
                               />
@@ -1421,16 +1436,16 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
                     <tr className="border-b border-slate-200/80 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-900/60 backdrop-blur-sm text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                       <th className="p-3 w-10 text-center">#</th>
                       <th className="p-3 min-w-[280px]">Item Code & Description</th>
-                      <th className="p-3 w-28">Invoiced Qty</th>
-                      <th className="p-3 w-24">UoM</th>
-                      <th className="p-3 w-28">Unit Price</th>
-                      <th className="p-3 w-20">Disc %</th>
-                      <th className="p-3 w-24">VAT %</th>
-                      <th className="p-3 w-28">Tax Total</th>
-                      <th className="p-3 w-32">Line Total</th>
-                      <th className="p-3 w-36">Warehouse</th>
-                      <th className="p-3 w-32">Cost Center</th>
-                      <th className="p-3 w-32">Project</th>
+                      <th className="p-3 min-w-[110px] text-right">Invoiced Qty</th>
+                      <th className="p-3 min-w-[90px] text-center">UoM</th>
+                      <th className="p-3 min-w-[130px] text-right">Unit Price</th>
+                      <th className="p-3 min-w-[100px] text-right">Disc %</th>
+                      <th className="p-3 min-w-[140px]">VAT %</th>
+                      <th className="p-3 min-w-[120px] text-right">Tax Total</th>
+                      <th className="p-3 min-w-[130px] text-right">Line Total</th>
+                      <th className="p-3 min-w-[180px]">Warehouse</th>
+                      <th className="p-3 min-w-[180px]">Cost Center</th>
+                      <th className="p-3 min-w-[180px]">Project</th>
                       <th className="p-3 min-w-[170px]">PROJECT STAGE</th>
                       <th className="p-3 min-w-[170px]">PROJECT SUB STAGE</th>
                       <th className="p-3 min-w-[170px]">DETAIL SUB STAGE</th>
@@ -1488,53 +1503,87 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
                         </td>
 
                         {/* Invoiced Qty */}
-                        <td className="p-2.5">
+                        <td className="p-2.5 min-w-[110px]">
                           <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            value={item.DeliveredQty !== undefined ? item.DeliveredQty : item.Quantity || 0}
-                            onChange={e => handleUpdateItemRow(index, 'DeliveredQty', parseFloat(e.target.value) || 0)}
+                            type="text"
+                            inputMode="decimal"
+                            value={item.DeliveredQty !== undefined ? item.DeliveredQty : (item.Quantity ?? '')}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                handleUpdateItemRow(index, 'DeliveredQty', val);
+                              }
+                            }}
+                            onBlur={() => {
+                              const current = item.DeliveredQty !== undefined ? item.DeliveredQty : item.Quantity;
+                              if (current === '' || isNaN(Number(current))) {
+                                handleUpdateItemRow(index, 'DeliveredQty', 1);
+                              } else {
+                                handleUpdateItemRow(index, 'DeliveredQty', Number(current));
+                              }
+                            }}
                             disabled={mode === 'view'}
-                            className="w-full px-2 py-1 text-xs font-bold bg-teal-50/50 dark:bg-teal-900/20 border border-teal-300 dark:border-teal-700 rounded-lg text-teal-900 dark:text-teal-200 text-right focus:outline-none focus:ring-1 focus:ring-teal-500"
+                            className="w-full h-9 px-2.5 text-xs font-bold font-mono bg-teal-50/50 dark:bg-teal-900/20 border border-teal-300 dark:border-teal-700 rounded-md text-teal-900 dark:text-teal-200 text-right shadow-xs outline-none transition-all duration-150 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                           />
                         </td>
 
                         {/* UoM */}
-                        <td className="p-2.5">
+                        <td className="p-2.5 min-w-[90px]">
                           <input
                             type="text"
                             value={item.UoM || 'pcs'}
                             onChange={e => handleUpdateItemRow(index, 'UoM', e.target.value)}
                             disabled={mode === 'view'}
-                            className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                            className="w-full h-9 px-2 text-xs font-semibold text-center bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-md shadow-xs outline-none transition-all duration-150 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                           />
                         </td>
 
                         {/* Unit Price */}
-                        <td className="p-2.5">
+                        <td className="p-2.5 min-w-[130px]">
                           <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            value={item.UnitPrice || 0}
-                            onChange={e => handleUpdateItemRow(index, 'UnitPrice', parseFloat(e.target.value) || 0)}
+                            type="text"
+                            inputMode="decimal"
+                            value={item.UnitPrice === 0 ? '0' : (item.UnitPrice ?? '')}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                handleUpdateItemRow(index, 'UnitPrice', val);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (item.UnitPrice === '' || isNaN(Number(item.UnitPrice))) {
+                                handleUpdateItemRow(index, 'UnitPrice', 0);
+                              } else {
+                                handleUpdateItemRow(index, 'UnitPrice', Number(item.UnitPrice));
+                              }
+                            }}
                             disabled={mode === 'view'}
-                            className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-right focus:outline-none focus:ring-1 focus:ring-teal-500"
+                            className="w-full h-9 px-2.5 text-xs font-bold font-mono text-right bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-md shadow-xs outline-none transition-all duration-150 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                           />
                         </td>
 
                         {/* Discount % */}
-                        <td className="p-2.5">
+                        <td className="p-2.5 min-w-[100px]">
                           <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="any"
-                            value={item.DiscPrcnt || 0}
-                            onChange={e => handleUpdateItemRow(index, 'DiscPrcnt', parseFloat(e.target.value) || 0)}
+                            type="text"
+                            inputMode="decimal"
+                            value={item.DiscPrcnt === 0 ? '0' : (item.DiscPrcnt ?? '')}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                const num = val === '' ? '' : Math.min(100, Math.max(0, Number(val)));
+                                handleUpdateItemRow(index, 'DiscPrcnt', num);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (item.DiscPrcnt === '' || isNaN(Number(item.DiscPrcnt))) {
+                                handleUpdateItemRow(index, 'DiscPrcnt', 0);
+                              } else {
+                                handleUpdateItemRow(index, 'DiscPrcnt', Number(item.DiscPrcnt));
+                              }
+                            }}
                             disabled={mode === 'view'}
-                            className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-right focus:outline-none focus:ring-1 focus:ring-teal-500"
+                            className="w-full h-9 px-2.5 text-xs font-bold font-mono text-right bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-md shadow-xs outline-none transition-all duration-150 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                           />
                         </td>
 

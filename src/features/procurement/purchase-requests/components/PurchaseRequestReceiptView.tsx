@@ -42,7 +42,7 @@ export const PurchaseRequestReceiptView: React.FC<PurchaseRequestReceiptViewProp
   const handleDownloadExcel = () => {
     const items = request.items?.map(item => ({
       'SNO': item.LineNum,
-      'VENDOR': request.CustCode || '',
+      'VENDOR': item.vendor || (item as any).VendorCode || request.CustCode || '',
       'ITEM CODE': item.ItemCode || '',
       'ITEM NAME': item.ItemName || '',
       'QTY': item.Quantity,
@@ -255,7 +255,7 @@ export const PurchaseRequestReceiptView: React.FC<PurchaseRequestReceiptViewProp
                         <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-400">
                           {String(item.LineNum || idx + 1).padStart(2, '0')}
                         </td>
-                        <td className="py-2.5 px-3 font-medium text-slate-600">{request.CustCode || '—'}</td>
+                        <td className="py-2.5 px-3 font-medium text-slate-600">{item.vendor || (item as any).VendorCode || request.CustCode || '—'}</td>
                         <td className="py-2.5 px-3 font-mono font-semibold text-[#005f73]">{item.ItemCode || (item.ItemID ? `ITM-${item.ItemID}` : '—')}</td>
                         <td className="py-2.5 px-3 font-bold text-slate-800">{item.ItemName || '—'}</td>
                         <td className="py-2.5 px-3 text-right font-mono font-semibold">

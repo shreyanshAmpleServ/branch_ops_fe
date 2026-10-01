@@ -35,13 +35,15 @@ interface FormRow {
   ItemID: number;
   ItemCode: string;
   ItemName: string;
-  Quantity: number;
-  UnitPrice: number;
-  DiscPrcnt: number;
-  VATPer: number;
+  Quantity: number | string;
+  UnitPrice: number | string;
+  DiscPrcnt: number | string;
+  VATPer: number | string;
   WhsCode: string;
   UoM: string;
 }
+
+const tableInputCls = "w-full h-9 px-2.5 rounded-md text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all shadow-xs";
 
 export const ARInvoiceFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 'add' }) => {
   const navigate = useNavigate();
@@ -86,7 +88,7 @@ export const ARInvoiceFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
 
   const customersList = Array.isArray(retailersData) ? retailersData : [];
   const productsList = itemsData?.items || [];
-  const warehousesList = Array.isArray(warehousesData) ? warehousesData : (warehousesData as any)?.data || [];
+  const warehousesList = Array.isArray(warehousesData) ? warehousesData : (warehousesData as any)?.warehouses || (warehousesData as any)?.data || [];
 
   // Handle pre-population from Order (Copy From)
   useEffect(() => {
@@ -578,13 +580,13 @@ export const ARInvoiceFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
               <tr className="bg-slate-100/90 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 uppercase text-[10px] tracking-wider font-bold">
                 <th className="py-3 px-3 w-10 text-center">#</th>
                 <th className="py-3 px-3 min-w-[240px]">Item Description *</th>
-                <th className="py-3 px-3 w-36">Warehouse</th>
-                <th className="py-3 px-3 w-24 text-right">Qty *</th>
-                <th className="py-3 px-3 w-20 text-center">UoM</th>
-                <th className="py-3 px-3 w-28 text-right">Unit Price ($) *</th>
-                <th className="py-3 px-3 w-20 text-right">Disc %</th>
-                <th className="py-3 px-3 w-20 text-right">Tax %</th>
-                <th className="py-3 px-3 w-28 text-right">Line Total</th>
+                <th className="py-3 px-3 min-w-[150px] w-36">Warehouse</th>
+                <th className="py-3 px-3 min-w-[100px] w-28 text-center">Qty *</th>
+                <th className="py-3 px-3 min-w-[90px] w-24 text-center">UoM</th>
+                <th className="py-3 px-3 min-w-[130px] w-32 text-right">Unit Price ($) *</th>
+                <th className="py-3 px-3 min-w-[90px] w-24 text-center">Disc %</th>
+                <th className="py-3 px-3 min-w-[90px] w-24 text-center">Tax %</th>
+                <th className="py-3 px-3 min-w-[120px] w-32 text-right">Line Total</th>
                 <th className="py-3 px-3 w-10 text-center"></th>
               </tr>
             </thead>
@@ -606,7 +608,7 @@ export const ARInvoiceFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
                   </td>
 
                   {/* Warehouse Picker */}
-                  <td className="py-2.5 px-3 min-w-[160px]">
+                  <td className="py-2.5 px-3 min-w-[150px]">
                     <WarehouseSelect
                       size="sm"
                       data={warehousesList}
@@ -617,64 +619,103 @@ export const ARInvoiceFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
                   </td>
 
                   {/* Quantity */}
-                  <td className="py-2.5 px-3">
+                  <td className="py-2.5 px-2 min-w-[100px]">
                     <input
-                      type="number"
-                      min="1"
-                      step="any"
-                      value={row.Quantity}
-                      onChange={(e) => handleRowChange(idx, 'Quantity', Number(e.target.value) || 0)}
-                      className="w-full px-2.5 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-right focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                      type="text"
+                      inputMode="decimal"
+                      value={row.Quantity ?? 1}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                          handleRowChange(idx, 'Quantity', val);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const val = parseFloat(e.target.value) || 1;
+                        handleRowChange(idx, 'Quantity', Math.max(0.001, val));
+                      }}
+                      className={tableInputCls + " text-center font-mono font-bold"}
                       required
                     />
                   </td>
 
                   {/* UoM */}
-                  <td className="py-2.5 px-3">
+                  <td className="py-2.5 px-2 min-w-[90px]">
                     <input
                       type="text"
-                      value={row.UoM}
+                      value={row.UoM || 'Pcs'}
                       onChange={(e) => handleRowChange(idx, 'UoM', e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-center focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                      className={tableInputCls + " text-center font-bold"}
                     />
                   </td>
 
                   {/* Unit Price */}
-                  <td className="py-2.5 px-3">
+                  <td className="py-2.5 px-2 min-w-[130px]">
                     <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={row.UnitPrice}
-                      onChange={(e) => handleRowChange(idx, 'UnitPrice', Number(e.target.value) || 0)}
-                      className="w-full px-2.5 py-1.5 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-right focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={row.UnitPrice ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                          handleRowChange(idx, 'UnitPrice', val);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        handleRowChange(idx, 'UnitPrice', val);
+                      }}
+                      className={tableInputCls + " text-right font-mono font-bold"}
                       required
                     />
                   </td>
 
                   {/* Disc % */}
-                  <td className="py-2.5 px-3">
+                  <td className="py-2.5 px-2 min-w-[90px]">
                     <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="any"
-                      value={row.DiscPrcnt}
-                      onChange={(e) => handleRowChange(idx, 'DiscPrcnt', Number(e.target.value) || 0)}
-                      className="w-full px-2.5 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-right focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={row.DiscPrcnt ?? 0}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                          const num = Number(val);
+                          if (num <= 100) {
+                            handleRowChange(idx, 'DiscPrcnt', val);
+                          }
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        handleRowChange(idx, 'DiscPrcnt', Math.min(100, Math.max(0, val)));
+                      }}
+                      className={tableInputCls + " text-center font-mono font-bold"}
                     />
                   </td>
 
                   {/* Tax % */}
-                  <td className="py-2.5 px-3">
+                  <td className="py-2.5 px-2 min-w-[90px]">
                     <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="any"
-                      value={row.VATPer}
-                      onChange={(e) => handleRowChange(idx, 'VATPer', Number(e.target.value) || 0)}
-                      className="w-full px-2.5 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-right focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="18"
+                      value={row.VATPer ?? 18}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                          const num = Number(val);
+                          if (num <= 100) {
+                            handleRowChange(idx, 'VATPer', val);
+                          }
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        handleRowChange(idx, 'VATPer', Math.min(100, Math.max(0, val)));
+                      }}
+                      className={tableInputCls + " text-center font-mono font-bold"}
                     />
                   </td>
 

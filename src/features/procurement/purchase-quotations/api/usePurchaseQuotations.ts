@@ -95,6 +95,7 @@ export interface PurchaseQuotation {
   TypeRequest?: string | null;
   PurchaseRequestId?: number | null;
   Pr_ID?: string | null;
+  ReqBy?: number | null;
   CreatedByName?: string | null;
   items?: PurchaseQuotationItem[];
   attachments?: PurchaseQuotationAttachment[];
@@ -122,6 +123,8 @@ export interface PurchaseQuotationInput {
   TypeRequest?: string | null;
   PurchaseRequestId?: number | null;
   Pr_ID?: string | null;
+  CreatedBy?: number | null;
+  ReqBy?: number | null;
   items: PurchaseQuotationItem[];
   attachments?: { LineNum?: number; Attachment: string }[];
 }

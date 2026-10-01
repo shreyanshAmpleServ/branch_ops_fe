@@ -25,6 +25,7 @@ export interface WarehouseParams {
 export interface WarehouseResponse {
   status: string;
   warehouses: ApiWarehouse[];
+  data?: ApiWarehouse[];
   pagination: {
     total: number;
     page: number;
@@ -71,10 +72,13 @@ export function useWarehouses(params: WarehouseParams = {}) {
     queryFn: async () => {
       const queryParams = new URLSearchParams();
       if (params.page) queryParams.set('page', String(params.page));
-      if (params.limit) queryParams.set('limit', String(params.limit));
+      queryParams.set('limit', String(params.limit || 500));
       if (params.search) queryParams.set('search', params.search);
 
       const { data } = await api.get<WarehouseResponse>(`/warehouse?${queryParams}`);
+      if (data && !data.data) {
+        data.data = data.warehouses;
+      }
       return data;
     },
     staleTime: 30_000,

@@ -253,16 +253,17 @@ export const renderVendorOption = (opt: SearchableSelectOption, isSelected: bool
 // --- 3. WAREHOUSE OPTION & RENDERER ---
 
 export function formatWarehouseOption(wh: any): SearchableSelectOption {
-  const code = wh.code || wh.WhsCode || wh.whsCode || `WH-${wh.id || ''}`;
+  const id = wh.id ?? wh.ID;
+  const code = wh.code || wh.WhsCode || wh.whsCode || (id ? `WH-${id}` : '');
   const name = wh.name || wh.WhsName || wh.whsName || 'Unnamed Warehouse';
   const location = wh.location || wh.city || '';
 
   return {
-    value: code,
-    label: `${code} — ${name}`,
+    value: id !== undefined && id !== null ? id : code,
+    label: code && code !== name ? `${code} — ${name}` : name,
     subtext: location ? `Location: ${location}` : undefined,
     badge: 'Warehouse',
-    raw: wh,
+    raw: { ...wh, id, code, name },
   };
 }
 

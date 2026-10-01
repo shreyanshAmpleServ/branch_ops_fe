@@ -36,7 +36,8 @@ import {
 import api, { getAttachmentUrl, getFileName } from '../../../lib/api';
 import { useRetailers } from '../../customers/api/useRetailers';
 import { useItems } from '../../items/api/useItems';
-import { useExpenses, useProjects, useWarehouses, useCostCentersMain, useAccounts } from '../../users/api/useMasterData';
+import { useExpenses, useProjects, useWarehouses, useCostCentersMain, useAccounts, useBranches } from '../../users/api/useMasterData';
+import { useUsers } from '../../users/api/useUsers';
 import {
   PAYMENT_TERMS_OPTIONS,
   TAX_CODE_OPTIONS,
@@ -54,6 +55,7 @@ import {
   VendorSelect,
   WarehouseSelect,
   ProjectSelect,
+  BranchSelect,
   TaxSelect,
   GLAccountSelect,
   PaymentTermsSelect,
@@ -77,6 +79,9 @@ const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     {children}
   </label>
 );
+
+const tableInputCls = "w-full h-9 px-2.5 rounded-md text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all shadow-xs";
+
 
 /* ── Section card wrapper ── */
 const SectionCard: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
@@ -142,9 +147,27 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
   const { data: warehousesResponse } = useWarehouses();
   const { data: costCentersMainResponse } = useCostCentersMain();
   const { data: accountsResponse } = useAccounts();
+  const { data: branchesResponse } = useBranches();
+  const { data: usersResponse } = useUsers({ limit: 500 });
 
   const suppliersList = (Array.isArray(suppliersResponse) ? suppliersResponse : (suppliersResponse as any)?.data) || [];
   const accountsList = accountsResponse?.data || [];
+  const branchesList = (Array.isArray(branchesResponse) ? branchesResponse : (branchesResponse as any)?.data) || [];
+  const usersList = usersResponse?.users || [];
+
+  const userOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return usersList.map((u: any) => {
+      const fullName = u.fullName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || `User #${u.id}`;
+      return {
+        value: u.id,
+        label: fullName,
+        subtext: [u.department, u.email].filter(Boolean).join(' • ') || undefined,
+        badge: u.role || (u.isAdmin ? 'Admin' : undefined),
+        raw: u,
+      };
+    });
+  }, [usersList]);
+
   const supplierOptions: SearchableSelectOption[] = React.useMemo(() => {
     return suppliersList.map(formatVendorOption);
   }, [suppliersList]);
@@ -213,6 +236,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
   const [basicDetailsOpen, setBasicDetailsOpen] = useState(true);
   const [advancedSapOpen, setAdvancedSapOpen] = useState(false);
 
+  const [requestedById, setRequestedById] = useState<number | ''>('');
   const [custCode, setCustCode] = useState('');
   const [custName, setCustName] = useState('');
   const [address, setAddress] = useState('');
@@ -243,8 +267,40 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
   const [pendingTypeRequest, setPendingTypeRequest] = useState<string>('Item');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const handleRequestedByChange = (val: string | number) => {
+    if (!val) {
+      setRequestedById('');
+      setCustCode('');
+      setCustName('');
+      return;
+    }
+    const numId = Number(val);
+    setRequestedById(numId);
+    const foundUser = usersList.find((u: any) => u.id === numId);
+    if (foundUser) {
+      const name = foundUser.fullName || `${foundUser.firstName || ''} ${foundUser.lastName || ''}`.trim() || foundUser.email || `User #${numId}`;
+      setCustCode(String(numId));
+      setCustName(name);
+      if (foundUser.department && !department) {
+        setDepartment(foundUser.department);
+      }
+      if (foundUser.branchId && !branchId) {
+        setBranchId(foundUser.branchId);
+      }
+    } else {
+      setCustCode(String(numId));
+    }
+  };
+
   useEffect(() => {
     if (existingRequest && (mode === 'edit' || mode === 'view')) {
+      if (existingRequest.CreatedBy) {
+        setRequestedById(existingRequest.CreatedBy);
+      } else if (existingRequest.CustCode && !isNaN(Number(existingRequest.CustCode))) {
+        setRequestedById(Number(existingRequest.CustCode));
+      } else {
+        setRequestedById('');
+      }
       setCustCode(existingRequest.CustCode || '');
       setCustName(existingRequest.CustName || '');
       setAddress(existingRequest.Address || '');
@@ -283,6 +339,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
         setAttachments(existingRequest.attachments);
       }
     } else {
+      setRequestedById('');
       setCustCode(''); setCustName(''); setAddress(''); setCustRefNo('');
       setCurrency('TZS'); setCurRate(1.0);
       setPostDate(new Date().toISOString().split('T')[0]);
@@ -576,18 +633,37 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
       } else if (field === 'DIM3') {
         line.DIM3 = value;
         line.Location = value;
+      } else if (field === 'Quantity') {
+        if (value === '' || value === undefined || value === null) {
+          line.Quantity = '' as any;
+        } else {
+          line.Quantity = value;
+        }
+      } else if (field === 'UnitPrice' || field === ('TotalExclusive' as any)) {
+        if (value === '' || value === undefined || value === null) {
+          line.UnitPrice = '' as any;
+          (line as any).TotalExclusive = '' as any;
+        } else {
+          line.UnitPrice = value;
+          (line as any).TotalExclusive = value;
+        }
       } else if (field === 'DiscPrcnt' || field === ('Discount' as any)) {
-        const validated = validateDiscountPercent(Number(value));
-        line.DiscPrcnt = validated;
-        (line as any).Discount = validated;
+        if (value === '' || value === undefined || value === null) {
+          line.DiscPrcnt = '' as any;
+          (line as any).Discount = '' as any;
+        } else {
+          const validated = validateDiscountPercent(Number(value));
+          line.DiscPrcnt = validated;
+          (line as any).Discount = validated;
+        }
       } else {
         (line as any)[field] = value;
       }
       
-      const qty = Number(line.Quantity || 0);
-      const price = Number(line.UnitPrice || 0);
-      const disc = Number(line.DiscPrcnt || 0);
-      const vat = Number(line.VATPer || 0);
+      const qty = Number(line.Quantity) || 0;
+      const price = Number(line.UnitPrice) || 0;
+      const disc = Number(line.DiscPrcnt) || 0;
+      const vat = Number(line.VATPer) || 0;
       
       // Calculate derived field: OpenQty changes in sync with Quantity
       line.OpenQty = qty;
@@ -616,8 +692,8 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!custCode) {
-      toast.error('Validation Error', 'Please select a vendor / supplier.');
+    if (!requestedById && !custCode) {
+      toast.error('Validation Error', 'Please select who requested this purchase request.');
       return;
     }
     if (items.length === 0) {
@@ -641,11 +717,22 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
       }
     }
     const payload: PurchaseRequestInput = {
-      CustCode: custCode, CustName: custName, Address: address, CustRefNo: custRefNo,
-      Currency: currency, CurRate: curRate, PostDate: postDate, DueDate: dueDate || null,
-      TypeRequest: typeRequest, RequestedByDate: requestedByDate || null, Remarks: remarks,
-      Branch_id: branchId ? Number(branchId) : undefined, RequestType: typeRequest || requestType,
-      Expense_type: expenseType || undefined, memo_text: memoText || undefined,
+      CustCode: custCode || (requestedById ? String(requestedById) : undefined),
+      CustName: custName || undefined,
+      CreatedBy: requestedById ? Number(requestedById) : undefined,
+      Address: address,
+      CustRefNo: custRefNo,
+      Currency: currency,
+      CurRate: curRate,
+      PostDate: postDate,
+      DueDate: dueDate || null,
+      TypeRequest: typeRequest,
+      RequestedByDate: requestedByDate || null,
+      Remarks: remarks,
+      Branch_id: branchId ? Number(branchId) : undefined,
+      RequestType: typeRequest || requestType,
+      Expense_type: expenseType || undefined,
+      memo_text: memoText || undefined,
       Department: department || undefined,
       items: items.map((item, idx) => ({
         LineNum: idx + 1,
@@ -728,6 +815,10 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
     borderColor: 'var(--color-border)',
     color: 'var(--color-text)',
   };
+  const tableInputCls = `w-full h-9 text-xs font-semibold px-2.5 rounded-md border outline-none 
+    transition-all duration-150 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500
+    bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-600 shadow-xs
+    [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`;
 
   return (
     <div className="w-full min-h-screen animate-fade-in" style={{ background: 'var(--color-bg)' }}>
@@ -806,33 +897,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
 
               {basicDetailsOpen && (
                 <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <VendorSelect
-                    label="Vendor / Supplier"
-                    value={custCode}
-                    data={suppliersList}
-                    onChange={(val, supp) => {
-                      const code = String(val || '');
-                      if (supp) {
-                        setCustCode(code);
-                        setCustName(supp.Name || supp.name || supp.cardName || supp.CardName || '');
-                        setAddress(supp.Address || supp.address || '');
-                      } else {
-                        setCustCode(code);
-                        setCustName('');
-                      }
-                    }}
-                    disabled={isView}
-                  />
-                  <div>
-                    <FieldLabel>Vendor Name</FieldLabel>
-                    <input
-                      type="text"
-                      className={inputCls + ' opacity-70 cursor-not-allowed'}
-                      style={{ ...inputStyle, background: 'var(--color-surface-hover)' }}
-                      value={custName}
-                      disabled
-                    />
-                  </div>
+                  {/* 1. Request Type first */}
                   <div>
                     <SearchableSelect
                       label="Request Type *"
@@ -843,11 +908,51 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                       clearable={false}
                     />
                   </div>
+
+                  {/* 2. Requested By (from users table) */}
                   <div>
+                    <SearchableSelect
+                      label="Requested By *"
+                      value={requestedById}
+                      options={userOptions}
+                      onChange={val => handleRequestedByChange(val || '')}
+                      disabled={isView}
+                      placeholder="Select user / requester..."
+                    />
+                  </div>
+
+                  {/* 3. Department */}
+                  <div>
+                    <FieldLabel>Department</FieldLabel>
+                    <input
+                      type="text"
+                      placeholder="e.g. IT, Operations, Marketing..."
+                      className={inputCls}
+                      style={inputStyle}
+                      value={department}
+                      onChange={e => setDepartment(e.target.value)}
+                      disabled={isView}
+                    />
+                  </div>
+
+                  {/* 4. Branch Select */}
+                  <div>
+                    <BranchSelect
+                      label="Branch"
+                      value={branchId}
+                      data={branchesList}
+                      onChange={val => setBranchId(val ? Number(val) : '')}
+                      disabled={isView}
+                      placeholder="Select Branch..."
+                    />
+                  </div>
+
+                  {/* 5. Address */}
+                  <div className="md:col-span-2">
                     <FieldLabel>Address</FieldLabel>
                     <input
                       type="text"
-                      placeholder="Physical or mailing address…"
+                      placeholder="Physical or delivery address…"
                       className={inputCls}
                       style={inputStyle}
                       value={address}
@@ -1345,16 +1450,22 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                           {/* TOTAL (EXCLUSIVE) */}
                           <td className="py-2.5 px-2 w-[150px]">
                             <input
-                              type="number" step="any" min="0"
+                              type="text" inputMode="decimal"
                               placeholder="0.00"
-                              className="w-full text-xs font-bold font-mono py-1.5 px-2 rounded-lg text-right border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
-                              value={line.UnitPrice || ''}
+                              className={tableInputCls + " text-right font-mono font-bold"}
+                              value={line.UnitPrice ?? ''}
                               onChange={e => {
-                                const price = Number(e.target.value) || 0;
-                                handleItemLineChange(idx, 'UnitPrice', price);
-                                handleItemLineChange(idx, 'TotalExclusive' as any, price);
-                                handleItemLineChange(idx, 'Quantity', 1);
+                                const val = e.target.value;
+                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                  handleItemLineChange(idx, 'UnitPrice', val as any);
+                                  handleItemLineChange(idx, 'TotalExclusive' as any, val as any);
+                                  handleItemLineChange(idx, 'Quantity', 1);
+                                }
+                              }}
+                              onBlur={e => {
+                                const val = parseFloat(e.target.value) || 0;
+                                handleItemLineChange(idx, 'UnitPrice', val);
+                                handleItemLineChange(idx, 'TotalExclusive' as any, val);
                               }}
                               disabled={isView}
                             />
@@ -1374,17 +1485,26 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                           </td>
 
                           {/* DISCOUNT */}
-                          <td className="py-2.5 px-2 w-[90px]">
+                          <td className="py-2.5 px-2 w-[100px]">
                             <input
-                              type="number" min="0" max="100" step="any"
+                              type="text" inputMode="decimal"
                               placeholder="0"
-                              className="w-full text-xs font-bold font-mono py-1.5 px-2 rounded-lg text-center border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
-                              value={line.DiscPrcnt || 0}
+                              className={tableInputCls + " text-center font-mono font-bold"}
+                              value={line.DiscPrcnt ?? 0}
                               onChange={e => {
-                                const disc = Number(e.target.value) || 0;
-                                handleItemLineChange(idx, 'DiscPrcnt', disc);
-                                handleItemLineChange(idx, 'Discount' as any, disc);
+                                const val = e.target.value;
+                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                  const num = Number(val);
+                                  if (num <= 100) {
+                                    handleItemLineChange(idx, 'DiscPrcnt', val as any);
+                                    handleItemLineChange(idx, 'Discount' as any, val as any);
+                                  }
+                                }
+                              }}
+                              onBlur={e => {
+                                const val = parseFloat(e.target.value) || 0;
+                                handleItemLineChange(idx, 'DiscPrcnt', Math.min(100, Math.max(0, val)));
+                                handleItemLineChange(idx, 'Discount' as any, Math.min(100, Math.max(0, val)));
                               }}
                               disabled={isView}
                             />
@@ -1394,8 +1514,7 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                           <td className="py-2.5 px-2 w-[130px]">
                             <input
                               type="text"
-                              className="w-full text-xs font-bold font-mono py-1.5 px-2 rounded-lg text-right border outline-none bg-slate-50 dark:bg-slate-800 opacity-80 cursor-not-allowed"
-                              style={inputStyle}
+                              className={tableInputCls + " text-right font-mono font-bold bg-slate-50/80 dark:bg-slate-800/50 opacity-80 cursor-not-allowed"}
                               value={Number(line.LineTax || 0).toFixed(2)}
                               disabled
                             />
@@ -1502,11 +1621,11 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
             ) : (
               /* ─── MATERIAL ITEMS TABLE ─── */
               <div className="overflow-x-auto rounded-xl border animate-fade-in" style={{ borderColor: 'var(--color-border)' }}>
-                <table className="w-full text-left border-collapse" style={{ minWidth: 2600 }}>
+                <table className="w-full text-left border-collapse" style={{ minWidth: 2800 }}>
                   <thead>
                     <tr style={{ background: 'var(--color-surface-hover)', borderBottom: '1px solid var(--color-border)' }}>
                       {[
-                        '#', 'RECEIPT QTY', 'CODE', 'ITEM', 'UOM', 'UNIT PRICE',
+                        '#', 'VENDOR', 'RECEIPT QTY', 'CODE', 'ITEM', 'UOM', 'UNIT PRICE',
                         'TAX CODE', 'DISCOUNT', 'TAX AMOUNT', 'LINE TOTAL', 'TOTAL WITH TAX',
                         'PROJECT', 'WAREHOUSE', 'FOB', 'COC', 'FREIGHTCHARGES', 'OPEN QTY.',
                         'REFRENCE', 'PROJECT STAGE', 'PROJECT SUB STAGE', 'DETAIL SUB STAGE', 'MORE DETAIL SUB STAGE', 'ACTION'
@@ -1537,14 +1656,43 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                             </span>
                           </td>
 
+                          {/* VENDOR */}
+                          <td className="py-2.5 px-2 min-w-[210px]">
+                            <VendorSelect
+                              size="sm"
+                              data={suppliersList}
+                              value={line.vendor || line.VendorCode || ''}
+                              onChange={(selectedVendorCode, supp) => {
+                                handleItemLineChange(idx, 'vendor', selectedVendorCode);
+                                handleItemLineChange(idx, 'VendorCode' as any, selectedVendorCode);
+                                if (supp) {
+                                  handleItemLineChange(idx, 'VendorName' as any, supp.Name || supp.name || supp.cardName);
+                                  if (supp.PaymentTerms && !line.PaymentTerms) {
+                                    handleItemLineChange(idx, 'PaymentTerms' as any, supp.PaymentTerms);
+                                    handleItemLineChange(idx, 'po_id', supp.PaymentTerms);
+                                  }
+                                }
+                              }}
+                              disabled={isView}
+                            />
+                          </td>
+
                           {/* RECEIPT QTY */}
-                          <td className="py-2.5 px-2 w-[90px]">
+                          <td className="py-2.5 px-2 min-w-[100px] w-[100px]">
                             <input
-                              type="number" min="1" step="any"
-                              className="w-full text-xs font-bold font-mono py-1.5 px-2 rounded-lg text-center border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
-                              value={line.Quantity}
-                              onChange={e => handleItemLineChange(idx, 'Quantity', Number(e.target.value))}
+                              type="text" inputMode="decimal"
+                              className={tableInputCls + " text-center font-mono font-bold"}
+                              value={line.Quantity ?? 1}
+                              onChange={e => {
+                                const val = e.target.value;
+                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                  handleItemLineChange(idx, 'Quantity', val as any);
+                                }
+                              }}
+                              onBlur={e => {
+                                const val = parseFloat(e.target.value) || 1;
+                                handleItemLineChange(idx, 'Quantity', Math.max(0.001, val));
+                              }}
                               disabled={isView}
                             />
                           </td>
@@ -1606,20 +1754,33 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                           </td>
 
                           {/* UOM */}
-                          <td className="py-2.5 px-3 w-[80px]">
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md" style={{ background: 'var(--color-surface-hover)', color: 'var(--color-text-secondary)' }}>
-                              {line.UoM || 'pcs'}
-                            </span>
+                          <td className="py-2.5 px-2 min-w-[90px] w-[90px]">
+                            <input
+                              type="text"
+                              className={tableInputCls + " text-center font-bold"}
+                              value={line.UoM || 'pcs'}
+                              onChange={e => handleItemLineChange(idx, 'UoM', e.target.value)}
+                              disabled={isView}
+                            />
                           </td>
 
                           {/* UNIT PRICE */}
-                          <td className="py-2.5 px-2 w-[120px]">
+                          <td className="py-2.5 px-2 min-w-[130px] w-[130px]">
                             <input
-                              type="number" step="any"
-                              className="w-full text-xs font-bold font-mono py-1.5 px-2 rounded-lg text-right border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
-                              value={line.UnitPrice}
-                              onChange={e => handleItemLineChange(idx, 'UnitPrice', Number(e.target.value))}
+                              type="text" inputMode="decimal"
+                              placeholder="0.00"
+                              className={tableInputCls + " text-right font-mono font-bold"}
+                              value={line.UnitPrice ?? ''}
+                              onChange={e => {
+                                const val = e.target.value;
+                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                  handleItemLineChange(idx, 'UnitPrice', val as any);
+                                }
+                              }}
+                              onBlur={e => {
+                                const val = parseFloat(e.target.value) || 0;
+                                handleItemLineChange(idx, 'UnitPrice', val);
+                              }}
                               disabled={isView}
                             />
                           </td>
@@ -1635,23 +1796,34 @@ export const PurchaseRequestFormPage: React.FC<PurchaseRequestFormPageProps> = (
                           </td>
 
                           {/* DISCOUNT */}
-                          <td className="py-2.5 px-2 w-[80px]">
+                          <td className="py-2.5 px-2 min-w-[90px] w-[90px]">
                             <input
-                              type="number" min="0" max="100" step="any"
-                              className="w-full text-xs font-bold font-mono py-1.5 px-2 rounded-lg text-center border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                              style={inputStyle}
-                              value={line.DiscPrcnt || 0}
-                              onChange={e => handleItemLineChange(idx, 'DiscPrcnt', Number(e.target.value))}
+                              type="text" inputMode="decimal"
+                              placeholder="0"
+                              className={tableInputCls + " text-center font-mono font-bold"}
+                              value={line.DiscPrcnt ?? 0}
+                              onChange={e => {
+                                const val = e.target.value;
+                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                  const num = Number(val);
+                                  if (num <= 100) {
+                                    handleItemLineChange(idx, 'DiscPrcnt', val as any);
+                                  }
+                                }
+                              }}
+                              onBlur={e => {
+                                const val = parseFloat(e.target.value) || 0;
+                                handleItemLineChange(idx, 'DiscPrcnt', Math.min(100, Math.max(0, val)));
+                              }}
                               disabled={isView}
                             />
                           </td>
 
                           {/* TAX AMOUNT */}
-                          <td className="py-2.5 px-2 w-[120px]">
+                          <td className="py-2.5 px-2 min-w-[120px] w-[120px]">
                             <input
                               type="text"
-                              className="w-full text-xs font-bold font-mono py-1.5 px-2 rounded-lg text-right border outline-none bg-slate-50 dark:bg-slate-800 opacity-80 cursor-not-allowed"
-                              style={inputStyle}
+                              className={tableInputCls + " text-right font-mono font-bold bg-slate-50/80 dark:bg-slate-800/50 opacity-80 cursor-not-allowed"}
                               value={Number(line.LineTax || 0).toFixed(2)}
                               disabled
                             />
