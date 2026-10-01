@@ -107,8 +107,8 @@ export const BranchSetup: React.FC = () => {
   };
 
   const inputCls = isGlass
-    ? 'glass-input w-full px-3.5 py-2.5 rounded-xl text-sm outline-none transition-all duration-200'
-    : `w-full px-3.5 py-2.5 rounded-xl text-sm outline-none transition-all duration-200 border focus:ring-2 focus:ring-primary/20 focus:border-primary`;
+    ? 'glass-input w-full px-3 py-1.5 rounded-lg text-xs outline-none transition-all duration-200'
+    : 'w-full px-3 py-1.5 rounded-lg text-xs outline-none transition-all duration-200 border focus:ring-2 focus:ring-primary/20 focus:border-primary';
 
   const inputStyle = isGlass ? undefined : {
     background: 'var(--color-surface)',
@@ -306,22 +306,22 @@ export const BranchSetup: React.FC = () => {
               transition={{ type: 'spring', damping: 25, stiffness: 180 }}
               style={!isGlass ? { background: 'var(--color-background)', borderLeft: '1px solid var(--color-border)' } : { borderLeftColor: 'var(--color-border)' }}
             >
-              <div className="p-6 border-b flex items-center justify-between shrink-0" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
-                <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: 'var(--color-text)' }}>
-                  <Building2 className="w-5 h-5 text-primary" /> {editingBranch ? 'Modify Branch Setup' : 'Create New Branch'}
+              <div className="px-5 py-3.5 border-b flex items-center justify-between shrink-0" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
+                <h2 className="text-base font-bold flex items-center gap-2" style={{ color: 'var(--color-text)' }}>
+                  <Building2 className="w-4 h-4 text-primary" /> {editingBranch ? 'Modify Branch Setup' : 'Create New Branch'}
                 </h2>
                 <button
                   onClick={() => setIsDrawerOpen(false)}
-                  className="p-2 rounded-xl hover:bg-black/5 border transition-colors"
-                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+                  className="p-1.5 rounded-lg hover:bg-black/10 transition-colors cursor-pointer"
+                  style={{ color: 'var(--color-text-secondary)' }}
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 space-y-6">
+              <form onSubmit={handleSave} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider mb-2 opacity-70">Branch Code *</label>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 opacity-70">Branch Code *</label>
                   <input
                     className={inputCls}
                     style={inputStyle}
@@ -334,7 +334,7 @@ export const BranchSetup: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider mb-2 opacity-70">Branch Name *</label>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 opacity-70">Branch Name *</label>
                   <input
                     className={inputCls}
                     style={inputStyle}
@@ -347,37 +347,37 @@ export const BranchSetup: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider mb-2 opacity-70">Physical Address</label>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 opacity-70">Physical Address</label>
                   <textarea
                     className={inputCls}
                     style={inputStyle}
-                    rows={4}
+                    rows={3}
                     placeholder="Physical address, city, state..."
                     value={form.address}
                     onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-4 rounded-2xl border" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
+                <div className="flex items-center justify-between p-3 rounded-xl border" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
                   <div>
                     <h4 className="text-xs font-bold" style={{ color: 'var(--color-text)' }}>Active Status</h4>
                     <p className="text-[10px] opacity-60 mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>Whether this place is open for transactions</p>
                   </div>
                   <input
                     type="checkbox"
-                    className="w-5 h-5 rounded accent-primary cursor-pointer"
+                    className="w-4 h-4 rounded text-primary border-gray-300 focus:ring-primary cursor-pointer"
                     checked={form.active}
                     onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
                   />
                 </div>
 
-                <div className="pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                <div className="pt-3 border-t flex justify-end" style={{ borderColor: 'var(--color-border)' }}>
                   <button
                     type="submit"
                     disabled={createMutation.isPending || updateMutation.isPending}
-                    className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white shadow-lg bg-primary hover:bg-primary-hover disabled:opacity-60 transition-all duration-200"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white shadow-xs bg-primary hover:bg-primary-hover disabled:opacity-60 transition-all cursor-pointer"
                   >
-                    <Check className="w-4 h-4" />
+                    <Check className="w-3.5 h-3.5" />
                     {editingBranch ? 'Update Business Place' : 'Create Business Place'}
                   </button>
                 </div>

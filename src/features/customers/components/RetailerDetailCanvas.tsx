@@ -5,16 +5,17 @@ import {
   MapPin, Eye, Plus, Trash2, Edit3, Save, User, Building2
 } from 'lucide-react';
 import { 
-  useRetailer, useUpdateRetailer, useApproveRetailer,
+  useRetailer, useCreateRetailer, useUpdateRetailer, useApproveRetailer,
   useRetailerOrders, useRetailerNotes, useRetailerComplaints,
   type Retailer
 } from '../api/useRetailers';
-import { Button, Badge, LocationMapPicker } from '../../../components/ui';
+import { Button, Badge, LocationMapPicker, toast } from '../../../components/ui';
 import { useDesignStore } from '../../../store/useDesignStore';
 
 interface RetailerDetailCanvasProps {
-  retailerId: number;
+  retailerId: number | null;
   onClose: () => void;
+  defaultCardType?: 'C' | 'S';
 }
 
 type TabType = 'info' | 'orders' | 'notes' | 'complaints' | 'gps';
@@ -22,11 +23,15 @@ type TabType = 'info' | 'orders' | 'notes' | 'complaints' | 'gps';
 export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
   retailerId,
   onClose,
+  defaultCardType = 'C',
 }) => {
   const { activeDesign } = useDesignStore();
   const isGlass = activeDesign === 'design1';
 
+  const isCreateMode = !retailerId || retailerId <= 0;
+
   const { data: retailer, isLoading, isError } = useRetailer(retailerId);
+  const createRetailer = useCreateRetailer();
   const updateRetailer = useUpdateRetailer();
   const approveRetailer = useApproveRetailer();
 
@@ -39,7 +44,24 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
   const [remark, setRemark] = useState('');
   
   // Local Form state
-  const [form, setForm] = useState<Partial<Retailer>>({});
+  const [form, setForm] = useState<Partial<Retailer>>({
+    Name: '',
+    Address: '',
+    Email: '',
+    Owner: '',
+    OwnerMobileNo: '',
+    OwnerEmail: '',
+    AlternateOwnerMobileNo: '',
+    TIN: '',
+    VAT: '',
+    PaymentTerms: 'Cash',
+    CrLimit: 0,
+    CreditDays: 0,
+    Route: '',
+    Latitude: null,
+    Longitude: null,
+    CardType: defaultCardType,
+  });
   // Geolocation states
   const [lat, setLat] = useState<string>('');
   const [lng, setLng] = useState<string>('');
@@ -47,7 +69,7 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
   const [gpsSuccess, setGpsSuccess] = useState<boolean>(false);
 
   useEffect(() => {
-    if (retailer) {
+    if (!isCreateMode && retailer) {
       setForm({
         Name: retailer.Name || '',
         Address: retailer.Address || '',
@@ -64,13 +86,35 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
         Route: retailer.Route || '',
         Latitude: retailer.Latitude || null,
         Longitude: retailer.Longitude || null,
+        CardType: retailer.CardType || defaultCardType,
       });
       setLat(retailer.Latitude ? String(retailer.Latitude) : '');
       setLng(retailer.Longitude ? String(retailer.Longitude) : '');
+    } else if (isCreateMode) {
+      setForm({
+        Name: '',
+        Address: '',
+        Email: '',
+        Owner: '',
+        OwnerMobileNo: '',
+        OwnerEmail: '',
+        AlternateOwnerMobileNo: '',
+        TIN: '',
+        VAT: '',
+        PaymentTerms: 'Cash',
+        CrLimit: 0,
+        CreditDays: 0,
+        Route: '',
+        Latitude: null,
+        Longitude: null,
+        CardType: defaultCardType,
+      });
+      setLat('');
+      setLng('');
     }
-  }, [retailer]);
+  }, [retailer, isCreateMode, defaultCardType]);
 
-  if (isLoading) {
+  if (!isCreateMode && isLoading) {
     return (
       <div className="fixed inset-0 z-50 flex justify-end">
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
@@ -81,13 +125,13 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
     );
   }
 
-  if (isError || !retailer) {
+  if (!isCreateMode && (isError || !retailer)) {
     return (
       <div className="fixed inset-0 z-50 flex justify-end">
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
         <div className={`relative w-full max-w-5xl h-full shadow-2xl flex flex-col justify-center items-center z-10 p-6 ${isGlass ? 'glass-card border-l backdrop-blur-2xl' : ''}`} style={!isGlass ? { background: 'var(--color-background)' } : { borderLeftColor: 'var(--color-border)' }}>
           <AlertTriangle className="h-12 w-12 text-error mb-4" />
-          <p className="text-lg font-semibold" style={{ color: 'var(--color-text)' }}>Error loading customer details.</p>
+          <p className="text-lg font-semibold" style={{ color: 'var(--color-text)' }}>Error loading details.</p>
           <Button className="mt-4" onClick={onClose}>Close Panel</Button>
         </div>
       </div>
@@ -99,13 +143,36 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
   };
 
   const handleSaveInfo = async () => {
-    await updateRetailer.mutateAsync({
-      id: retailer.ID,
-      data: form
-    });
+    if (isCreateMode) {
+      if (!form.Name || !form.Name.trim()) {
+        toast.error('Validation Error', 'Please enter a name.');
+        return;
+      }
+      try {
+        await createRetailer.mutateAsync({
+          ...form,
+          CardType: form.CardType || defaultCardType,
+        });
+        toast.success('Creation Successful', `${defaultCardType === 'S' ? 'Supplier' : 'Customer'} created successfully!`);
+        onClose();
+      } catch (err: any) {
+        toast.error('Creation Failed', err?.response?.data?.message || err?.message || 'Failed to create record.');
+      }
+    } else if (retailer?.ID) {
+      try {
+        await updateRetailer.mutateAsync({
+          id: retailer.ID,
+          data: form
+        });
+        toast.success('Updated Successfully', 'Details have been updated.');
+      } catch (err: any) {
+        toast.error('Update Failed', err?.response?.data?.message || err?.message || 'Failed to update record.');
+      }
+    }
   };
 
   const handleApproveReject = async (status: 'Y' | 'N') => {
+    if (!retailer?.ID) return;
     await approveRetailer.mutateAsync({
       id: retailer.ID,
       aprStatus: status,
@@ -161,19 +228,34 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
   };
 
   const handleSaveGPS = async () => {
-    await updateRetailer.mutateAsync({
-      id: retailer.ID,
-      data: {
+    if (isCreateMode) {
+      setForm(prev => ({
+        ...prev,
         Address: form.Address || null,
         Latitude: lat ? Number(lat) : null,
         Longitude: lng ? Number(lng) : null,
+      }));
+      toast.info('Coordinates Recorded', 'Coordinates have been staged in the form. Click Create Record to save.');
+    } else if (retailer?.ID) {
+      try {
+        await updateRetailer.mutateAsync({
+          id: retailer.ID,
+          data: {
+            Address: form.Address || null,
+            Latitude: lat ? Number(lat) : null,
+            Longitude: lng ? Number(lng) : null,
+          }
+        });
+        toast.success('Coordinates Saved', 'Location coordinates updated.');
+      } catch (err: any) {
+        toast.error('Update Failed', err?.message || 'Failed to save coordinates.');
       }
-    });
+    }
   };
 
   const inputCls = isGlass
-    ? 'glass-input w-full px-3.5 py-2 rounded-xl text-sm outline-none transition-all duration-200'
-    : 'w-full px-3.5 py-2 rounded-xl text-sm outline-none transition-all duration-200 border focus:ring-2 focus:ring-primary/20 focus:border-primary';
+    ? 'glass-input w-full px-3 py-1.5 rounded-lg text-xs outline-none transition-all duration-200'
+    : 'w-full px-3 py-1.5 rounded-lg text-xs outline-none transition-all duration-200 border focus:ring-2 focus:ring-primary/20 focus:border-primary';
 
   const inputStyle = isGlass ? undefined : {
     background: 'var(--color-surface)',
@@ -181,15 +263,15 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
     color: 'var(--color-text)',
   };
 
-  const labelCls = 'block text-[11px] font-bold uppercase tracking-wider mb-1.5 opacity-70';
+  const labelCls = 'block text-[11px] font-bold uppercase tracking-wider mb-1 opacity-70';
 
-  const cardCls = isGlass ? 'glass-card p-5 rounded-2xl' : 'rounded-2xl p-5';
+  const cardCls = isGlass ? 'glass-card p-4 rounded-xl' : 'rounded-xl p-4';
   const resolvedCardStyle = isGlass ? undefined : {
     background: 'var(--color-surface)',
     border: '1px solid var(--color-border)',
   };
 
-  const isCustomer = retailer.CardType === 'C';
+  const isCustomer = isCreateMode ? defaultCardType === 'C' : retailer?.CardType === 'C';
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -212,52 +294,71 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
       >
         {/* Canvas Header */}
-        <div className={`px-6 py-5 border-b flex flex-col gap-4 ${isGlass ? 'bg-slate-950/20' : ''}`} style={{ borderColor: 'var(--color-border)', background: !isGlass ? 'var(--color-surface)' : undefined }}>
-          <div className="flex items-start justify-between">
+        <div className={`px-5 py-3.5 border-b flex flex-col gap-3 shrink-0 ${isGlass ? 'bg-slate-950/20' : ''}`} style={{ borderColor: 'var(--color-border)', background: !isGlass ? 'var(--color-surface)' : undefined }}>
+          <div className="flex items-center justify-between">
             <div>
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>
-                  {retailer.Name}
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>
+                  {isCreateMode ? (isCustomer ? 'New Customer Registration' : 'New Supplier Registration') : retailer?.Name}
                 </h2>
-                <Badge variant={retailer.AprStatus === 'Y' ? 'success' : 'warning'}>
-                  {retailer.AprStatus === 'Y' ? 'Approved' : 'Pending Approval'}
-                </Badge>
+                {isCreateMode ? (
+                  <Badge variant="info">New Registration</Badge>
+                ) : (
+                  <Badge variant={retailer?.AprStatus === 'Y' ? 'success' : 'warning'}>
+                    {retailer?.AprStatus === 'Y' ? 'Approved' : 'Pending Approval'}
+                  </Badge>
+                )}
               </div>
-              <p className="text-sm font-medium mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                Code: <span className="font-mono text-primary font-bold">{retailer.Code}</span> | Type: {isCustomer ? 'Customer' : 'Supplier'}
+              <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                {isCreateMode ? (
+                  `Fill in the details below to register a new ${isCustomer ? 'customer' : 'supplier'}`
+                ) : (
+                  <>Code: <span className="font-mono text-primary font-bold">{retailer?.Code}</span> | Type: {isCustomer ? 'Customer' : 'Supplier'}</>
+                )}
               </p>
             </div>
-            <button 
-              onClick={onClose} 
-              className="p-1.5 rounded-lg hover:bg-black/10 transition-colors" 
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              <X className="h-6 w-6" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSaveInfo}
+                disabled={isCreateMode ? createRetailer.isPending : updateRetailer.isPending}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white shadow-xs transition-all hover:opacity-95 active:scale-98 disabled:opacity-60 cursor-pointer"
+                style={{ background: 'var(--color-primary)' }}
+              >
+                <Save className="h-3.5 w-3.5" />
+                {isCreateMode ? 'Create Account' : 'Save Changes'}
+              </button>
+              <button 
+                onClick={onClose} 
+                className="p-1.5 rounded-lg hover:bg-black/10 transition-colors cursor-pointer" 
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
-          {/* Dynamic Approval Workflow Panel (Only shown if pending approval) */}
-          {retailer.AprStatus !== 'Y' && (
-            <div className={`rounded-xl p-4 border flex flex-col md:flex-row md:items-center justify-between gap-4 ${isGlass ? 'bg-slate-950/40' : ''}`} style={{ borderColor: 'var(--color-border)', background: !isGlass ? 'var(--color-background)' : undefined }}>
+          {/* Dynamic Approval Workflow Panel (Only shown if existing and pending approval) */}
+          {!isCreateMode && retailer && retailer.AprStatus !== 'Y' && (
+            <div className={`rounded-xl p-3 border flex flex-col md:flex-row md:items-center justify-between gap-3 ${isGlass ? 'bg-slate-950/40' : ''}`} style={{ borderColor: 'var(--color-border)', background: !isGlass ? 'var(--color-background)' : undefined }}>
               <div>
-                <p className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+                <p className="text-xs font-semibold" style={{ color: 'var(--color-text)' }}>
                   Approval Status Workflow
                 </p>
-                <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
                   This record is currently pending system authorization.
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <input 
                   type="text" 
                   placeholder="Enter remarks..." 
-                  className="px-3 py-1.5 rounded-lg text-xs border outline-none"
+                  className="px-2.5 py-1 rounded-lg text-xs border outline-none"
                   style={inputStyle}
                   value={remark}
                   onChange={e => setRemark(e.target.value)}
                 />
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                   <Button 
                     variant="danger" 
                     size="sm" 
@@ -281,7 +382,7 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
         </div>
 
         {/* Premium Styled Sub-Tabs Header */}
-        <div className={`px-6 flex gap-2 border-b overflow-x-auto scrollbar-none ${isGlass ? 'bg-slate-950/10' : ''}`} style={{ borderColor: 'var(--color-border)', background: !isGlass ? 'var(--color-surface)' : undefined }}>
+        <div className={`px-5 flex gap-1 border-b overflow-x-auto scrollbar-none shrink-0 ${isGlass ? 'bg-slate-950/10' : ''}`} style={{ borderColor: 'var(--color-border)', background: !isGlass ? 'var(--color-surface)' : undefined }}>
           {([
             { id: 'info', label: 'Info', icon: Info },
             { id: 'orders', label: 'Open Orders', icon: FileText },
@@ -295,12 +396,12 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap
-                  ${active ? 'border-primary text-primary' : 'border-transparent hover:text-primary'}
+                  flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold border-b-2 transition-all whitespace-nowrap -mb-[2px] cursor-pointer
+                  ${active ? 'border-primary text-primary font-bold' : 'border-transparent hover:text-primary'}
                 `}
                 style={!active ? { color: 'var(--color-text-secondary)' } : undefined}
               >
-                <tab.icon className="h-4 w-4" />
+                <tab.icon className="h-3.5 w-3.5" />
                 {tab.label}
               </button>
             );
@@ -308,26 +409,26 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
         </div>
 
         {/* Tab Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-5 sm:py-3.5 space-y-3.5">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.15 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12 }}
             >
               {/* INFO TAB */}
               {activeTab === 'info' && (
-                <div className="space-y-6">
+                <div className="space-y-3.5">
                   {/* Grid forms */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                     {/* Card 1: Details */}
                     <div className={cardCls} style={resolvedCardStyle}>
-                      <h3 className="text-sm font-bold flex items-center gap-2 mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
-                        <Building2 className="h-4.5 w-4.5 text-primary" /> {isCustomer ? 'Customer' : 'Supplier'} Details
+                      <h3 className="text-xs font-bold flex items-center gap-1.5 mb-3 pb-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                        <Building2 className="h-4 w-4 text-primary" /> {isCustomer ? 'Customer' : 'Supplier'} Details
                       </h3>
-                      <div className="space-y-3.5">
+                      <div className="space-y-3">
                         <div>
                           <label className={labelCls}>Name</label>
                           <input className={inputCls} style={inputStyle} value={form.Name || ''} onChange={e => handleUpdateField('Name', e.target.value)} />
@@ -358,12 +459,12 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
                     </div>
 
                     {/* Card 2: Owners & Financials */}
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       <div className={cardCls} style={resolvedCardStyle}>
-                        <h3 className="text-sm font-bold flex items-center gap-2 mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
-                          <User className="h-4.5 w-4.5 text-primary" /> Owner Details
+                        <h3 className="text-xs font-bold flex items-center gap-1.5 mb-3 pb-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                          <User className="h-4 w-4 text-primary" /> Owner Details
                         </h3>
-                        <div className="space-y-3.5">
+                        <div className="space-y-3">
                           <div>
                             <label className={labelCls}>Owner Name</label>
                             <input className={inputCls} style={inputStyle} value={form.Owner || ''} onChange={e => handleUpdateField('Owner', e.target.value)} />
@@ -380,8 +481,8 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
                       </div>
 
                       <div className={cardCls} style={resolvedCardStyle}>
-                        <h3 className="text-sm font-bold flex items-center gap-2 mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
-                          <FileText className="h-4.5 w-4.5 text-primary" /> Finance details
+                        <h3 className="text-xs font-bold flex items-center gap-1.5 mb-3 pb-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                          <FileText className="h-4 w-4 text-primary" /> Finance details
                         </h3>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
@@ -403,11 +504,11 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
 
                   {/* Card 3: Contact Persons Sub-table */}
                   <div className={cardCls} style={resolvedCardStyle}>
-                    <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                      <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--color-text)' }}>
-                        <User className="h-4.5 w-4.5 text-primary" /> Contact Persons
+                    <div className="flex justify-between items-center mb-3 pb-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                      <h3 className="text-xs font-bold flex items-center gap-1.5" style={{ color: 'var(--color-text)' }}>
+                        <User className="h-4 w-4 text-primary" /> Contact Persons
                       </h3>
-                      <Button size="sm" variant="ghost" className="flex items-center gap-1">
+                      <Button size="sm" variant="ghost" className="flex items-center gap-1 text-xs py-1 px-2.5">
                         <Plus className="h-3.5 w-3.5" /> Add Contact
                       </Button>
                     </div>
@@ -416,31 +517,33 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className={`text-xs font-bold uppercase tracking-wider ${isGlass ? 'bg-slate-900/50 text-gray-400' : 'bg-black/5 text-gray-500 dark:bg-white/5 dark:text-gray-400'}`}>
-                            <th className="py-2.5 px-4">Name</th>
-                            <th className="py-2.5 px-4">Position</th>
-                            <th className="py-2.5 px-4">Phone 1</th>
-                            <th className="py-2.5 px-4">Email</th>
-                            <th className="py-2.5 px-4 text-center">Action</th>
+                            <th className="py-2 px-3">Name</th>
+                            <th className="py-2 px-3">Position</th>
+                            <th className="py-2 px-3">Phone 1</th>
+                            <th className="py-2 px-3">Email</th>
+                            <th className="py-2 px-3 text-center">Action</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y text-sm" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
-                          {retailer.contacts && retailer.contacts.length > 0 ? (
+                        <tbody className="divide-y text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                          {retailer?.contacts && retailer.contacts.length > 0 ? (
                             retailer.contacts.map((c: any) => (
                               <tr key={c.ID} className={isGlass ? 'hover:bg-slate-900/10' : 'hover:bg-black/5 dark:hover:bg-white/5'}>
-                                <td className="py-2.5 px-4 font-semibold">{c.FirstName} {c.LastName}</td>
-                                <td className="py-2.5 px-4 text-xs">{c.Position || '-'}</td>
-                                <td className="py-2.5 px-4 text-xs font-mono">{c.Phone1 || '-'}</td>
-                                <td className="py-2.5 px-4 text-xs">{c.E_Mail || '-'}</td>
-                                <td className="py-2.5 px-4 text-center">
+                                <td className="py-2 px-3 font-semibold">{c.FirstName} {c.LastName}</td>
+                                <td className="py-2 px-3">{c.Position || '-'}</td>
+                                <td className="py-2 px-3 font-mono">{c.Phone1 || '-'}</td>
+                                <td className="py-2 px-3">{c.E_Mail || '-'}</td>
+                                <td className="py-2 px-3 text-center">
                                   <button className="text-error hover:text-error-hover p-1">
-                                    <Trash2 className="h-4.5 w-4.5" />
+                                    <Trash2 className="h-3.5 w-3.5" />
                                   </button>
                                 </td>
                               </tr>
                             ))
                           ) : (
                             <tr>
-                              <td colSpan={5} className="py-6 text-center text-xs opacity-60">No contact persons mapped to this BP.</td>
+                              <td colSpan={5} className="py-4 text-center text-xs opacity-60">
+                                {isCreateMode ? 'Contact persons can be added after creating the account.' : 'No contact persons mapped to this BP.'}
+                              </td>
                             </tr>
                           )}
                         </tbody>
@@ -450,11 +553,11 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
 
                   {/* Card 4: Customer Address Sub-table */}
                   <div className={cardCls} style={resolvedCardStyle}>
-                    <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                      <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--color-text)' }}>
-                        <MapPin className="h-4.5 w-4.5 text-primary" /> Registered Locations / Addresses
+                    <div className="flex justify-between items-center mb-3 pb-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                      <h3 className="text-xs font-bold flex items-center gap-1.5" style={{ color: 'var(--color-text)' }}>
+                        <MapPin className="h-4 w-4 text-primary" /> Registered Locations / Addresses
                       </h3>
-                      <Button size="sm" variant="ghost" className="flex items-center gap-1">
+                      <Button size="sm" variant="ghost" className="flex items-center gap-1 text-xs py-1 px-2.5">
                         <Plus className="h-3.5 w-3.5" /> Create Location
                       </Button>
                     </div>
@@ -463,31 +566,33 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className={`text-xs font-bold uppercase tracking-wider ${isGlass ? 'bg-slate-900/50 text-gray-400' : 'bg-black/5 text-gray-500 dark:bg-white/5 dark:text-gray-400'}`}>
-                            <th className="py-2.5 px-4">Contact Person Name</th>
-                            <th className="py-2.5 px-4">Address</th>
-                            <th className="py-2.5 px-4">Street Address</th>
-                            <th className="py-2.5 px-4">Pin Code</th>
-                            <th className="py-2.5 px-4 text-center">Action</th>
+                            <th className="py-2 px-3">Contact Person Name</th>
+                            <th className="py-2 px-3">Address</th>
+                            <th className="py-2 px-3">Street Address</th>
+                            <th className="py-2 px-3">Pin Code</th>
+                            <th className="py-2 px-3 text-center">Action</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y text-sm" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
-                          {retailer.addresses && retailer.addresses.length > 0 ? (
+                        <tbody className="divide-y text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                          {retailer?.addresses && retailer.addresses.length > 0 ? (
                             retailer.addresses.map((addr: any) => (
                               <tr key={addr.ID} className={isGlass ? 'hover:bg-slate-900/10' : 'hover:bg-black/5 dark:hover:bg-white/5'}>
-                                <td className="py-2.5 px-4 font-semibold">{addr.ContactPersonName || '-'}</td>
-                                <td className="py-2.5 px-4 text-xs">{addr.Building || '-'}</td>
-                                <td className="py-2.5 px-4 text-xs">{addr.Street || '-'}</td>
-                                <td className="py-2.5 px-4 text-xs font-mono">{addr.ZipCode || '-'}</td>
-                                <td className="py-2.5 px-4 text-center">
+                                <td className="py-2 px-3 font-semibold">{addr.ContactPersonName || '-'}</td>
+                                <td className="py-2 px-3">{addr.Building || '-'}</td>
+                                <td className="py-2 px-3">{addr.Street || '-'}</td>
+                                <td className="py-2 px-3 font-mono">{addr.ZipCode || '-'}</td>
+                                <td className="py-2 px-3 text-center">
                                   <button className="text-error hover:text-error-hover p-1">
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="h-3.5 w-3.5" />
                                   </button>
                                 </td>
                               </tr>
                             ))
                           ) : (
                             <tr>
-                              <td colSpan={5} className="py-6 text-center text-xs opacity-60">No location addresses mapped to this BP.</td>
+                              <td colSpan={5} className="py-4 text-center text-xs opacity-60">
+                                {isCreateMode ? 'Additional location addresses can be added after creating the account.' : 'No location addresses mapped to this BP.'}
+                              </td>
                             </tr>
                           )}
                         </tbody>
@@ -495,15 +600,15 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
                     </div>
                   </div>
 
-                  {/* Save button */}
-                  <div className="flex justify-end pt-4">
+                  {/* Bottom Save button */}
+                  <div className="flex justify-end pt-2">
                     <Button 
                       variant="primary" 
-                      icon={<Save className="h-4.5 w-4.5" />} 
+                      icon={<Save className="h-4 w-4" />} 
                       onClick={handleSaveInfo}
-                      isLoading={updateRetailer.isPending}
+                      isLoading={isCreateMode ? createRetailer.isPending : updateRetailer.isPending}
                     >
-                      Save Changes
+                      {isCreateMode ? 'Create Account' : 'Save Changes'}
                     </Button>
                   </div>
                 </div>
@@ -511,8 +616,8 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
 
               {/* OPEN ORDERS TAB */}
               {activeTab === 'orders' && (
-                <div className={`space-y-4 ${cardCls}`} style={resolvedCardStyle}>
-                  <h3 className="text-sm font-bold mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                <div className={`space-y-3 ${cardCls}`} style={resolvedCardStyle}>
+                  <h3 className="text-xs font-bold mb-3 pb-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
                     Active Sales & Purchase Orders
                   </h3>
 
@@ -520,41 +625,41 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className={`text-xs font-bold uppercase tracking-wider ${isGlass ? 'bg-slate-900/50 text-gray-400' : 'bg-black/5 text-gray-500 dark:bg-white/5 dark:text-gray-400'}`}>
-                          <th className="py-3 px-4">Order ID</th>
-                          <th className="py-3 px-4">Cust. Name</th>
-                          <th className="py-3 px-4">Due Date</th>
-                          <th className="py-3 px-4">Cust. Ref. No.</th>
-                          <th className="py-3 px-4 text-right">Total Amount</th>
-                          <th className="py-3 px-4 text-center">Action</th>
+                          <th className="py-2 px-3">Order ID</th>
+                          <th className="py-2 px-3">Cust. Name</th>
+                          <th className="py-2 px-3">Due Date</th>
+                          <th className="py-2 px-3">Cust. Ref. No.</th>
+                          <th className="py-2 px-3 text-right">Total Amount</th>
+                          <th className="py-2 px-3 text-center">Action</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y text-sm" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                      <tbody className="divide-y text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
                         {isLoadingOrders ? (
                           <tr>
-                            <td colSpan={6} className="py-8 text-center">
-                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                            <td colSpan={6} className="py-6 text-center">
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mx-auto"></div>
                             </td>
                           </tr>
                         ) : orders.length > 0 ? (
                           orders.map((o: any) => (
                             <tr key={o.ID} className={isGlass ? 'hover:bg-slate-900/10' : 'hover:bg-black/5 dark:hover:bg-white/5'}>
-                              <td className="py-3 px-4 font-mono font-bold text-primary">#{o.ID}</td>
-                              <td className="py-3 px-4">{o.CustName}</td>
-                              <td className="py-3 px-4 text-xs opacity-80">{o.DueDate ? new Date(o.DueDate).toLocaleDateString() : '-'}</td>
-                              <td className="py-3 px-4 text-xs font-mono">{o.CustRefNo || '-'}</td>
-                              <td className="py-3 px-4 text-right font-bold text-success">
+                              <td className="py-2 px-3 font-mono font-bold text-primary">#{o.ID}</td>
+                              <td className="py-2 px-3">{o.CustName}</td>
+                              <td className="py-2 px-3 opacity-80">{o.DueDate ? new Date(o.DueDate).toLocaleDateString() : '-'}</td>
+                              <td className="py-2 px-3 font-mono">{o.CustRefNo || '-'}</td>
+                              <td className="py-2 px-3 text-right font-bold text-success">
                                 {o.DocTotal ? Number(o.DocTotal).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'}
                               </td>
-                              <td className="py-3 px-4 text-center">
+                              <td className="py-2 px-3 text-center">
                                 <button className="p-1 rounded hover:bg-black/10 text-primary">
-                                  <Eye className="h-4.5 w-4.5" />
+                                  <Eye className="h-4 w-4" />
                                 </button>
                               </td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={6} className="py-8 text-center text-xs opacity-60">No open orders found for this Business Partner.</td>
+                            <td colSpan={6} className="py-6 text-center text-xs opacity-60">No open orders found for this Business Partner.</td>
                           </tr>
                         )}
                       </tbody>
@@ -565,8 +670,8 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
 
               {/* NOTES TAB */}
               {activeTab === 'notes' && (
-                <div className={`space-y-4 ${cardCls}`} style={resolvedCardStyle}>
-                  <h3 className="text-sm font-bold mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                <div className={`space-y-3 ${cardCls}`} style={resolvedCardStyle}>
+                  <h3 className="text-xs font-bold mb-3 pb-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
                     Notes & Action Items Log
                   </h3>
 
@@ -574,43 +679,43 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className={`text-xs font-bold uppercase tracking-wider ${isGlass ? 'bg-slate-900/50 text-gray-400' : 'bg-black/5 text-gray-500 dark:bg-white/5 dark:text-gray-400'}`}>
-                          <th className="py-3 px-4">Customer/Subject</th>
-                          <th className="py-3 px-4">Start Date</th>
-                          <th className="py-3 px-4">End Date</th>
-                          <th className="py-3 px-4">Priority</th>
-                          <th className="py-3 px-4">Detail</th>
-                          <th className="py-3 px-4 text-center">Action</th>
+                          <th className="py-2 px-3">Customer/Subject</th>
+                          <th className="py-2 px-3">Start Date</th>
+                          <th className="py-2 px-3">End Date</th>
+                          <th className="py-2 px-3">Priority</th>
+                          <th className="py-2 px-3">Detail</th>
+                          <th className="py-2 px-3 text-center">Action</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y text-sm" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                      <tbody className="divide-y text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
                         {isLoadingNotes ? (
                           <tr>
-                            <td colSpan={6} className="py-8 text-center">
-                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                            <td colSpan={6} className="py-6 text-center">
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mx-auto"></div>
                             </td>
                           </tr>
                         ) : notes.length > 0 ? (
                           notes.map((n: any) => (
                             <tr key={n.ID} className={isGlass ? 'hover:bg-slate-900/10' : 'hover:bg-black/5 dark:hover:bg-white/5'}>
-                              <td className="py-3 px-4 font-semibold">{n.BPName}</td>
-                              <td className="py-3 px-4 text-xs opacity-80">{n.StartDate ? new Date(n.StartDate).toLocaleDateString() : '-'}</td>
-                              <td className="py-3 px-4 text-xs opacity-80">{n.EndDate ? new Date(n.EndDate).toLocaleDateString() : '-'}</td>
-                              <td className="py-3 px-4">
+                              <td className="py-2 px-3 font-semibold">{n.BPName}</td>
+                              <td className="py-2 px-3 opacity-80">{n.StartDate ? new Date(n.StartDate).toLocaleDateString() : '-'}</td>
+                              <td className="py-2 px-3 opacity-80">{n.EndDate ? new Date(n.EndDate).toLocaleDateString() : '-'}</td>
+                              <td className="py-2 px-3">
                                 <Badge variant={n.Priority === 'H' ? 'error' : n.Priority === 'M' ? 'warning' : 'success'}>
                                   {n.Priority === 'H' ? 'High' : n.Priority === 'M' ? 'Medium' : 'Low'}
                                 </Badge>
                               </td>
-                              <td className="py-3 px-4 text-xs opacity-90 max-w-xs truncate">{n.Details || '-'}</td>
-                              <td className="py-3 px-4 text-center">
+                              <td className="py-2 px-3 opacity-90 max-w-xs truncate">{n.Details || '-'}</td>
+                              <td className="py-2 px-3 text-center">
                                 <button className="p-1 rounded hover:bg-black/10 text-primary">
-                                  <Eye className="h-4.5 w-4.5" />
+                                  <Eye className="h-4 w-4" />
                                 </button>
                               </td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={6} className="py-8 text-center text-xs opacity-60">No notes or activities mapped to this Business Partner.</td>
+                            <td colSpan={6} className="py-6 text-center text-xs opacity-60">No notes or activities mapped to this Business Partner.</td>
                           </tr>
                         )}
                       </tbody>
@@ -621,8 +726,8 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
 
               {/* COMPLAINTS TAB */}
               {activeTab === 'complaints' && (
-                <div className={`space-y-4 ${cardCls}`} style={resolvedCardStyle}>
-                  <h3 className="text-sm font-bold mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                <div className={`space-y-3 ${cardCls}`} style={resolvedCardStyle}>
+                  <h3 className="text-xs font-bold mb-3 pb-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
                     Customer Complaints Log
                   </h3>
 
@@ -630,37 +735,37 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className={`text-xs font-bold uppercase tracking-wider ${isGlass ? 'bg-slate-900/50 text-gray-400' : 'bg-black/5 text-gray-500 dark:bg-white/5 dark:text-gray-400'}`}>
-                          <th className="py-3 px-4">Product/Brand</th>
-                          <th className="py-3 px-4">Complaint Log</th>
-                          <th className="py-3 px-4">Order ID</th>
-                          <th className="py-3 px-4">Logged Date</th>
-                          <th className="py-3 px-4 text-center">Action</th>
+                          <th className="py-2 px-3">Product/Brand</th>
+                          <th className="py-2 px-3">Complaint Log</th>
+                          <th className="py-2 px-3">Order ID</th>
+                          <th className="py-2 px-3">Logged Date</th>
+                          <th className="py-2 px-3 text-center">Action</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y text-sm" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                      <tbody className="divide-y text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
                         {isLoadingComplaints ? (
                           <tr>
-                            <td colSpan={5} className="py-8 text-center">
-                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                            <td colSpan={5} className="py-6 text-center">
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mx-auto"></div>
                             </td>
                           </tr>
                         ) : complaints.length > 0 ? (
                           complaints.map((c: any) => (
                             <tr key={c.ID} className={isGlass ? 'hover:bg-slate-900/10' : 'hover:bg-black/5 dark:hover:bg-white/5'}>
-                              <td className="py-3 px-4 font-semibold">{c.BrandCode || '-'}</td>
-                              <td className="py-3 px-4 text-xs opacity-90 max-w-sm truncate">{c.Complaint || '-'}</td>
-                              <td className="py-3 px-4 font-mono text-xs text-primary">#{c.OrderId || '-'}</td>
-                              <td className="py-3 px-4 text-xs opacity-80">{c.CreatedDate ? new Date(c.CreatedDate).toLocaleDateString() : '-'}</td>
-                              <td className="py-3 px-4 text-center">
+                              <td className="py-2 px-3 font-semibold">{c.BrandCode || '-'}</td>
+                              <td className="py-2 px-3 opacity-90 max-w-sm truncate">{c.Complaint || '-'}</td>
+                              <td className="py-2 px-3 font-mono text-primary">#{c.OrderId || '-'}</td>
+                              <td className="py-2 px-3 opacity-80">{c.CreatedDate ? new Date(c.CreatedDate).toLocaleDateString() : '-'}</td>
+                              <td className="py-2 px-3 text-center">
                                 <button className="p-1 rounded hover:bg-black/10 text-primary">
-                                  <Eye className="h-4.5 w-4.5" />
+                                  <Eye className="h-4 w-4" />
                                 </button>
                               </td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={5} className="py-8 text-center text-xs opacity-60">No complaints registered for this Business Partner.</td>
+                            <td colSpan={5} className="py-6 text-center text-xs opacity-60">No complaints registered for this Business Partner.</td>
                           </tr>
                         )}
                       </tbody>
@@ -671,12 +776,12 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
 
               {/* LATITUDE & LONGITUDE TAB */}
               {activeTab === 'gps' && (
-                <div className={`space-y-6 ${cardCls}`} style={resolvedCardStyle}>
-                  <div className="pb-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                    <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--color-text)' }}>
-                      <MapPin className="h-4.5 w-4.5 text-primary" /> Physical Address Registry & GPS Location
+                <div className={`space-y-4 ${cardCls}`} style={resolvedCardStyle}>
+                  <div className="pb-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                    <h3 className="text-xs font-bold flex items-center gap-1.5" style={{ color: 'var(--color-text)' }}>
+                      <MapPin className="h-4 w-4 text-primary" /> Physical Address Registry & GPS Location
                     </h3>
-                    <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
                       Update physical address and retrieve precise GPS coordinates with interactive map location.
                     </p>
                   </div>
@@ -694,7 +799,7 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className={labelCls}>Latitude Coordinate</label>
                       <input 
@@ -726,25 +831,26 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
                   </div>
 
                   {gpsError && (
-                    <div className="rounded-xl p-4 bg-error/10 border border-error/20 text-error text-xs flex items-center gap-2">
-                      <AlertTriangle className="h-4.5 w-4.5 shrink-0" />
+                    <div className="rounded-xl p-3 bg-error/10 border border-error/20 text-error text-xs flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
                       {gpsError}
                     </div>
                   )}
 
                   {gpsSuccess && (
-                    <div className="rounded-xl p-4 bg-success/10 border border-success/20 text-success text-xs flex items-center gap-2">
-                      <CheckCircle2 className="h-4.5 w-4.5 shrink-0" />
+                    <div className="rounded-xl p-3 bg-success/10 border border-success/20 text-success text-xs flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
                       Successfully retrieved location coordinates and auto-filled physical address!
                     </div>
                   )}
 
-                  <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
-                    <Button variant="secondary" onClick={handleFetchGPS} className="w-full sm:w-auto">
+                  <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-1">
+                    <Button variant="secondary" size="sm" onClick={handleFetchGPS} className="w-full sm:w-auto">
                       Fetch Current GPS & Address
                     </Button>
                     <Button 
                       variant="primary" 
+                      size="sm"
                       onClick={handleSaveGPS} 
                       isLoading={updateRetailer.isPending}
                       className="w-full sm:w-auto"
@@ -754,8 +860,8 @@ export const RetailerDetailCanvas: React.FC<RetailerDetailCanvasProps> = ({
                   </div>
 
                   {/* Interactive Map View with Click & Drag Selection + Fullscreen */}
-                  <div className="mt-6 pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
-                    <h4 className="text-xs font-bold uppercase tracking-wider mb-3 opacity-70" style={{ color: 'var(--color-text)' }}>
+                  <div className="mt-4 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                    <h4 className="text-xs font-bold uppercase tracking-wider mb-2.5 opacity-70" style={{ color: 'var(--color-text)' }}>
                       Interactive Location Map Registry (Click Map or Drag Pin to Pick Location)
                     </h4>
                     <LocationMapPicker

@@ -42,6 +42,10 @@ export interface Quotation {
   CustName: string;
   Address?: string | null;
   CustRefNo?: string | null;
+  ContPerson?: number | null;
+  ReqBy?: number | null;
+  SalesType?: number | null;
+  Branch_id?: number | null;
   Currency?: string | null;
   CurRate?: number | null;
   PostDate?: string | null;
@@ -58,6 +62,9 @@ export interface Quotation {
   CreatedDate?: string | null;
   QuotCode?: string | null;
   CreatedByName?: string | null;
+  RequestedByName?: string | null;
+  ContactPersonName?: string | null;
+  SalesTypeName?: string | null;
   itemCount?: number;
   orderCount?: number;
   items?: QuotationItem[];
@@ -69,6 +76,9 @@ export interface QuotationInput {
   CustName?: string;
   Address?: string;
   CustRefNo?: string;
+  ContPerson?: number | null;
+  ReqBy?: number | null;
+  SalesType?: number | null;
   Currency?: string;
   CurRate?: number;
   PostDate?: string;

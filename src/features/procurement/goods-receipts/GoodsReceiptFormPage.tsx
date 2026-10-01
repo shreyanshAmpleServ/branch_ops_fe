@@ -25,7 +25,7 @@ import {
   type GoodsReceiptInput
 } from './api/useGoodsReceipts';
 import { usePurchaseOrders, type PurchaseOrder } from '../purchase-orders/api/usePurchaseOrders';
-import api from '../../../lib/api';
+import api, { getAttachmentUrl, getFileName } from '../../../lib/api';
 import { useRetailers } from '../../customers/api/useRetailers';
 import { useProjects, useWarehouses, useCostCentersMain, useBranches, useAccounts } from '../../users/api/useMasterData';
 import { PAYMENT_TERMS_OPTIONS, TAX_CODE_OPTIONS, formatVendorOption, renderVendorOption, validateDiscountPercent } from '../procurementConstants';
@@ -481,10 +481,10 @@ export const GoodsReceiptFormPage: React.FC<GoodsReceiptFormPageProps> = ({ mode
       formData.append('file', file);
 
       try {
-        const { data } = await api.post('/upload', formData, {
+        const { data } = await api.post('/upload/file', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
-        const fileUrl = data.url || data.path || data.file;
+        const fileUrl = data?.data?.path || data?.path || data?.url || data?.file;
         if (fileUrl) {
           setAttachments(prev => [
             ...prev,
@@ -1486,33 +1486,42 @@ export const GoodsReceiptFormPage: React.FC<GoodsReceiptFormPageProps> = ({ mode
                   <div className="space-y-2">
                     <FieldLabel>Attached Files ({attachments.length})</FieldLabel>
                     <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                      {attachments.map((att, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-xs"
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <FileText className="w-4 h-4 text-teal-600 shrink-0" />
-                            <a
-                              href={att.Attachment}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="truncate font-medium text-slate-700 dark:text-slate-300 hover:text-teal-600 underline"
-                            >
-                              {att.Attachment.split('/').pop() || `Attachment ${idx + 1}`}
-                            </a>
+                      {attachments.map((att, idx) => {
+                        const fileUrl = getAttachmentUrl(att.Attachment);
+                        const fileName = getFileName(att.Attachment) || (att.Attachment.split('/').pop() || `Attachment ${idx + 1}`);
+                        return (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-xs"
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <FileText className="w-4 h-4 text-teal-600 shrink-0" />
+                              <span className="truncate font-medium text-slate-700 dark:text-slate-300" title={fileName}>
+                                {fileName}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] font-semibold text-teal-600 hover:underline"
+                              >
+                                View
+                              </a>
+                              {mode !== 'view' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveAttachment(idx)}
+                                  className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg shrink-0 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          {mode !== 'view' && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveAttachment(idx)}
-                              className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg shrink-0"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}

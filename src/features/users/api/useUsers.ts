@@ -140,6 +140,28 @@ export function useUser(id: number | null) {
   });
 }
 
+export interface CreateUserPayload extends UpdateUserPayload {
+  password?: string;
+  code?: string;
+}
+
+/** Create a new user */
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: CreateUserPayload) => {
+      const { data } = await api.post<{ status: string; data: { user: ApiUser } }>(
+        '/users',
+        payload
+      );
+      return data.data.user;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
 /** Update a user's profile */
 export function useUpdateUser() {
   const queryClient = useQueryClient();

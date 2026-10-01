@@ -2,9 +2,17 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, UserCheck, UserX, Shield, Edit2, Phone, Mail,
-  RefreshCw, TrendingUp, BarChart3
+  RefreshCw, TrendingUp, BarChart3, Plus
 } from 'lucide-react';
-import { useUsers, useUpdateUser, getUserAvatarUrl, type ApiUser, type UpdateUserPayload } from './api/useUsers';
+import { 
+  useUsers, 
+  useCreateUser, 
+  useUpdateUser, 
+  getUserAvatarUrl, 
+  type ApiUser, 
+  type UpdateUserPayload, 
+  type CreateUserPayload 
+} from './api/useUsers';
 import { useAuthStore } from '../../store/useAuthStore';
 import { UserEditCanvas } from './UserEditCanvas';
 import { type ColumnDef } from '@tanstack/react-table';
@@ -20,6 +28,7 @@ export const UserManagement: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<'Y' | 'N' | 'all'>('all');
   const [page, setPage] = useState(1);
+  const [isCanvasOpen, setIsCanvasOpen] = useState(false);
   const [editUser, setEditUser] = useState<ApiUser | null>(null);
   const [successMsg, setSuccessMsg] = useState('');
   const searchTimer = useRef<any>(null);
@@ -31,6 +40,7 @@ export const UserManagement: React.FC = () => {
     active: activeFilter === 'all' ? undefined : activeFilter,
   });
 
+  const createUser = useCreateUser();
   const updateUser = useUpdateUser();
 
   const handleSearchChange = (val: string) => {
@@ -44,8 +54,17 @@ export const UserManagement: React.FC = () => {
 
   const handleSave = async (id: number, payload: UpdateUserPayload) => {
     await updateUser.mutateAsync({ id, payload });
+    setIsCanvasOpen(false);
     setEditUser(null);
     setSuccessMsg('User updated successfully!');
+    setTimeout(() => setSuccessMsg(''), 3000);
+  };
+
+  const handleCreate = async (payload: CreateUserPayload) => {
+    await createUser.mutateAsync(payload);
+    setIsCanvasOpen(false);
+    setEditUser(null);
+    setSuccessMsg('User created successfully!');
     setTimeout(() => setSuccessMsg(''), 3000);
   };
 
@@ -142,7 +161,10 @@ export const UserManagement: React.FC = () => {
     {
       label: 'Edit Profile',
       icon: <Edit2 className="h-3.5 w-3.5" />,
-      onClick: (row) => setEditUser(row)
+      onClick: (row) => {
+        setEditUser(row);
+        setIsCanvasOpen(true);
+      }
     }
   ];
 
@@ -177,6 +199,17 @@ export const UserManagement: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => {
+              setEditUser(null);
+              setIsCanvasOpen(true);
+            }}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-lg text-white shadow-xs transition-all hover:opacity-95 active:scale-98 cursor-pointer"
+            style={{ background: 'var(--color-primary)' }}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New User
+          </button>
           <button
             onClick={() => refetch()}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200/90 dark:border-slate-700/80 bg-white/70 dark:bg-slate-800/60 hover:bg-white dark:hover:bg-slate-700/70 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer shadow-2xs"
@@ -318,17 +351,25 @@ export const UserManagement: React.FC = () => {
           totalPages: pagination.totalPages,
           onPageChange: setPage,
         } : undefined}
+        onRowClick={(row) => {
+          setEditUser(row);
+          setIsCanvasOpen(true);
+        }}
         />
       </div>
 
-      {/* Edit Canvas overlay */}
+      {/* Edit/Create Canvas overlay */}
       <AnimatePresence>
-        {editUser && (
+        {(isCanvasOpen || editUser) && (
           <UserEditCanvas
             user={editUser}
-            onClose={() => setEditUser(null)}
+            onClose={() => {
+              setIsCanvasOpen(false);
+              setEditUser(null);
+            }}
             onSave={handleSave}
-            isSaving={updateUser.isPending}
+            onCreate={handleCreate}
+            isSaving={createUser.isPending || updateUser.isPending}
             isCurrentUserAdmin={isCurrentUserAdmin}
           />
         )}

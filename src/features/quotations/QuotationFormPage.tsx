@@ -10,6 +10,7 @@ import {
   User,
   Calendar,
   Building2,
+  ChevronDown,
 } from 'lucide-react';
 import {
   useQuotation,
@@ -17,9 +18,12 @@ import {
   useUpdateQuotation,
   type QuotationInput,
 } from './api/useQuotations';
-import { useRetailers } from '../customers/api/useRetailers';
+import { useRetailers, useRetailerContacts } from '../customers/api/useRetailers';
 import { useItems } from '../items/api/useItems';
 import { useWarehouses } from '../warehouse/api/useWarehouse';
+import { useUsers } from '../users/api/useUsers';
+import { useBranches, useSalesTypes } from '../users/api/useMasterData';
+import { useAuthStore } from '../../store/useAuthStore';
 import { Button, Input, Spinner, CustomerSelect, ItemSelect, WarehouseSelect } from '../../components/ui';
 
 interface FormRow {
@@ -37,11 +41,15 @@ interface FormRow {
 export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 'add' }) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { user: currentUser } = useAuthStore();
 
   const { data: existingQuotation, isLoading: isLoadingQuotation } = useQuotation(id);
   const { data: retailersData, isLoading: isLoadingRetailers } = useRetailers();
   const { data: itemsData, isLoading: isLoadingItems } = useItems({ limit: 500 });
   const { data: warehousesData } = useWarehouses();
+  const { data: usersResponse } = useUsers({ limit: 100 });
+  const { data: branchesResponse } = useBranches();
+  const { data: salesTypesResponse } = useSalesTypes();
 
   const createMutation = useCreateQuotation();
   const updateMutation = useUpdateQuotation();
@@ -51,6 +59,11 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
   const [custName, setCustName] = useState('');
   const [address, setAddress] = useState('');
   const [custRefNo, setCustRefNo] = useState('');
+  const [reqBy, setReqBy] = useState<number | null>(() => (currentUser?.id ? Number(currentUser.id) : 2));
+  const [contPerson, setContPerson] = useState<number | null>(null);
+  const [salesType, setSalesType] = useState<number | null>(1);
+  const [branchId, setBranchId] = useState<number | null>(null);
+  const [currency, setCurrency] = useState('TZS');
   const [postDate, setPostDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(
     new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
@@ -62,9 +75,67 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
     { ItemID: 0, ItemCode: '', ItemName: '', Quantity: 1, UnitPrice: 0, DiscPrcnt: 0, VATPer: 18, WhsCode: 0, UoM: 'Pcs' }
   ]);
 
+  const { data: contactsData } = useRetailerContacts(custCode);
+
   const customersList = Array.isArray(retailersData) ? retailersData : [];
   const productsList = itemsData?.items || [];
   const warehousesList = Array.isArray(warehousesData) ? warehousesData : (warehousesData as any)?.data || [];
+
+  // User list for REQUESTED BY dropdown
+  const userOptions = React.useMemo(() => {
+    const list = (usersResponse?.users || []).map((u: any) => ({
+      id: u.id,
+      name: u.fullName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || `User #${u.id}`,
+    }));
+    const hasUser2 = list.find((u: any) => u.id === 2);
+    if (!hasUser2) {
+      list.unshift({ id: 2, name: 'DCC _ Manager' });
+    } else if (hasUser2.name === 'Manager -' || hasUser2.name === 'Manager') {
+      hasUser2.name = 'DCC _ Manager';
+    }
+    return list;
+  }, [usersResponse]);
+
+  // Contact options for CONTACT PERSON dropdown
+  const contactOptions = React.useMemo(() => {
+    const options: Array<{ id: number; name: string }> = [];
+    const selectedCustomer = customersList.find((c: any) => c.Code === custCode);
+
+    if (Array.isArray(contactsData) && contactsData.length > 0) {
+      contactsData.forEach((c: any) => {
+        const name = `${c.FirstName || ''} ${c.LastName || ''}`.trim() || c.Position || `Contact #${c.ID}`;
+        options.push({ id: c.ID, name });
+      });
+    }
+    if (selectedCustomer?.Owner) {
+      options.push({ id: 0, name: `${selectedCustomer.Owner} (Primary / Owner)` });
+    }
+    return options;
+  }, [contactsData, customersList, custCode]);
+
+  // Sales type options for SALES TYPE dropdown
+  const salesTypeOptions = React.useMemo(() => {
+    const list = (salesTypesResponse?.data || []).map((st: any) => ({
+      id: st.id,
+      name: st.name,
+    }));
+    if (list.length === 0) {
+      return [
+        { id: 1, name: 'Sales Type-1' },
+        { id: 2, name: 'Sales Type-2' },
+      ];
+    }
+    return list;
+  }, [salesTypesResponse]);
+
+  // Branches list for branch select
+  const branchesList = React.useMemo(() => {
+    return (branchesResponse?.data || []).map((b: any) => ({
+      id: b.id,
+      code: b.code || String(b.id),
+      name: b.name,
+    }));
+  }, [branchesResponse]);
 
   // Populate form in edit mode
   useEffect(() => {
@@ -73,6 +144,11 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
       setCustName(existingQuotation.CustName || '');
       setAddress(existingQuotation.Address || '');
       setCustRefNo(existingQuotation.CustRefNo || '');
+      if (existingQuotation.ReqBy != null) setReqBy(Number(existingQuotation.ReqBy));
+      if (existingQuotation.ContPerson != null) setContPerson(Number(existingQuotation.ContPerson));
+      if (existingQuotation.SalesType != null) setSalesType(Number(existingQuotation.SalesType));
+      if (existingQuotation.Branch_id != null) setBranchId(Number(existingQuotation.Branch_id));
+      if (existingQuotation.Currency) setCurrency(existingQuotation.Currency);
       if (existingQuotation.PostDate) {
         setPostDate(new Date(existingQuotation.PostDate).toISOString().split('T')[0]);
       }
@@ -194,6 +270,11 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
       CustName: custName,
       Address: address,
       CustRefNo: custRefNo,
+      ReqBy: reqBy,
+      ContPerson: contPerson,
+      SalesType: salesType,
+      Branch_id: branchId || undefined,
+      Currency: currency,
       PostDate: postDate,
       DueDate: dueDate,
       Remarks: remarks,
@@ -272,9 +353,9 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
       </div>
 
       {/* Header Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         {/* Customer Information Card */}
-        <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs space-y-3">
+        <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs space-y-3 xl:col-span-4">
           <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
             <User className="w-4 h-4 text-teal-600 dark:text-teal-400" />
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">Customer Information</h2>
@@ -317,55 +398,147 @@ export const QuotationFormPage: React.FC<{ mode?: 'add' | 'edit' }> = ({ mode = 
           </div>
         </div>
 
-        {/* Dates & Reference Card */}
-        <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs space-y-3">
-          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
-            <Calendar className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Quotation Dates & Reference</h2>
+        {/* Quotation Details & Necessary Inputs Card */}
+        <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs space-y-3.5 xl:col-span-5 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5 mb-3">
+              <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Quotation Details & References</h2>
+            </div>
+
+            {/* 4 Necessary Inputs (2x2 Grid exactly matching user screenshot) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                  CUSTOMER REF. NO.:
+                </label>
+                <input
+                  type="text"
+                  value={custRefNo}
+                  onChange={(e) => setCustRefNo(e.target.value)}
+                  placeholder="Customer Ref. No."
+                  className="w-full px-3.5 py-2.5 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                  REQUESTED BY:
+                </label>
+                <div className="relative">
+                  <select
+                    value={reqBy ?? ''}
+                    onChange={(e) => setReqBy(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full appearance-none px-3.5 py-2.5 pr-10 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
+                  >
+                    <option value="">Select</option>
+                    {userOptions.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                  CONTACT PERSON:
+                </label>
+                <div className="relative">
+                  <select
+                    value={contPerson ?? ''}
+                    onChange={(e) => setContPerson(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full appearance-none px-3.5 py-2.5 pr-10 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
+                  >
+                    <option value="">Select</option>
+                    {contactOptions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                  SALES TYPE:
+                </label>
+                <div className="relative">
+                  <select
+                    value={salesType ?? ''}
+                    onChange={(e) => setSalesType(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full appearance-none px-3.5 py-2.5 pr-10 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
+                  >
+                    <option value="">Select</option>
+                    {salesTypeOptions.map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-              Quotation Date *
-            </label>
-            <input
-              type="date"
-              value={postDate}
-              onChange={(e) => setPostDate(e.target.value)}
-              className="w-full px-3 py-2 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-              required
-            />
-          </div>
+          {/* Dates & Branch Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                Quotation Date *
+              </label>
+              <input
+                type="date"
+                value={postDate}
+                onChange={(e) => setPostDate(e.target.value)}
+                className="w-full px-2.5 py-2 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-              Valid Until / Due Date *
-            </label>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full px-3 py-2 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-              required
-            />
-          </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                Valid Until *
+              </label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full px-2.5 py-2 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-              Customer Ref No.
-            </label>
-            <input
-              type="text"
-              value={custRefNo}
-              onChange={(e) => setCustRefNo(e.target.value)}
-              placeholder="e.g. PO-REQ-9812"
-              className="w-full px-3 py-2 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-            />
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                Branch Location
+              </label>
+              <div className="relative">
+                <select
+                  value={branchId ?? ''}
+                  onChange={(e) => setBranchId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full appearance-none px-2.5 py-2 pr-8 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 cursor-pointer"
+                >
+                  <option value="">Select Branch...</option>
+                  {branchesList.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Financial Summary Card - High Contrast & Crisp */}
-        <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs flex flex-col justify-between">
+        <div className="bg-white/85 dark:bg-slate-900/70 backdrop-blur-xl p-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-xs flex flex-col justify-between xl:col-span-3">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5 mb-3">
               <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">

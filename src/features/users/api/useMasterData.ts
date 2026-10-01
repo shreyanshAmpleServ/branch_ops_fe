@@ -169,3 +169,14 @@ export function useActivitySubjects() {
     staleTime: STALE_TIME,
   });
 }
+
+export function useSalesTypes() {
+  return useQuery<GenericResponse<MasterDataItem[]>>({
+    queryKey: ['master-sales-types'],
+    queryFn: async () => {
+      const { data } = await api.get<GenericResponse<MasterDataItem[]>>('/master/sales-types');
+      return data;
+    },
+    staleTime: STALE_TIME,
+  });
+}

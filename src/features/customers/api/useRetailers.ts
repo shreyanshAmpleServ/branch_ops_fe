@@ -111,7 +111,24 @@ export const useRetailer = (id: number | null) => {
       const { data } = await api.get<RetailerResponse>(`/retailers/${id}`);
       return data.data;
     },
-    enabled: !!id,
+    enabled: Boolean(id && id > 0),
+  });
+};
+
+export const useCreateRetailer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: Partial<Retailer>) => {
+      const { data: response } = await api.post<RetailerResponse>('/retailers', data);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: retailersKeys.lists() });
+      if (data?.ID) {
+        queryClient.invalidateQueries({ queryKey: retailersKeys.detail(data.ID) });
+      }
+    },
   });
 };
 
@@ -185,6 +202,18 @@ export const useRetailerComplaints = (code: string | null) => {
     queryKey: retailersKeys.complaints(code || ''),
     queryFn: async () => {
       const { data } = await api.get<{ status: string; data: any[] }>(`/retailers/${code}/complaints`);
+      return data.data || [];
+    },
+    enabled: !!code,
+  });
+};
+
+export const useRetailerContacts = (code: string | null) => {
+  return useQuery({
+    queryKey: ['retailer-contacts', code],
+    queryFn: async () => {
+      if (!code) return [];
+      const { data } = await api.get<{ status: string; data: any[] }>(`/retailers/${code}/contacts`);
       return data.data || [];
     },
     enabled: !!code,

@@ -270,6 +270,24 @@ export const QuotationViewPage: React.FC = () => {
                     <span className="text-slate-500">Customer Ref No.</span>
                     <span className="font-semibold text-slate-700">{quotation.CustRefNo || '—'}</span>
                   </div>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                    <span className="text-slate-500">Requested By</span>
+                    <span className="font-semibold text-slate-700">
+                      {quotation.RequestedByName || (quotation.ReqBy === 2 ? 'DCC _ Manager' : quotation.ReqBy ? `User #${quotation.ReqBy}` : '—')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                    <span className="text-slate-500">Contact Person</span>
+                    <span className="font-semibold text-slate-700">
+                      {quotation.ContactPersonName || (quotation.ContPerson ? `Contact #${quotation.ContPerson}` : '—')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                    <span className="text-slate-500">Sales Type</span>
+                    <span className="font-semibold text-slate-700">
+                      {quotation.SalesTypeName || (quotation.SalesType === 1 ? 'Item' : quotation.SalesType === 2 ? 'Service' : quotation.SalesType != null ? `Type ${quotation.SalesType}` : '—')}
+                    </span>
+                  </div>
                   {quotation.SAPDocNum && (
                     <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
                       <span className="text-slate-500">SAP Doc Number</span>

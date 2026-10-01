@@ -381,6 +381,7 @@ export const SupplierList: React.FC = () => {
           <RetailerDetailCanvas
             retailerId={selectedSupplierId}
             onClose={() => setSelectedSupplierId(null)}
+            defaultCardType="S"
           />
         )}
       </AnimatePresence>

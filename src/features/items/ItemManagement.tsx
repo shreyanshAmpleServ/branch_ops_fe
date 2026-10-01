@@ -1025,27 +1025,27 @@ export const ItemManagement: React.FC = () => {
       {viewingItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div
-            className="w-full max-w-md h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-200"
+            className="w-full max-w-md h-full shadow-2xl px-5 py-4 flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-200"
             style={{ background: 'var(--color-surface)', borderLeft: '1px solid var(--color-border)' }}
           >
             <div>
-              <div className="flex items-center justify-between pb-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
+              <div className="flex items-center justify-between pb-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
                 <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-primary">Item Details</span>
-                  <h3 className="text-lg font-bold mt-0.5" style={{ color: 'var(--color-text)' }}>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Item Details</span>
+                  <h3 className="text-base font-bold mt-0.5" style={{ color: 'var(--color-text)' }}>
                     {viewingItem.name}
                   </h3>
                 </div>
                 <button
                   onClick={() => setViewingItem(null)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-surface-hover transition-colors"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-surface-hover transition-colors cursor-pointer"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <div className="mt-6 space-y-4">
-                <div className="p-3.5 rounded-xl bg-surface-hover flex items-center justify-between">
+              <div className="mt-4 space-y-3">
+                <div className="p-3 rounded-xl bg-surface-hover flex items-center justify-between">
                   <span className="text-xs text-gray-400">Item Code</span>
                   <span className="text-sm font-bold text-primary">{viewingItem.code || '—'}</span>
                 </div>

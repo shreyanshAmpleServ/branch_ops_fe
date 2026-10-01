@@ -647,10 +647,10 @@ export const APInvoiceFormPage: React.FC<APInvoiceFormPageProps> = ({ mode }) =>
       formData.append('file', file);
 
       try {
-        const { data } = await api.post('/upload', formData, {
+        const { data } = await api.post('/upload/file', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
-        const fileUrl = data.url || data.path || data.file;
+        const fileUrl = data?.data?.path || data?.path || data?.url || data?.file;
         if (fileUrl) {
           setAttachments(prev => [
             ...prev,

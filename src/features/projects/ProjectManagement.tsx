@@ -1031,9 +1031,9 @@ export const ProjectManagement: React.FC = () => {
       {/* VIEW PROJECT DRAWER */}
       {viewingProject && (
         <div className="fixed inset-0 z-[100] flex items-center justify-end bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-slate-800 w-full max-w-md h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto border-l border-slate-200 dark:border-slate-700 animate-in slide-in-from-right duration-200">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-md h-full shadow-2xl px-5 py-4 flex flex-col justify-between overflow-y-auto border-l border-slate-200 dark:border-slate-700 animate-in slide-in-from-right duration-200">
             <div>
-              <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-teal-600">Project Overview</span>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
@@ -1042,13 +1042,13 @@ export const ProjectManagement: React.FC = () => {
                 </div>
                 <button
                   onClick={() => setViewingProject(null)}
-                  className="text-slate-400 hover:text-slate-600 text-sm font-bold"
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
                 >
                   ✕
                 </button>
               </div>
 
-              <div className="mt-5 space-y-4">
+              <div className="mt-4 space-y-3">
                 <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl flex items-center justify-between text-xs">
                   <span className="text-slate-500">Project Code</span>
                   <span className="font-bold text-teal-600 font-mono">{viewingProject.code}</span>
